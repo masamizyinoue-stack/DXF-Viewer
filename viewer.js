@@ -18,7 +18,7 @@ var doc=null;
 var currentFileName='';
 var tx=0,ty=0,scale=1;
 var bwMode=false;
-var hiddenLayers=new Set();
+// hiddenLayers → layer.js
 var pdfDoc=null,pdfPageNum=1;
 var pdfImage=null;
 var rafId=null;
@@ -481,18 +481,20 @@ function rgbCss(c,darkBg){
 // BBox & Fit
 // =========================================================
 function computeBBox(){
+  // V0_74: 非表示レイヤを除外して計算
   let minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
-  function exp(x,y){if(x<minx)minx=x;if(y<miny)miny=y;if(x>maxx)maxx=x;if(y>maxy)maxy=y;}
+  function exp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<minx)minx=x;if(y<miny)miny=y;if(x>maxx)maxx=x;if(y>maxy)maxy=y;}
   if(doc){
-    for(const e of doc.sen){exp(e.x1,e.y1);exp(e.x2,e.y2);}
-    for(const e of doc.enko){exp(e.cx-e.rx,e.cy-e.ry);exp(e.cx+e.rx,e.cy+e.ry);}
-    for(const e of doc.ten){exp(e.x,e.y);}
-    for(const e of doc.moji){exp(e.x,e.y);}
-    for(const e of doc.solid){for(const p of e.pts)exp(p.x,p.y);}
+    for(const e of doc.sen){if(!hiddenLayers.has(e.layer)){exp(e.x1,e.y1);exp(e.x2,e.y2);}}
+    for(const e of doc.enko){if(!hiddenLayers.has(e.layer)){const r=e.rx||e.r||0;exp(e.cx-r,e.cy-r);exp(e.cx+r,e.cy+r);}}
+    for(const e of doc.ten){if(!hiddenLayers.has(e.layer)){exp(e.x,e.y);}}
+    for(const e of doc.moji){if(!hiddenLayers.has(e.layer)){exp(e.x,e.y);}}
+    for(const e of doc.solid){if(!hiddenLayers.has(e.layer)){for(const p of e.pts)exp(p.x,p.y);}}
   }
   if(pdfImage){exp(pdfImage.wx,pdfImage.wy);exp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
   for(const img of images){exp(img.wx,img.wy);exp(img.wx+img.ww,img.wy-img.wh);}
-  if(!isFinite(minx)) return {minx:0,miny:0,maxx:cv.width,maxy:cv.height};
+  const dpr=window.devicePixelRatio||1;
+  if(!isFinite(minx)) return {minx:0,miny:0,maxx:cv.width/dpr,maxy:cv.height/dpr};
   return {minx,miny,maxx,maxy};
 }
 
@@ -527,11 +529,14 @@ function checkPerfMode(){
 }
 
 function fit(){
+  // V0_74: CSS pixel基準に修正（dpr対応）、5%余白、非表示レイヤ除外済みBBox使用
   const bb=computeBBox();
-  const W=cv.width,H=cv.height;
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.width/dpr, H=cv.height/dpr; // CSS pixels
   const dw=bb.maxx-bb.minx,dh=bb.maxy-bb.miny;
   if(dw<1e-10||dh<1e-10){scale=1;tx=W/2;ty=H/2;return;}
-  const s=Math.min(W*0.9/dw,H*0.9/dh);
+  const margin=0.05; // 5%余白
+  const s=Math.min(W*(1-2*margin)/dw,H*(1-2*margin)/dh);
   scale=s;
   tx=W/2-((bb.minx+bb.maxx)/2)*s;
   ty=H/2+((bb.miny+bb.maxy)/2)*s;
@@ -663,20 +668,7 @@ function showInfo(){
     `線:${doc.sen.length} 円弧:${doc.enko.length}<br>文字:${doc.moji.length} 点:${doc.ten.length}<br>ソリッド:${doc.solid.length}<br>レイヤ:${Object.keys(doc.layerMap).length}<br>Ver:${doc.ver||'不明'}`;
 }
 
-function buildLayerModal(){
-  const ll=document.getElementById('layerList');ll.innerHTML='';
-  if(!doc) return;
-  for(const lname of Object.keys(doc.usedLayers).sort()){
-    const info=doc.layerMap[lname]||{color:7};
-    const c=aci(info.color||7);
-    const row=document.createElement('div');row.className='layer-row';
-    const cb=document.createElement('input');cb.type='checkbox';cb.checked=!hiddenLayers.has(lname);
-    cb.addEventListener('change',()=>{if(cb.checked)hiddenLayers.delete(lname);else hiddenLayers.add(lname);buildSnapCache();scheduleDraw();scheduleSave();});
-    const box=document.createElement('div');box.className='layer-color-box';box.style.background=`rgb(${c.r},${c.g},${c.b})`;
-    const label=document.createElement('span');label.textContent=lname;
-    row.append(cb,box,label);ll.appendChild(row);
-  }
-}
+// buildLayerModal → layer.js
 
 // =========================================================
 // PDF表示

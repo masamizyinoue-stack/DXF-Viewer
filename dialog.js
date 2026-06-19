@@ -26,10 +26,8 @@ function _showMemMenu(idx,anchorBtn){
     closeMenu();showGuide('記憶'+(idx+1)+'を上書き保存しました',1500);
   };
   document.getElementById('_memRst').onclick=function(){
-    if(confirm('記憶'+(idx+1)+'をリセットしますか？')){
-      savedViews[idx]=null;updateViewmemoState(idx);scheduleSave();
-      closeMenu();showGuide('記憶'+(idx+1)+'をリセットしました',1500);
-    }
+    savedViews[idx]=null;updateViewmemoState(idx);scheduleSave();
+    closeMenu();showGuide('記憶'+(idx+1)+'をリセットしました',1500); // V0_75: confirm廃止・即リセット
   };
   document.getElementById('_memCnl').onclick=closeMenu;
   setTimeout(function(){document.addEventListener('click',function _dc(ev){
