@@ -19,7 +19,7 @@ function buildLayerModal(){
     const c=aci(info.color||7);
     const row=document.createElement('div');row.className='layer-row';
     const cb=document.createElement('input');cb.type='checkbox';cb.checked=!hiddenLayers.has(lname);
-    cb.addEventListener('change',()=>{if(cb.checked)hiddenLayers.delete(lname);else hiddenLayers.add(lname);buildSnapCache();scheduleDraw();scheduleSave();});
+    cb.addEventListener('change',()=>{if(cb.checked)hiddenLayers.delete(lname);else hiddenLayers.add(lname);buildSnapCache();scheduleDraw();scheduleSave();if(typeof verify==='function')verify('hiddenLayers変更',{size:hiddenLayers.size});});
     const box=document.createElement('div');box.className='layer-color-box';box.style.background=`rgb(${c.r},${c.g},${c.b})`;
     const label=document.createElement('span');label.textContent=lname;
     row.append(cb,box,label);ll.appendChild(row);

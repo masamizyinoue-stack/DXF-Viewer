@@ -62,6 +62,7 @@ function handlePointerDown(sx,sy,isPenInput){
         dimType = vertOfs >= horizOfs ? 'dx' : 'dy';
       }
       dims.push(buildDim(p1,p2,p3||p2,dimType));
+      if(typeof verify==='function')verify('寸法追加',{len:dims.length});
       dimState={pts:[]};
       hideGuide();
       showGuide('寸法を追加しました ↩ で取消', 2000);
@@ -155,6 +156,7 @@ function handlePointerUp(sx,sy,isPenInput){
           dimType = vertOfs >= horizOfs ? 'dx' : 'dy';
         }
         dims.push(buildDim(p1,p2,p3||p2,dimType));
+        if(typeof verify==='function')verify('寸法追加',{len:dims.length});
         dimState={pts:[]};
         doSave(); // V0_103: 即時保存
         hideGuide();
@@ -163,15 +165,17 @@ function handlePointerUp(sx,sy,isPenInput){
       scheduleOverlay();return;
     }
   }
-  if(currentTool==='eraser'){eraserPos=null;scheduleOverlay();return;}
+  if(currentTool==='eraser'){eraserPos=null;scheduleOverlay();scheduleSave();return;}
   if(isPenInput||currentTool==='sketch'||currentTool==='hl'){
     if(sketching&&sketchPts.length>1){
       snapshot();
       if(currentTool==='hl'){
         // 蛍光ペン: hl:true フラグ付きで保存（V0_70）
         strokes.push({pts:[...sketchPts],color:{...currentHL_Color},lw:currentHL_LW,hl:true});
+        if(typeof verify==='function')verify('蛍光追加',{len:strokes.length});
       } else {
         strokes.push({pts:[...sketchPts],color:{...currentColor},lw:currentLW}); // ③ 絶対px値で保存
+        if(typeof verify==='function')verify('ペン追加',{len:strokes.length});
       }
       sketching=false;sketchPts=[];scheduleOverlay();doSave(); // V0_103: 即時保存
     }return;
@@ -186,6 +190,12 @@ function eraseAt(wx,wy){
   const r=ERASER_RADIUS_PX/scale;
   strokes=strokes.filter(s=>!s.pts.some(p=>Math.hypot(p.x-wx,p.y-wy)<r));
   dims=dims.filter(d=>Math.hypot(d.tx-wx,d.ty-wy)>=r);
+  // V0_140: filter後は新配列になるためopenFiles[]に明示同期
+  if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){
+    openFiles[currentFileIdx].strokes=strokes;
+    openFiles[currentFileIdx].dims=dims;
+  }
+  if(typeof verify==='function')verify('ペン削除',{strokes:strokes.length,dims:dims.length});
 }
 
 // =========================================================
@@ -241,7 +251,7 @@ ov.addEventListener('touchstart',e=>{
       panning=false;
       if(window.DIM&&window.DIM.active){
         window.DIM.handleDown(sx,sy);
-        console.log('[DIM] touchstart(pencil) → handleDown');
+
       } else if(window.LP&&window.LP.active){
         window.LP.handleDown(sx,sy);
       } else { handlePointerDown(sx,sy,true); }
@@ -335,7 +345,7 @@ ov.addEventListener('touchend',e=>{
   if(liftedStylus.length>0&&isPen&&mouseDown){
     if(window.DIM&&window.DIM.active){
       window.DIM.handleUp(lastMX,lastMY);
-      console.log('[DIM] touchend(pencil) → handleUp');
+
     } else if(window.LP&&window.LP.active){
       window.LP.handleUp(lastMX,lastMY);
     } else { handlePointerUp(lastMX,lastMY,true); }
@@ -392,7 +402,7 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
     btn.classList.add('active');currentTool=btn.dataset.tool;
     dimState={pts:[]};dimPendingDown=false;sketching=false;sketchPts=[];snapPt=null;scheduleOverlay();
     if(typeof updateToolColorDots==='function')updateToolColorDots();
-    console.log('[Tool] switched to:', currentTool, 'DIM.active=', window.DIM&&window.DIM.active);
+
     // ガイドメッセージ
     const guideMap={
       'sketch':'Apple Pencilまたはマウスでスケッチ',
@@ -410,6 +420,7 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
     } else {
       hideGuide();
     }
+    scheduleSave(); // V0_135: ツール切替を保存
   });
 });
 
@@ -421,6 +432,7 @@ document.querySelectorAll('.color-btn').forEach(btn=>{
     document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     const[r,g,b]=btn.dataset.color.split(',').map(Number);currentColor={r,g,b};document.getElementById('colorOverlay').classList.remove('open');if(typeof updateToolColorDots==='function')updateToolColorDots();
+    scheduleSave(); // V0_135: スケッチ色変更を保存
   });
 });
 
@@ -436,6 +448,7 @@ document.querySelectorAll('.lw-btn').forEach(btn=>{
     document.getElementById('colorOverlay').classList.remove('open');
     // ④ ボタン内の現在値表示を更新
     const lwl=document.getElementById('lwLabel');if(lwl)lwl.textContent=currentLW;
+    scheduleSave(); // V0_135: ペン線幅変更を保存
   });
 });
 
@@ -450,6 +463,7 @@ document.querySelectorAll('.hl-color-btn').forEach(btn=>{
     currentHL_Color={r,g,b};
     document.getElementById('colorOverlay').classList.remove('open');
     if(typeof updateToolColorDots==='function')updateToolColorDots();
+    scheduleSave(); // V0_135: 蛍光ペン色変更を保存
   });
 });
 
@@ -462,6 +476,7 @@ document.querySelectorAll('.hl-lw-btn').forEach(btn=>{
     btn.classList.add('active');
     currentHL_LW=parseFloat(btn.dataset.lw);
     document.getElementById('colorOverlay').classList.remove('open');
+    scheduleSave(); // V0_135: 蛍光ペン線幅変更を保存
   });
 });
 
@@ -474,6 +489,7 @@ document.querySelectorAll('.dim-color-btn').forEach(btn=>{
     btn.classList.add('active');
     currentDimColor=btn.dataset.color;
     document.getElementById('colorOverlay').classList.remove('open');
-        if(typeof updateToolColorDots==='function')updateToolColorDots();
+    if(typeof updateToolColorDots==='function')updateToolColorDots();
+    scheduleSave(); // V0_135: 寸法色変更を保存
   });
 });

@@ -555,6 +555,7 @@ function confirmDIM(p3){
   if(d){
     snapshot();
     dims.push(d);
+    if(typeof verify==='function')verify('寸法追加(DIM)',{len:dims.length});
     scheduleSave(); scheduleDraw();
     showGuide('寸法を追加しました ↩ で取消', 2000);
   }
@@ -992,7 +993,7 @@ LP.handleUp=function(sx,sy){
     var pArrow=LP.cur||{x:wp[0],y:wp[1]};
     var dim=buildLinePtDim(LP.selLine,LP.selPt,pArrow);
     console.log('[LP] dim placed: '+(dim?dim.text:'null'));
-    if(dim){ snapshot(); dims.push(dim); scheduleSave(); scheduleDraw(); }
+    if(dim){ snapshot(); dims.push(dim); if(typeof verify==='function')verify('寸法追加(LP)',{len:dims.length}); scheduleSave(); scheduleDraw(); }
     LP.selLine=null; LP.selPt=null; LP.footPt=null; LP.phase=0; LP.cur=null;
     showGuide(LP_GUIDES.LINE,0);
     console.log('[LP] → phase0: reset');

@@ -282,6 +282,10 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <span class="tb-tool-label">PDF書出</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="8" y1="10" x2="11" y2="10"/></svg>
 </button>
+  <button class="tb-btn" id="writeBackupBtn" title="書込みデータをバックアップ保存（.dxfview）"> <!-- V0_136: 書込バックアップボタン -->
+  <span class="tb-tool-label">書込バックアップ</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+</button>
 </div>
 <div id="tabBar"></div>
 <div class="stage" id="stage">
@@ -319,7 +323,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <div id="settingsPanel">
   <div class="sp-header">
     <span class="sp-title">設定</span>
-    <span style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V0_119</span>
+    <span style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V0_140</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -372,9 +376,17 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <button id="exportDxfBtn" class="sp-action-btn" title="書き込みをDXF書き出し">DXF書き込み書出し</button>
   </div>
   <div class="sp-section">
-    <button id="exportDxfviewBtn" class="sp-action-btn">.dxfview保存</button>
+    <button id="importDxfviewBtn" class="sp-action-btn">書込復元</button> <!-- V0_136: .dxfview保存→書込復元に変更 -->
   </div>
   <div class="sp-section">
+    <div class="sp-label">PDF解像度（試験）</div>
+    <div style="display:flex;gap:6px">
+      <button id="pdfRes1Btn" class="sp-toggle-btn active">1x</button>
+      <button id="pdfRes2Btn" class="sp-toggle-btn">2x</button>
+      <button id="pdfRes3Btn" class="sp-toggle-btn">3x</button>
+    </div>
+  </div>
+    <div class="sp-section">
     <button id="hybridPDFBtn" class="sp-action-btn">HD-PDF書出（試験）</button>
   </div>
   <div class="sp-section" style="display:flex;flex-direction:column;gap:8px">
@@ -384,7 +396,17 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <div class="sp-label">DXF情報</div>
     <div class="info-box" id="infoBox" style="font-size:12px;color:#888;background:#0a0c10;border:1px solid #2a3040;border-radius:8px;padding:8px;min-height:44px;line-height:1.6">ファイルを開いてください</div>
   </div>
-  <div id="ver-label">DXF_View V0_124</div>
+  <div class="sp-section" id="devModeSection">
+    <div class="sp-label">開発者モード</div>
+    <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text);padding:4px 0">
+      <input type="checkbox" id="verifyModeChk" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+      <span>Verify Mode
+        <small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">書込データ消失を検知・ログ収集</small>
+      </span>
+    </label>
+    <button id="exportVerifyLogBtn" class="sp-action-btn" style="margin-top:8px">Verifyログ保存</button>
+  </div>
+  <div id="ver-label">DXF_View V0_141.1</div>
 </div>
 
 <div id="colorOverlay">
@@ -507,10 +529,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="ui.js"></script>
 <script src="dialog.js"></script>
 <script src="storage.js"></script>
+<script src="fonts/NotoSansJP.js"></script>
 <script src="export.js"></script>
 <script src="tool.js"></script>
+<script src="verify.js"></script>
 <script>
-const APP_VERSION = 'V0_124';
+const APP_VERSION = 'V0_141.1';
 
 // =========================================================
 // グローバル状態
@@ -887,7 +911,10 @@ const fileInput=document.getElementById('file');
 document.getElementById('openFileBtnMain').addEventListener('click',()=>fileInput.click());
 fileInput.addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
-  if(currentFileIdx>=0) saveCurrentFileState(); // V0_103: 切替前に現ファイル状態保存
+  verify('fileInput.change:start');
+  resetToolStates(); // V0_139: ファイル切替時に計測ツール状態をリセット
+  // V0_140: saveCurrentFileState廃止 → 前ファイルのviewport状態をinline同期
+  if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140fi=openFiles[currentFileIdx];_pf140fi.tx=tx;_pf140fi.ty=ty;_pf140fi.scale=scale;_pf140fi.fitScale=fitScale;_pf140fi.hiddenLayersArr=Array.from(hiddenLayers);}
   currentFileName=f.name;
   const buf=await f.arrayBuffer();
   doc=null;pdfDoc=null;pdfImage=null;
@@ -901,14 +928,32 @@ fileInput.addEventListener('change',async e=>{
       doc=parseDXF(buf);
       currentFileSize=f.size; // V0_103
       hiddenLayers.clear();strokes=[];dims=[];images=[];savedViews=[null,null,null,null,null];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_76: 5スロット
-      buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();scheduleDraw();showInfo();buildSearchIndex();_idbSave(f.name,buf,_searchIdx.map(function(m){return m.text;}));{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}
+      // V0_131: ファイル切替時にマーク自動クリア
+      _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+      // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
+      // ※SAVE_KEY復元は廃止（異ファイル間でデータが混入するバグを修正）
+      {var _fkR=_fileKey(f.name,f.size);
+      var _dvR=await new Promise(function(resolve){
+        try{
+          var _r=indexedDB.open('dxfViewerDxfviewDB',1);
+          _r.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
+          _r.onsuccess=function(e){try{var _tx2=e.target.result.transaction('dv','readonly');var _gr2=_tx2.objectStore('dv').get(_fkR);_gr2.onsuccess=function(){resolve(_gr2.result||null);};_gr2.onerror=function(){resolve(null);};}catch(e2){resolve(null);}};
+          _r.onerror=function(){resolve(null);};
+        }catch(e3){resolve(null);}
+      });
+      if(_dvR){if(_dvR.dims&&_dvR.dims.length>0)dims=_dvR.dims;if(_dvR.strokes&&_dvR.strokes.length>0)strokes=_dvR.strokes;}}
+      buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();scheduleDraw();showInfo();buildSearchIndex();_idbSave(f.name,buf,_searchIdx.map(function(m){return m.text;}));{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}
       saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();// V0_113: openFiles[]登録後に保存されるようdoSave→scheduleSave
       document.body.classList.remove('settings-open');
     }catch(err){alert('ファイルを開けません: '+err.message);}
   }
   // V0_93: openFilesに登録
   // V0_119: fileKeyベースで同名異サイズを別タブとして管理
-  if(currentFileIdx<0){openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=0;}else{var _xi=openFiles.findIndex(function(x){return x.fileKey===_fileKey(f.name,f.size);});if(_xi>=0){currentFileIdx=_xi;}else{openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=openFiles.length-1;}}openFilesBufs[currentFileIdx]=buf;saveCurrentFileState();updateFileNavUI();// V0_112
+  if(currentFileIdx<0){openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=0;}else{var _xi=openFiles.findIndex(function(x){return x.fileKey===_fileKey(f.name,f.size);});if(_xi>=0){currentFileIdx=_xi;}else{openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=openFiles.length-1;}}openFilesBufs[currentFileIdx]=buf;
+  // V0_140: saveCurrentFileState()削除 → strokes/dims/images/savedViewsをopenFiles[]に参照として設定
+  {var _nf140=openFiles[currentFileIdx];_nf140.strokes=strokes;_nf140.dims=dims;_nf140.images=typeof images!=='undefined'?images:[];_nf140.savedViews=savedViews;_nf140.doc=doc;_nf140.hiddenLayersArr=Array.from(hiddenLayers);_nf140.tx=tx;_nf140.ty=ty;_nf140.scale=scale;_nf140.fitScale=fitScale;_nf140.currentFileName=currentFileName;_nf140.fileSize=currentFileSize;}
+  updateFileNavUI();// V0_112
+  verify('fileInput.change:done');
   e.target.value='';
 });
 
@@ -917,34 +962,43 @@ var openFiles=[];   // [{name,doc,pdfDoc,pdfImage,pdfPageNum,strokes,dims,images
 var currentFileIdx=-1;
 var openFilesBufs=[];  // V0_112: ファイルバイナリキャッシュ（マルチ復元用）
 
-function saveCurrentFileState(){
-  if(currentFileIdx<0||currentFileIdx>=openFiles.length) return;
-  var pn=1; try{ if(typeof pdfPageNum!=='undefined') pn=pdfPageNum; }catch(e){}
-  openFiles[currentFileIdx]=Object.assign(openFiles[currentFileIdx],{
-    doc:doc, pdfDoc:pdfDoc, pdfImage:pdfImage, pdfPageNum:pn,
-    strokes: strokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});}),
-    dims: dims.slice(),
-    images: (typeof images!=='undefined'?images.slice():[]),
-    savedViews: savedViews.slice(),
-    hiddenLayersArr: Array.from(hiddenLayers),
-    currentFileName: currentFileName,
-    tx:tx, ty:ty, scale:scale, fitScale:fitScale, fileSize:currentFileSize  // V0_112
-  });
+// V0_139: DXF切替時に計測ツール状態を安全にリセットする共通関数
+// 将来ツールが増えた場合はここに追加するだけでよい
+function resetToolStates(){
+  if(window.DIM && typeof resetDIM==='function') resetDIM();
+  if(window.LP  && typeof resetLP ==='function') resetLP();
 }
+
+// V0_140: saveCurrentFileState廃止（全呼び出しをinline viewport syncに置換済み）
+// 後方互換のため空関数として残す
+function saveCurrentFileState(){}
 
 function switchToFile(idx){
   if(idx<0||idx>=openFiles.length) return;
-  saveCurrentFileState();
+  verify('switchToFile:before',{from:currentFileIdx,to:idx});
+  // V0_131: タブ切替時にマーク自動クリア
+  _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+  resetToolStates(); // V0_139: タブ切替時に計測ツール状態をリセット
+  // V0_140: ビュー状態のみ同期（strokes/dimsは参照エイリアスで既に同期済み）
+  if(currentFileIdx>=0&&currentFileIdx<openFiles.length){
+    var _prevF=openFiles[currentFileIdx];
+    _prevF.tx=tx;_prevF.ty=ty;_prevF.scale=scale;_prevF.fitScale=fitScale;
+    var _pn2=1;try{if(typeof pdfPageNum!=='undefined')_pn2=pdfPageNum;}catch(e){}
+    _prevF.pdfPageNum=_pn2;
+    _prevF.hiddenLayersArr=Array.from(hiddenLayers);
+  }
   currentFileIdx=idx;
   var f=openFiles[idx];
   doc=f.doc; pdfDoc=f.pdfDoc; pdfImage=f.pdfImage;
   try{ if(typeof pdfPageNum!=='undefined') pdfPageNum=f.pdfPageNum||1; }catch(e){}
-  strokes=f.strokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});});
-  dims=f.dims.slice();
-  if(typeof images!=='undefined') images=f.images.slice();
-  savedViews=f.savedViews.slice();
-  hiddenLayers=new Set(f.hiddenLayersArr);
+  // V0_140: 参照エイリアス（deep copyしない）― push/splice/assign はそのままopenFiles[]に反映
+  strokes=f.strokes||[];
+  dims=f.dims||[];
+  if(typeof images!=='undefined') images=f.images||[];
+  savedViews=f.savedViews||[null,null,null,null,null];
+  hiddenLayers=new Set(f.hiddenLayersArr||[]);
   currentFileName=f.currentFileName;
+  currentFileSize=f.fileSize||0; // V0_138: タブ切替時にfileKeyが正しく生成されるよう修正
   if(typeof history!=='undefined'){history=[];redoStack=[];}
   updateUndoRedo();
   if(typeof buildLayerModal==='function') buildLayerModal();
@@ -959,6 +1013,7 @@ function switchToFile(idx){
   if(nd) nd.style.display=(doc||pdfImage)?'none':'';
   [0,1,2,3,4].forEach(function(i){if(typeof updateViewmemoState==='function')updateViewmemoState(i);});
   if(typeof updateFileNavUI==='function') updateFileNavUI(); // V0_107: タブ強調表示を同期
+  verify('switchToFile:after');
 }
 
 function updateFileNavUI(){
@@ -1040,10 +1095,15 @@ function closeTab(idx){
 }
 
 function doCloseTab(idx){
+  verify('doCloseTab',{idx:idx,currentFileIdx:currentFileIdx});
+  // V0_140: saveCurrentFileState廃止 → viewport状態のみinline同期
+  if(idx!==currentFileIdx&&currentFileIdx>=0&&currentFileIdx<openFiles.length){var _cv140=openFiles[currentFileIdx];_cv140.tx=tx;_cv140.ty=ty;_cv140.scale=scale;_cv140.fitScale=fitScale;_cv140.hiddenLayersArr=Array.from(hiddenLayers);}
   openFiles.splice(idx,1);
+  if(typeof openFilesBufs!=='undefined') openFilesBufs.splice(idx,1); // V0_138: インデックスずれ修正
   if(openFiles.length===0){
     currentFileIdx=-1;
     doc=null;pdfDoc=null;pdfImage=null;
+    doSave(); // V0_128: 即時保存（scheduleSaveは800ms非同期のため不可）
     strokes=[];dims=[];
     if(typeof images!=='undefined') images=[];
     savedViews=[];
@@ -1052,7 +1112,7 @@ function doCloseTab(idx){
     var fd=document.getElementById('fileNameDisplay');if(fd) fd.textContent='---';
     var nd=document.getElementById('noDrawingMsg');if(nd) nd.style.display='';
     scheduleDraw();scheduleOverlay();
-    updateFileNavUI();scheduleSave();
+    updateFileNavUI();
     return;
   }
   var newIdx;
@@ -1070,6 +1130,10 @@ function doCloseTab(idx){
 // サイドバー
 document.getElementById('settingsBtn').addEventListener('click',()=>document.body.classList.add('settings-open'));
 document.getElementById('settingsClose').addEventListener('click',()=>document.body.classList.remove('settings-open'));
+// V0_129: Safari終了・バックグラウンド移行時に即時保存
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&currentFileName)doSave();}); // V0_132: ガード追加
+window.addEventListener('pagehide',function(){if(currentFileName)doSave();}); // V0_132: ガード追加
+window.addEventListener('beforeunload',function(){doSave();}); // V0_135: beforeunload追加（強制終了対策）
 document.getElementById('settingsOverlay').addEventListener('click',()=>document.body.classList.remove('settings-open'));
 // layerBtn/layerClose/layerModal イベントリスナー → layer.js
 function updateBwToggleBtn(){
@@ -1131,11 +1195,13 @@ document.getElementById('prevPage').addEventListener('click',async()=>{
   if(!pdfDoc||pdfPageNum<=1)return;
   pdfPageNum--;document.getElementById('pageInfo').textContent=`${pdfPageNum}/${pdfDoc.numPages}`;
   await renderPdfPage(pdfPageNum);
+  scheduleSave(); // V0_135: PDFページ変更を保存
 });
 document.getElementById('nextPage').addEventListener('click',async()=>{
   if(!pdfDoc||pdfPageNum>=pdfDoc.numPages)return;
   pdfPageNum++;document.getElementById('pageInfo').textContent=`${pdfPageNum}/${pdfDoc.numPages}`;
   await renderPdfPage(pdfPageNum);
+  scheduleSave(); // V0_135: PDFページ変更を保存
 });
 
 // tool-btn / color-btn / lw-btn イベントリスナー → tool.js
@@ -1155,13 +1221,17 @@ function undo(){
   if(!history.length)return;
   redoStack.push({strokes:strokes.map(s=>({...s,pts:[...s.pts]})),dims:[...dims]});
   const st=history.pop();strokes=st.strokes;dims=st.dims;
-  scheduleOverlay();updateUndoRedo();scheduleSave();
+  // V0_140: undo後は新配列のためopenFiles[]に明示同期
+  if(currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}
+  scheduleOverlay();updateUndoRedo();scheduleSave();verify('Undo');
 }
 function redo(){
   if(!redoStack.length)return;
   history.push({strokes:strokes.map(s=>({...s,pts:[...s.pts]})),dims:[...dims]});
   const st=redoStack.pop();strokes=st.strokes;dims=st.dims;
-  scheduleOverlay();updateUndoRedo();scheduleSave();
+  // V0_140: redo後は新配列のためopenFiles[]に明示同期
+  if(currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}
+  scheduleOverlay();updateUndoRedo();scheduleSave();verify('Redo');
 }
 function updateUndoRedo(){
   const ub=document.getElementById('undoBtn');
@@ -1173,14 +1243,19 @@ document.getElementById('undoBtn').addEventListener('click',undo);
 document.getElementById('redoBtn').addEventListener('click',redo);
 
 document.getElementById('clearBtn').addEventListener('click',()=>{
-  if(confirm('全てのスケッチと寸法を消去しますか？')){snapshot();dims=[];strokes=[];scheduleOverlay();doSave();} // V0_103: 即時保存
+  if(confirm('全てのスケッチと寸法を消去しますか？')){
+    snapshot();dims=[];strokes=[];
+    // V0_140: 再代入後はopenFiles[]に明示同期
+    if(currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}
+    scheduleOverlay();doSave();verify('clear'); // V0_103: 即時保存
+  }
 });
 // savePDFBtn addEventListener → export.js
 
 // スクリーンショット保存ボタン (V0_13改善)
 // screenshotBtn addEventListener → export.js
 // rangeAreaPDFBtn addEventListener → export.js
-document.getElementById('fitBtn').addEventListener('click',()=>{fit();scheduleDraw();}); // V0_74: fitBtnTbはトップバーから削除、viewmemoのfitBtnに統合
+document.getElementById('fitBtn').addEventListener('click',()=>{fit();scheduleDraw();scheduleSave();}); // V0_74: fitBtnTbはトップバーから削除、viewmemoのfitBtnに統合 // V0_135: ビュー保存追加
 
 // exportSketchDxf / exportDxfBtn addEventListener → export.js
 
@@ -1193,7 +1268,7 @@ document.querySelectorAll('.mem-btn').forEach(btn=>{
     if(!savedViews[i]){
       // 未記憶 → 現在位置を記憶
       savedViews[i]={tx,ty,scale};
-      updateViewmemoState(i);scheduleSave();
+      updateViewmemoState(i);scheduleSave();verify('savedViews変更',{slot:i});
       btn.style.transform='scale(.88)';setTimeout(()=>{btn.style.transform='';},180);
       showGuide('記憶'+(i+1)+'に保存しました',1500);
     } else {
@@ -1219,6 +1294,9 @@ document.querySelectorAll('.show-btn').forEach(btn=>{
       // 長押し: 全記憶VIEW削除確認
       if(confirm('全ての記憶Viewを削除してもいいですか？')){
         savedViews=[null,null,null,null,null];
+        // V0_140: 再代入後はopenFiles[]に明示同期
+        if(currentFileIdx>=0&&openFiles[currentFileIdx]) openFiles[currentFileIdx].savedViews=savedViews;
+        verify('savedViews変更',{reset:true});
         [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
         scheduleSave();
         showGuide('全ての記憶Viewを削除しました',1500);
@@ -1303,7 +1381,7 @@ updateToolColorDots();
 const ro=new ResizeObserver(resizeCanvas);ro.observe(stage);
 tryRestore();
 resizeCanvas();scheduleDraw();
-const vd = document.getElementById('versionDisplay');
+const vd = document.getElementById('ver-label'); // V0_138: versionDisplay→ver-label（ID不一致修正）
 if(vd) vd.textContent = APP_VERSION;
 
 // ════════════════════════════════════════════════════
@@ -1649,8 +1727,6 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(function(btn){
     resetDIM();
     if(t==='circDim'||t==='radDim'){
       DIM.active=true; DIM.tool=t; DIM.phase=0;
-      if(t==='circDim'){ showGuide(GUIDES.CIRC); console.log('Diameter Mode'); }
-      else if(t==='radDim'){ showGuide(GUIDES.RAD); console.log('Radius Mode'); }
     }
   });
 });
@@ -1876,14 +1952,11 @@ function findNearestCircleEdge(wx,wy){
 function confirmDIM(p3){
   var p1=DIM.pts[0],p2=DIM.pts[1];
   var d=null;
-  console.log('[DIM] confirmDIM tool='+DIM.tool+' p1=',p1,' p2=',p2,' p3=',p3);
   try{
     if(DIM.tool==='circDim'&&p1.ent){
       d=buildCircDimPhi(p1.ent,p3);
-      console.log('Dimension Created', d);
     } else if(DIM.tool==='radDim'&&p1&&p1.ent){
       d=buildRadDim(p1.ent,p3);
-      console.log('Dimension Created', d);
     }
   }catch(err){ console.warn('[DIM confirm]',err); }
 
@@ -1933,7 +2006,6 @@ DIM.handleDown = function(sx, sy) {
   DIM.penDown = true;
   DIM.downSnapPt = snp;
   DIM.cur = snp || {x: wp[0], y: wp[1], type: 'default'};
-  console.log('[DIM] handleDown phase=' + DIM.phase + ' tool=' + DIM.tool);
   scheduleOverlay();
 };
 
@@ -1969,8 +2041,6 @@ DIM.handleUp = function(sx, sy) {
         entry.x = ent.cx; entry.y = ent.cy;
         DIM.pts = [entry]; DIM.phase = 2;
         showGuide(GUIDES.POS);
-        console.log('[DIM] circDim: circle selected', ent);
-        console.log('Target Selected', ent);
         DIM.cur = null; scheduleOverlay(); return;
       } else {
         showGuide('円の近くにペンを当ててください', 1500);
@@ -1984,8 +2054,6 @@ DIM.handleUp = function(sx, sy) {
         entry.x = rent_.cx; entry.y = rent_.cy;
         DIM.pts = [entry]; DIM.phase = 2;
         showGuide(GUIDES.POS);
-        console.log('[DIM] radDim: circle selected', rent_);
-        console.log('Target Selected', rent_);
         DIM.cur = null; scheduleOverlay(); return;
       } else {
         showGuide('円の近くにペンを当ててください', 1500);
@@ -2008,7 +2076,6 @@ DIM.handleUp = function(sx, sy) {
 };
 
 window.DIM = DIM;
-console.log('[DIM] module initialized');
 
 })(); // end C
 
@@ -2262,8 +2329,6 @@ function _updateHoverLine(wx,wy){
 function _updateSnap(wx,wy){
   var snp=window.snapAt(wx,wy);
   LP.cur=snp||null; // null=候補なし(フォールバック位置への確定を禁止)
-  if(snp) console.log('[LP] snap type='+snp.type
-    +' ('+snp.x.toFixed(1)+','+snp.y.toFixed(1)+')');
 }
 
 // ─ ポインタハンドラ ───────────────────────────────────
@@ -2310,7 +2375,6 @@ LP.handleUp=function(sx,sy){
       LP._hoverLine=null;
       LP.phase=1; LP.cur=null;
       showGuide(LP_GUIDES.PT,0);
-      console.log('[LP] line selected');
     } else {
       showGuide('線の近くにペンを当ててください',1500);
     }
@@ -2318,25 +2382,20 @@ LP.handleUp=function(sx,sy){
     // LP.cur==null → スナップ候補なし → 確定禁止
     if(!LP.cur){
       showGuide('スナップ点を選択してください',1500);
-      console.log('[LP] point selection failed: no snap candidate');
     } else {
       var pt=LP.cur;
       LP.selPt=pt;
       LP.footPt=computeFoot(LP.selLine,pt);
       LP.phase=2; LP.cur=null;
       showGuide(LP_GUIDES.POS,0);
-      console.log('[LP] point selected: ('
-        +pt.x.toFixed(1)+','+pt.y.toFixed(1)+') type='+pt.type);
     }
   } else if(LP.phase===2){
     var wp=s2w(sx,sy);
     var pArrow=LP.cur||{x:wp[0],y:wp[1]};
     var dim=buildLinePtDim(LP.selLine,LP.selPt,pArrow);
-    console.log('[LP] dim placed: '+(dim?dim.text:'null'));
     if(dim){ snapshot(); dims.push(dim); doSave(); scheduleDraw(); } // V0_103: 即時保存
     LP.selLine=null; LP.selPt=null; LP.footPt=null; LP.phase=0; LP.cur=null;
     showGuide(LP_GUIDES.LINE,0);
-    console.log('[LP] → phase0: reset');
   }
   scheduleOverlay();
 };
@@ -2349,7 +2408,6 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(function(btn){
       if(window.DIM) window.DIM.active=false;
       resetLP(); LP.active=true; LP.phase=0;
       showGuide(LP_GUIDES.LINE,0);
-      console.log('[LP] tool activated');
     } else {
       resetLP();
     }
@@ -2357,7 +2415,6 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(function(btn){
 });
 
 window.LP=LP;
-console.log('[LP] module initialized');
 
 })(); // end D
 
@@ -2367,14 +2424,11 @@ var _searchHighlight=null;
 
 function buildSearchIndex(){
   _searchIdx=[];
-  if(!doc||!doc.moji){console.log('[Search] doc.mojiなし');return;}
-  console.log('[Search] doc.moji件数:',doc.moji.length);
   for(var i=0;i<doc.moji.length;i++){
     var m=doc.moji[i];
     var t=(m.text||'').trim();
     if(t) _searchIdx.push({text:t,x:m.x,y:m.y,h:m.h||1});
   }
-  console.log('[Search] インデックス件数:',_searchIdx.length);
 }
 
 function doSearch(){
@@ -2419,7 +2473,7 @@ function jumpToSearchResult(item){
     cnt++;
     _searchHighlight=(cnt%2===0)?null:item;
     scheduleOverlay();
-    if(cnt>=6){clearInterval(iv);_searchHighlight=item;scheduleOverlay();}
+    if(cnt>=6){clearInterval(iv);_searchHighlight=item;scheduleOverlay();var _mp2=document.getElementById('markPopup');if(_mp2)_mp2.classList.add('visible');} // V0_131
   },400);
 }
 
@@ -2516,28 +2570,96 @@ function doAllSearch(){
     });
   });
 }
-function openDxfFromDb(name,buf,keyword){
+// V0_139: F-1/F-2/F-3 一括修正
+// ・F-1: 新規タブ時にIDB(dxfViewerDxfviewDB)からstrokes/dimsを復元
+// ・F-2: 既存タブ時はstrokes/dims/images/savedViewsを上書きせず保持
+// ・F-3: findIndexをfileKeyベースに変更（同名異サイズ問題を修正）
+async function openDxfFromDb(name,buf,keyword){
+  verify('openDxfFromDb:before',{name:name});
   try{
-    if(currentFileIdx>=0) saveCurrentFileState(); // V0_103
+    // ① resetToolStates（計測ツール状態をリセット）
+    resetToolStates();
+    // ② V0_140: saveCurrentFileState廃止 → 前ファイルのビュー状態のみinline同期
+    if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140=openFiles[currentFileIdx];_pf140.tx=tx;_pf140.ty=ty;_pf140.scale=scale;_pf140.fitScale=fitScale;_pf140.hiddenLayersArr=Array.from(hiddenLayers);}
+
+    // ③ DXF読込
     doc=parseDXF(buf);
-    currentFileSize=buf.byteLength; // V0_103
-    // V0_104: 検索キーワードマーク設定
+    currentFileSize=buf.byteLength;
+
+    // 検索キーワードマーク設定（V0_104）
+    _searchHighlight=null;
     _searchMarks=[];_markKeyword=keyword||null;
     if(keyword&&doc&&doc.moji){var _kl=keyword.toLowerCase();doc.moji.forEach(function(m){if(m.text&&m.text.toLowerCase().indexOf(_kl)>=0)_searchMarks.push(m);});}
-    hiddenLayers.clear();strokes=[];dims=[];images=[];savedViews=[null,null,null,null,null];
+
+    // ④ fileKey生成
+    var _fk=_fileKey(name,buf.byteLength);
+
+    // ⑤ fileKeyで既存タブ検索（F-3: .name→.fileKey）
+    var _xi=openFiles.findIndex(function(x){return x.fileKey===_fk;});
+    var _isNew=(_xi<0);
+
+    if(!_isNew){
+      // ⑥ 既存タブ: strokes/dims/images/savedViews/hiddenLayersを保持して復元（F-2）
+      openFiles[_xi].doc=doc; // パース結果のみ更新
+      currentFileIdx=_xi;
+      var _ef=openFiles[_xi];
+      // V0_140: deep copy廃止 → 参照エイリアス（openFiles[]を唯一の本体とする）
+      strokes=_ef.strokes||[];
+      dims=_ef.dims||[];
+      if(typeof images!=='undefined') images=_ef.images||[];
+      savedViews=_ef.savedViews||[null,null,null,null,null];
+      hiddenLayers=new Set(_ef.hiddenLayersArr||[]);
+      tx=_ef.tx||0; ty=_ef.ty||0; scale=_ef.scale||1;
+      if(_ef.fitScale) fitScale=_ef.fitScale;
+    } else {
+      // ⑦ 新規タブ: まず空初期化、次にIDB復元を試みる（F-1）
+      hiddenLayers.clear(); strokes=[]; dims=[]; images=[]; savedViews=[null,null,null,null,null];
+      var _dvR=await new Promise(function(resolve){
+        try{
+          var _r=indexedDB.open('dxfViewerDxfviewDB',1);
+          _r.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
+          _r.onsuccess=function(e){
+            try{
+              var _tx2=e.target.result.transaction('dv','readonly');
+              var _gr2=_tx2.objectStore('dv').get(_fk);
+              _gr2.onsuccess=function(){resolve(_gr2.result||null);};
+              _gr2.onerror=function(){resolve(null);};
+            }catch(e2){resolve(null);}
+          };
+          _r.onerror=function(){resolve(null);};
+        }catch(e3){resolve(null);}
+      });
+      // 保存データが存在する場合のみ上書き（存在しない場合は空配列のまま）
+      if(_dvR){
+        if(_dvR.strokes&&_dvR.strokes.length>0) strokes=_dvR.strokes;
+        if(_dvR.dims&&_dvR.dims.length>0) dims=_dvR.dims;
+      }
+      // ⑧ openFilesへ登録
+      openFiles.push({name:name,fileKey:_fk});
+      currentFileIdx=openFiles.length-1;
+      // V0_140: 新タブ登録時にstrokes/dims/images/savedViewsの参照を設定
+      {var _nf140b=openFiles[currentFileIdx];_nf140b.strokes=strokes;_nf140b.dims=dims;_nf140b.images=typeof images!=='undefined'?images:[];_nf140b.savedViews=savedViews;_nf140b.doc=doc;_nf140b.hiddenLayersArr=Array.from(hiddenLayers);}
+    }
+
+    currentFileName=name;
+    if(typeof openFilesBufs!=='undefined') openFilesBufs[currentFileIdx]=buf;
+
     [0,1,2,3,4].forEach(function(i){updateViewmemoState(i);});
-    buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();
-    // V0_107: 自動ズーム廃止。fit()後の全体表示のままマークを表示する（検索文字の全体位置を把握しやすくする）
+    buildSnapCache();checkPerfMode();buildLayerModal();detectScale();
+    if(_isNew) fit(); // 新規タブのみ全体表示にリセット（V0_107）
     scheduleDraw();scheduleOverlay();showInfo();buildSearchIndex();
-    currentFileName=name;updateFileNameDisplay();
-    var xi=openFiles.findIndex(function(x){return x.name===name;});
-    if(xi>=0){currentFileIdx=xi;}else{openFiles.push({name:name});currentFileIdx=openFiles.length-1;}
-    saveCurrentFileState();updateFileNavUI();
+    updateFileNameDisplay();updateUndoRedo();
+
+    // V0_140: saveCurrentFileState廃止 → fit()後のviewport状態をinline同期
+    {if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _sf140=openFiles[currentFileIdx];_sf140.tx=tx;_sf140.ty=ty;_sf140.scale=scale;_sf140.fitScale=fitScale;_sf140.hiddenLayersArr=Array.from(hiddenLayers);_sf140.currentFileName=currentFileName;_sf140.fileSize=currentFileSize;}}
+    updateFileNavUI();scheduleSave();
+    verify('openDxfFromDb:after');
+
     document.getElementById('allSearchOverlay').classList.remove('open');
     document.body.classList.remove('settings-open');
-    var nd=document.getElementById('noDrawingMsg');if(nd)nd.style.display='none';
-    // V0_104: マークポップアップ
-    var mp=document.getElementById('markPopup');if(mp){if(_searchMarks.length>0)mp.classList.add('visible');else mp.classList.remove('visible');}
+    var _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';
+    // マークポップアップ（V0_104）
+    var _mp=document.getElementById('markPopup');if(_mp){if(_searchMarks.length>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
   }catch(err){alert('図面を開けません: '+err.message);}
 }
 document.getElementById('allSearchBtn').addEventListener('click',openAllSearchPanel);
@@ -2561,6 +2683,7 @@ document.getElementById('asrInputClearBtn').addEventListener('click',function(){
 // V0_104: マークポップアップ押下でマーク全解除
 document.getElementById('markPopup').addEventListener('click',function(){
   _searchMarks=[];_markKeyword=null;
+  _searchHighlight=null; // V0_131: 画面検索マークもクリア
   this.classList.remove('visible');
   scheduleOverlay();
 });

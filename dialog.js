@@ -22,11 +22,11 @@ function _showMemMenu(idx,anchorBtn){
   document.body.appendChild(menu);
   function closeMenu(){if(document.getElementById('_memMenu'))menu.remove();}
   document.getElementById('_memOvr').onclick=function(){
-    savedViews[idx]={tx:tx,ty:ty,scale:scale};updateViewmemoState(idx);scheduleSave();
+    savedViews[idx]={tx:tx,ty:ty,scale:scale};updateViewmemoState(idx);scheduleSave();if(typeof verify==='function')verify('savedViews変更',{slot:idx,action:'overwrite'});
     closeMenu();showGuide('記憶'+(idx+1)+'を上書き保存しました',1500);
   };
   document.getElementById('_memRst').onclick=function(){
-    savedViews[idx]=null;updateViewmemoState(idx);scheduleSave();
+    savedViews[idx]=null;updateViewmemoState(idx);scheduleSave();if(typeof verify==='function')verify('savedViews変更',{slot:idx,action:'reset'});
     closeMenu();showGuide('記憶'+(idx+1)+'をリセットしました',1500); // V0_75: confirm廃止・即リセット
   };
   document.getElementById('_memCnl').onclick=closeMenu;
