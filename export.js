@@ -690,6 +690,17 @@ function importDxfviewManual(){
         if(typeof hiddenLayers!=='undefined'&&d.hiddenLayers){
           hiddenLayers=new Set(d.hiddenLayers);
         }
+        // V0_141.2: 再代入で参照エイリアスが切れるためopenFiles[]に明示同期（V0_140対応）
+        // 同期しないと自動保存(_doBkSave/_dvAutoSave/doSave)が旧データを読み、
+        // 復元内容が上書き消失・タブ切替で復元前に戻るバグが発生する
+        if(typeof openFiles!=='undefined'&&typeof currentFileIdx!=='undefined'&&
+           currentFileIdx>=0&&openFiles[currentFileIdx]){
+          var _rf141=openFiles[currentFileIdx];
+          if(typeof strokes!=='undefined')_rf141.strokes=strokes;
+          if(typeof dims!=='undefined')_rf141.dims=dims;
+          if(typeof savedViews!=='undefined')_rf141.savedViews=savedViews;
+          if(typeof hiddenLayers!=='undefined')_rf141.hiddenLayersArr=Array.from(hiddenLayers);
+        }
         // UI更新
         for(var i=0;i<5;i++){if(typeof updateViewmemoState==='function')updateViewmemoState(i);}
         if(typeof buildLayerModal==='function')buildLayerModal();
