@@ -123,7 +123,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   border:1.5px solid #c0392b;background:rgba(192,57,43,.1);color:#e74c3c;cursor:pointer;
   -webkit-tap-highlight-color:transparent}
 .sp-danger-btn:active{background:rgba(192,57,43,.22)}
-#ver-label{font-size:11px;color:var(--text-dim);text-align:center;padding:16px;margin-top:auto}
+/* V0_143: #ver-labelはsp-header内spanのinline styleで完結。旧ブロック用ルールは削除 */
 #colorOverlay{display:none;position:fixed;z-index:400;top:0;left:0;
   background:var(--sb-bg);border:1px solid var(--border);border-radius:16px;
   padding:14px 16px;min-width:252px;max-height:80vh;overflow-y:auto;
@@ -323,7 +323,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <div id="settingsPanel">
   <div class="sp-header">
     <span class="sp-title">設定</span>
-    <span style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V0_141.2</span>
+    <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V0_143</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -406,7 +407,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     </label>
     <button id="exportVerifyLogBtn" class="sp-action-btn" style="margin-top:8px">Verifyログ保存</button>
   </div>
-  <div id="ver-label">DXF_View V0_141.2</div>
+  <!-- V0_143: 下部のバージョン表示（旧#ver-label）は削除。表示はsp-header内の上部spanに一本化 -->
 </div>
 
 <div id="colorOverlay">
@@ -534,7 +535,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="tool.js"></script>
 <script src="verify.js"></script>
 <script>
-const APP_VERSION = 'V0_141.2';
+const APP_VERSION = 'V0_143';
 
 // =========================================================
 // グローバル状態

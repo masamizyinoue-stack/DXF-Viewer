@@ -653,6 +653,7 @@ async function exportDxfviewManual(){
     }
 
     if(typeof verify==='function')verify('バックアップ保存',{strokes:typeof strokes!=='undefined'?strokes.length:-1,dims:typeof dims!=='undefined'?dims.length:-1});
+    _abMarkSaved(); // V0_141.2: バックアップ成功時に自動バックアップ促進タイマーをリセット
     showGuide('書込みデータを保存しました',2000);
   }catch(e){
     console.warn('[dxfview backup] failed',e);
@@ -707,8 +708,12 @@ function importDxfviewManual(){
         if(typeof scheduleDraw==='function')scheduleDraw(); // V0_138: 書込復元後にDXF本体Canvasを再描画
         if(typeof scheduleOverlay==='function')scheduleOverlay();
         if(typeof updateUndoRedo==='function')updateUndoRedo();
-        if(typeof scheduleSave==='function')scheduleSave();
+        // V0_142: scheduleSave()→doSave()直接呼び出しに変更
+        // 復元直後にSafariを閉じると800msデバウンスが間に合わずデータ消失するバグを修正
+        if(typeof doSave==='function') doSave();
+        else if(typeof scheduleSave==='function')scheduleSave();
         if(typeof verify==='function')verify('バックアップ復元:done');
+        _abMarkSaved(); // V0_141.2: 復元後はバックアップ済みとしてリセット
         showGuide('書込みデータを復元しました',2000);
       }catch(err){
         console.warn('[dxfview import] failed',err);
@@ -720,6 +725,117 @@ function importDxfviewManual(){
   input.click();
 }
 document.getElementById('importDxfviewBtn').addEventListener('click',importDxfviewManual);
+
+// =========================================================
+// V0_141.2: 自動バックアップ促進システム
+// iPad Safari ではプログラムからのファイル自動保存が不可能なため、
+// 10分ごとに変更を検知し「今すぐ保存」バナーを表示する。
+// ユーザーが1タップすると exportDxfviewManual() を実行。
+// =========================================================
+// V0_142: _AB_INTERVAL_MS 削除（visibilitychange方式に変更したため不要）
+var _abLastSavedSig = null;            // 最後にバックアップした時点のシグネチャ (null=未計測)
+var _abBannerEl    = null;             // バナー要素の参照
+
+// 現在の書込み量をシグネチャ文字列で返す（strokes数:dims数）
+function _abGetSig() {
+  var s = (typeof strokes !== 'undefined' && strokes) ? strokes.length : 0;
+  var d = (typeof dims    !== 'undefined' && dims)    ? dims.length    : 0;
+  return s + ':' + d;
+}
+
+// バックアップ完了時に呼ぶ（タイマーリセット + バナー非表示）
+function _abMarkSaved() {
+  _abLastSavedSig = _abGetSig();
+  _abHideBanner();
+}
+
+// バナーを非表示にして DOM から除去
+function _abHideBanner() {
+  if (_abBannerEl && _abBannerEl.parentNode) {
+    _abBannerEl.parentNode.removeChild(_abBannerEl);
+  }
+  _abBannerEl = null;
+}
+
+// 「今すぐ保存」バナーを表示
+function _abShowBanner() {
+  if (_abBannerEl) return; // すでに表示中なら何もしない
+  var el = document.createElement('div');
+  el.style.cssText = [
+    'position:fixed',
+    'bottom:72px',          // ツールバー・ホームインジケータを避ける
+    'left:50%',
+    'transform:translateX(-50%)',
+    'z-index:99998',
+    'background:rgba(20,26,38,0.97)',
+    'border:2px solid #f5a623',
+    'border-radius:14px',
+    'padding:12px 14px 12px 16px',
+    'display:flex',
+    'align-items:center',
+    'gap:12px',
+    'box-shadow:0 6px 32px rgba(0,0,0,0.75)',
+    'font-family:-apple-system,Helvetica Neue,sans-serif',
+    'max-width:92vw',
+    'width:340px',
+    'box-sizing:border-box'
+  ].join(';');
+
+  el.innerHTML =
+    '<span style="color:#f5a623;font-size:20px;flex-shrink:0;">⚠</span>' +
+    '<span style="color:#dde2f4;font-size:13px;line-height:1.5;flex:1;">' +
+      '書込みデータが未バックアップです<br>' +
+      '<span style="color:#8898bb;font-size:11px;">ファイルに保存してください（10分経過）</span>' +
+    '</span>' +
+    '<button id="_abSaveBtn" style="' +
+      'background:#f5a623;color:#1e2430;border:none;border-radius:8px;' +
+      'padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;' +
+      'white-space:nowrap;flex-shrink:0;' +
+    '">今すぐ保存</button>' +
+    '<button id="_abDismissBtn" style="' +
+      'background:transparent;color:#556;border:none;' +
+      'font-size:20px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0;' +
+    '">×</button>';
+
+  document.body.appendChild(el);
+  _abBannerEl = el;
+
+  // 「今すぐ保存」: exportDxfviewManual() を実行（成功時に _abMarkSaved が呼ばれる）
+  el.querySelector('#_abSaveBtn').addEventListener('click', function() {
+    exportDxfviewManual();
+  });
+  // 「×」: バナーを閉じる（次の10分チェックで再表示される可能性あり）
+  el.querySelector('#_abDismissBtn').addEventListener('click', function() {
+    _abHideBanner();
+  });
+}
+
+// 10分ごとに変更の有無を確認
+function _abCheck() {
+  var cur = _abGetSig();
+  // 初回チェック時: 現在の状態を「保存済み」として記録しバナーを出さない
+  if (_abLastSavedSig === null) {
+    _abLastSavedSig = cur;
+    return;
+  }
+  // 変更があればバナーを表示
+  if (cur !== _abLastSavedSig) {
+    _abShowBanner();
+  }
+}
+
+// V0_142: 10分タイマー → visibilitychange に変更
+// ページが非表示になった時（Safari離脱・アプリ切替）にトリガー
+// ① 未保存のdebounce中データを doSave() で即時フラッシュ
+// ② 変更があれば「今すぐ保存」バナーを表示（ユーザーが戻った時に見える）
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    // 800msデバウンス中のsaveTimerが未発火でも即時保存（データ消失防止）
+    try { if(typeof doSave==='function') doSave(); } catch(e) {}
+    // 変更があればバナーを表示（ユーザーがSafariに戻った時に確認できる）
+    _abCheck();
+  }
+});
 
 // =========================================================
 // V0_123: ハイブリッドPDF書き出し（DXFベクター + 手書き/寸法ラスター）
