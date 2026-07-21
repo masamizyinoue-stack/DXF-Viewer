@@ -21,7 +21,7 @@ var currentFileName='';
 var tx=0,ty=0,scale=1;
 var fitScale=1;       // V0_83: 全体表示時のscaleを記録（drawAnnotation lineWidth基準用）
 var bwMode=true;  // false=黒背景
-var dimensionTextMode='fixed'; // 'auto' | 'fixed'  寸法文字サイズモード
+var dimensionTextMode='fixed'; // 'auto' | 'fixed'  寸法文字サイズモード（V0_154: 「サイズ指定」(manual)は廃止）
 var DIM_TEXT_MIN_PX=11;  // autoモード: 最小スクリーンpx
 var DIM_TEXT_MAX_PX=30;  // autoモード: 最大スクリーンpx
 var inputMode='pen'; // 'pen' | 'freehand'  入力モード
@@ -563,6 +563,8 @@ function rafLoop(){
   if(needDraw){draw();needDraw=false;}
   if(needAnnotation&&typeof drawAnnotation==='function'){drawAnnotation();needAnnotation=false;}
   if(needOverlay){drawOverlay();needOverlay=false;}
+  // V0_150: サブ窓 - メイン表示が更新されるたびにサブ窓も自動的に再描画（双方向リアルタイム同期）
+  if(typeof window._renderAllSubWindows==='function') window._renderAllSubWindows();
 }
 
 function draw(){

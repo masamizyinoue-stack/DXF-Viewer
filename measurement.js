@@ -674,6 +674,7 @@ DIM.handleUp = function(sx, sy) {
 };
 
 window.DIM = DIM;
+window.resetDIM = resetDIM; // V0_144: resetToolStates()から呼べるようグローバル公開
 console.log('[DIM] module initialized');
 
 })(); // end C
@@ -1017,6 +1018,7 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(function(btn){
 });
 
 window.LP=LP;
+window.resetLP = resetLP; // V0_144: resetToolStates()から呼べるようグローバル公開
 console.log('[LP] module initialized');
 
 })(); // end IIFE (LP module)

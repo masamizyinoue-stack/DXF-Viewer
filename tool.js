@@ -32,6 +32,8 @@ function handlePointerDown(sx,sy,isPenInput){
   // DIMシステムがアクティブな場合は DIM の pointerup ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
   if(window.LP&&window.LP.active)return;
+  if(window.LL&&window.LL.active)return; // V0_153: 2線間
+  if(window.SW&&window.SW.active){window.SW.handleDown(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   const[wx,wy]=s2w(sx,sy);
   // V0_102: dim text drag (水・鉛/斜めツール)
   if((currentTool==='dxdy'||currentTool==='diag')&&typeof _dimTextHit==='function'){var _dth=_dimTextHit(sx,sy);if(_dth>=0){_dimTextDrag={idx:_dth,osx:sx,osy:sy,otx:dims[_dth].tx,oty:dims[_dth].ty,moved:false};return;}}
@@ -99,6 +101,8 @@ function handlePointerMove(sx,sy,isPenInput){
   // DIMシステムがアクティブな場合は DIM の pointermove ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
   if(window.LP&&window.LP.active)return;
+  if(window.LL&&window.LL.active)return; // V0_153: 2線間
+  if(window.SW&&window.SW.active){window.SW.handleMove(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   const[wx,wy]=s2w(sx,sy);
   currentCursorWorld={x:wx,y:wy}; // 寸法プレビュー用カーソル世界座標を更新
   // 寸法ツール: ペン・指どちらでもスナップ更新
@@ -131,6 +135,8 @@ function handlePointerUp(sx,sy,isPenInput){
   // DIMシステムがアクティブな場合は DIM の pointerup ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
   if(window.LP&&window.LP.active)return;
+  if(window.LL&&window.LL.active)return; // V0_153: 2線間
+  if(window.SW&&window.SW.active){window.SW.handleUp(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   if(dimPendingDown&&isPenInput){
     dimPendingDown=false;
     if(currentTool==='dx'||currentTool==='dy'||currentTool==='dxdy'||currentTool==='diag'){
@@ -208,6 +214,8 @@ ov.addEventListener('mousedown',e=>{
     window.DIM.handleDown(p.x,p.y);
   } else if(window.LP&&window.LP.active){
     window.LP.handleDown(p.x,p.y);
+  } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+    window.LL.handleDown(p.x,p.y);
   } else { handlePointerDown(p.x,p.y,false); }
 });
 window.addEventListener('mousemove',e=>{
@@ -216,6 +224,8 @@ window.addEventListener('mousemove',e=>{
     window.DIM.handleMove(p.x,p.y); // mouseDown不要: ホバー中も_hoverPos更新
   } else if(window.LP&&window.LP.active){
     window.LP.handleMove(p.x,p.y);
+  } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+    window.LL.handleMove(p.x,p.y);
   } else { handlePointerMove(p.x,p.y,false); }
   lastMX=p.x;lastMY=p.y;
 });
@@ -226,6 +236,8 @@ window.addEventListener('mouseup',e=>{
     window.DIM.handleUp(p.x,p.y);
   } else if(window.LP&&window.LP.active){
     window.LP.handleUp(p.x,p.y);
+  } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+    window.LL.handleUp(p.x,p.y);
   } else { handlePointerUp(p.x,p.y,false); }
 });
 ov.addEventListener('wheel',e=>{
@@ -254,6 +266,8 @@ ov.addEventListener('touchstart',e=>{
 
       } else if(window.LP&&window.LP.active){
         window.LP.handleDown(sx,sy);
+      } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+        window.LL.handleDown(sx,sy);
       } else { handlePointerDown(sx,sy,true); }
     }
   } else if(fingers.length>=2){
@@ -270,12 +284,13 @@ ov.addEventListener('touchstart',e=>{
     const sx=t.clientX-r.left,sy=t.clientY-r.top;
     isPen=false;mouseDown=true;lastMX=sx;lastMY=sy;
     // V0_79: 手書きモード + スケッチ/蛍光ペン → 指で描画
+    // V0_152.2: 手書きモード + サブ窓作成中(SW.active) → 指1本で対角ドラッグできるように追加
     if(inputMode==='freehand'
-        &&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser')
+        &&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser'||(window.SW&&window.SW.active))
         &&!(window.DIM&&window.DIM.active)
         &&!(window.LP&&window.LP.active)){
       panning=false;
-      handlePointerDown(sx,sy,false); // currentTool===sketch/hlなので描画開始
+      handlePointerDown(sx,sy,false); // currentTool===sketch/hl/サブ窓作成中 なので描画(操作)開始
     } else {
       // ペンモード or 手書きモード+非描画ツール: パンのみ（既存動作）
       if(sketching){sketching=false;sketchPts=[];}
@@ -298,6 +313,8 @@ ov.addEventListener('touchmove',e=>{
       window.DIM.handleMove(sx,sy);
     } else if(window.LP&&window.LP.active){
       window.LP.handleMove(sx,sy);
+    } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+      window.LL.handleMove(sx,sy);
     } else { handlePointerMove(sx,sy,true); }
     lastMX=sx;lastMY=sy;
   } else if(fingers.length>=2&&pinchDist!==null){
@@ -315,8 +332,8 @@ ov.addEventListener('touchmove',e=>{
     }
     tx=mid.x-wx*scale;ty=mid.y+wy*scale;
     pinchDist=dist;pinchMid=mid;scheduleDraw();
-  } else if(fingers.length===1&&mouseDown&&!panning&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
-    // V0_79: 手書きモード 指1本描画中
+  } else if(fingers.length===1&&mouseDown&&!panning&&(sketching||(inputMode==='freehand'&&currentTool==='eraser')||(window.SW&&window.SW.active))){
+    // V0_79: 手書きモード 指1本描画中 / V0_152.2: サブ窓作成の対角ドラッグ中も含む
     const t=fingers[0];
     const sx=t.clientX-r.left,sy=t.clientY-r.top;
     if(window.DIM&&window.DIM.active){
@@ -348,6 +365,8 @@ ov.addEventListener('touchend',e=>{
 
     } else if(window.LP&&window.LP.active){
       window.LP.handleUp(lastMX,lastMY);
+    } else if(window.LL&&window.LL.active){ // V0_153: 2線間
+      window.LL.handleUp(lastMX,lastMY);
     } else { handlePointerUp(lastMX,lastMY,true); }
     mouseDown=false;isPen=false;
     if(remFing.length>=2){
@@ -366,7 +385,8 @@ ov.addEventListener('touchend',e=>{
   // 全タッチ終了
   if(remaining.length===0){
     // V0_79: 手書きモードで指描画中だった場合はストロークを確定
-    if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
+    // V0_152.2: サブ窓作成の対角ドラッグ中(指を離して矩形確定)も含む
+    if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser')||(window.SW&&window.SW.active))){
       handlePointerUp(lastMX,lastMY,false);
     }
     if(!isPen){panning=false;mouseDown=false;}
@@ -379,10 +399,11 @@ ov.addEventListener('touchend',e=>{
     const sx=t.clientX-r.left,sy=t.clientY-r.top;
     mouseDown=true;lastMX=sx;lastMY=sy;
     // V0_79: 手書きモード+描画ツールなら描画再開、そうでなければパン
-    if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl')
+    // V0_152.2: サブ窓作成中(SW.active)も対象に追加
+    if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl'||(window.SW&&window.SW.active))
         &&!(window.DIM&&window.DIM.active)&&!(window.LP&&window.LP.active)){
       panning=false;
-      handlePointerDown(sx,sy,false); // 新しい指で描画再開
+      handlePointerDown(sx,sy,false); // 新しい指で描画(操作)再開
     } else {
       panning=true;
     }

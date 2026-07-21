@@ -108,7 +108,7 @@ function doSave(){
       currentTool,currentColor,currentLW,currentFileName,fileSize:currentFileSize,
       fileKey:(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null),
       currentHL_Color,currentHL_LW,currentDimColor,
-      dimensionTextMode,inputMode,
+      dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
       pdfPageNum:(typeof pdfPageNum!=='undefined'?pdfPageNum:1) // V0_135: PDFページ番号保存
     }));
     // V0_112: マルチファイル保存
@@ -225,6 +225,7 @@ async function tryRestore(){
             bwMode=!!_d2.bwMode;
             currentTool=_d2.currentTool||'sketch';
             if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
+            if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化
             if(_d2.currentColor)currentColor=_d2.currentColor;
             document.querySelectorAll('.color-btn').forEach(b=>{
               const[r,g,b_]=b.dataset.color.split(',').map(Number);
@@ -253,7 +254,7 @@ async function tryRestore(){
             document.querySelectorAll('.tool-btn').forEach(b=>{
               b.classList.toggle('active',b.dataset.tool===currentTool);
             });
-            if(_d2.dimensionTextMode)dimensionTextMode=_d2.dimensionTextMode;
+            if(_d2.dimensionTextMode&&_d2.dimensionTextMode!=='manual')dimensionTextMode=_d2.dimensionTextMode; // V0_154: manual廃止
             if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
             if(_d2.inputMode)inputMode=_d2.inputMode;
             if(typeof updateInputModeUI==='function')updateInputModeUI();
@@ -308,6 +309,7 @@ async function tryRestore(){
     if(d.hiddenLayers)hiddenLayers=new Set(d.hiddenLayers);
     currentTool=d.currentTool||'sketch';
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
+    if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化
     if(d.currentColor)currentColor=d.currentColor;
     document.querySelectorAll('.color-btn').forEach(b=>{
       const[r,g,b_]=b.dataset.color.split(',').map(Number);
@@ -339,7 +341,7 @@ async function tryRestore(){
     [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     buildLayerModal();
     scheduleDraw();scheduleOverlay();updateUndoRedo();
-    if(d.dimensionTextMode)dimensionTextMode=d.dimensionTextMode;
+    if(d.dimensionTextMode&&d.dimensionTextMode!=='manual')dimensionTextMode=d.dimensionTextMode; // V0_154: manual廃止
     if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
     if(d.inputMode)inputMode=d.inputMode;
     if(typeof updateInputModeUI==='function')updateInputModeUI();

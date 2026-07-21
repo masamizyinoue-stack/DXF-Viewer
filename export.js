@@ -16,7 +16,7 @@
 //   - LONG_PX: 8000→6000（iPad安全canvas範囲: ~25.5MP、513DPI for A4）
 //   - 出力形式: PNG→JPEG 0.98（大容量PNG→jsPDF失敗の回避、高品質維持）
 // V0_91: PDF最高解像度対応（LONG_PX=8000、PNG、try-finally）
-// V0_90: スクショ修正（html2canvas+実canvas合成ハイブリッド、bwMode対応）
+// V0_147: スクショ機能削除
 
 // =========================================================
 // DXF書き出し（元データ + 書き込みストローク）
@@ -127,64 +127,7 @@ function exportSketchDxf(){
 // =========================================================
 var _PDF_SAFE_MEM_MB = 500;
 
-function _pdfQualityDialog(baseLong, estAspect) {
-  return new Promise(function(resolve) {
-    var safeBytes = _PDF_SAFE_MEM_MB * 1024 * 1024;
-    function _est(m) {
-      var lp = Math.round(baseLong * m);
-      var W = estAspect >= 1 ? lp : Math.round(lp * estAspect);
-      var H = estAspect >= 1 ? Math.round(lp / estAspect) : lp;
-      var mb = Math.round(W * H * 16 / 1048576);
-      return { W: W, H: H, mb: mb, ok: W * H * 16 <= safeBytes };
-    }
-    var e2 = _est(2), e3 = _est(3), e4 = _est(4);
-
-    var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-family:-apple-system,sans-serif;';
-
-    var dlg = document.createElement('div');
-    dlg.style.cssText = 'background:#1e2430;color:#dde2f4;border-radius:14px;padding:24px 20px;width:320px;max-width:90vw;box-shadow:0 8px 40px rgba(0,0,0,.7);';
-
-    var title = document.createElement('div');
-    title.style.cssText = 'font-size:15px;font-weight:700;margin-bottom:4px;color:#c8d0e8;';
-    title.textContent = 'PDF出力品質を選択';
-    var hint = document.createElement('div');
-    hint.style.cssText = 'font-size:11px;color:#667;margin-bottom:16px;';
-    hint.textContent = '推定メモリ: 4Canvas × W × H × 4byte';
-    dlg.appendChild(title);
-    dlg.appendChild(hint);
-
-    function mkBtn(multi, label, sub, est, isDefault) {
-      var b = document.createElement('button');
-      var bord = isDefault ? '#4a8eff' : '#2d3855';
-      var bg   = isDefault ? 'rgba(74,142,255,.13)' : '#252d40';
-      b.style.cssText = 'display:block;width:100%;margin:6px 0;padding:12px 14px;border-radius:8px;border:2px solid '+bord+';background:'+bg+';color:#dde2f4;cursor:pointer;text-align:left;line-height:1.6;';
-      var warnHtml = est.ok ? '' : '<span style="color:#f5a623;margin-left:4px;font-size:11px;">⚠ メモリ注意（自動調整あり）</span>';
-      b.innerHTML = '<strong style="font-size:14px;">'+label+'</strong>'+warnHtml
-        +'<br><span style="font-size:11px;color:#8898bb;">'+est.W+' × '+est.H+' px  /  約 '+est.mb+' MB</span>'
-        +'<br><span style="font-size:11px;color:#667;">'+sub+'</span>';
-      b.addEventListener('click', function(){ document.body.removeChild(ov); resolve(multi); });
-      return b;
-    }
-
-    dlg.appendChild(mkBtn(2, '標準（2倍）',    '標準品質・低メモリ消費',    e2, false));
-    dlg.appendChild(mkBtn(3, '高画質（3倍）★', '推奨・品質とメモリのバランス', e3, true));
-    dlg.appendChild(mkBtn(4, '超高画質（4倍）', '最高品質・大メモリ消費',    e4, false));
-
-    var sep = document.createElement('hr');
-    sep.style.cssText = 'border:none;border-top:1px solid #2d3855;margin:12px 0 8px;';
-    dlg.appendChild(sep);
-
-    var canc = document.createElement('button');
-    canc.textContent = 'キャンセル';
-    canc.style.cssText = 'display:block;width:100%;padding:9px;border-radius:8px;border:1px solid #2d3855;background:transparent;color:#8898bb;cursor:pointer;font-size:13px;';
-    canc.addEventListener('click', function(){ document.body.removeChild(ov); resolve(null); });
-    dlg.appendChild(canc);
-
-    ov.appendChild(dlg);
-    document.body.appendChild(ov);
-  });
-}
+// V0_154: 品質選択ダイアログ(_pdfQualityDialog)を削除。常に高画質(3倍)で出力する。
 
 // =========================================================
 // PDF出力ボタン（V0_141: 高画質オフスクリーンCanvas・品質選択ダイアログ）
@@ -197,12 +140,10 @@ document.getElementById('savePDFBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('savePDFBtn');
   btn.disabled = true;
 
-  // ── V0_141: 品質選択ダイアログ ─────────────────────────────────
+  // ── V0_154: 品質選択ダイアログを廃止し、高画質(3倍)固定で出力 ──────
   const _dlgCvEl = document.getElementById('cv');
   const _dlgBaseLong = Math.max(_dlgCvEl.width, _dlgCvEl.height);
-  const _dlgAspect   = _dlgCvEl.width / (_dlgCvEl.height || 1);
-  const _dlgSel = await _pdfQualityDialog(_dlgBaseLong, _dlgAspect);
-  if (_dlgSel === null) { btn.disabled = false; return; } // キャンセル
+  const _dlgSel = 3;
   // ────────────────────────────────────────────────────────────────
 
   showGuide('PDFを生成中...');
@@ -312,37 +253,60 @@ document.getElementById('savePDFBtn').addEventListener('click', async ()=>{
     // PDF用線幅スケール: CW/CSS_W（CSS幅比率）
     window._pdfScale=CW*dprSave/sv_ow;
 
-    // V0_141: PDF専用高画質オフスクリーンCanvas作成（画面表示用Canvasを使用しない）
-    const pdfCv=document.createElement('canvas'); pdfCv.width=CW; pdfCv.height=CH;
-    const pdfCtx=pdfCv.getContext('2d');
-    const pdfOv=document.createElement('canvas'); pdfOv.width=CW; pdfOv.height=CH;
-    const pdfOctx=pdfOv.getContext('2d');
-    const pdfAc=document.createElement('canvas'); pdfAc.width=CW; pdfAc.height=CH;
-    const pdfAcCtx=pdfAc.getContext('2d');
-    _rCv=pdfCv; _rOv=pdfOv; _rAc=pdfAc;  // 解放用参照
-
-    // 描画グローバル（cv/ctx/ov/octx）をPDF専用Canvasに一時置換
+    // 描画グローバル（cv/ctx/ov/octx）退避（finally で必ず復元）
     const _svCv=window.cv,_svCtx=window.ctx,_svOv=window.ov,_svOctx=window.octx;
-    window.cv=pdfCv; window.ctx=pdfCtx; window.ov=pdfOv; window.octx=pdfOctx;
 
-    // ── 4. 描画・合成（finally で必ず状態復元）──────────────────────
+    // V0_148.2: PDF専用Canvasを3枚同時に持たず「描画→合成→即解放」を1枚ずつ行う方式に変更。
+    // 【背景】従来はpdfCv+pdfAc+pdfOv+pdfComp の計4枚(各CW×CH)を同時に保持していたため、
+    // 高画質(3x/4x)選択時にiPadでメモリが逼迫し、Canvasへの描画が一部しか反映されない
+    // （PDF範囲が部分的になる）不具合が発生していた。アプリ起動直後などメモリに余裕がない
+    // タイミングで再現しやすく、キャンセルして再試行すると正常になる、という報告と一致する。
+    // 1枚ずつ生成→drawImageで合成先へ焼き込み→即座にwidth=1で解放することで、
+    // 同時に存在する大きなCanvasを最大2枚（作業用1枚+合成先pdfComp）まで削減する。
+    // draw()はcv/ctxのみ、drawOverlay()はov/octxのみ、drawAnnotation()は引数ctxのみで
+    // 完結しており、3者は互いに独立して呼び出せることを確認済み（既存の描画ロジックは無変更）。
     let pdfComp=null;
     try{
-      if(typeof draw==='function') draw();
-      if(typeof drawAnnotation==='function') drawAnnotation(pdfAcCtx);
-      if(typeof drawOverlay==='function') drawOverlay();
-      // 描画完了を待つ（desynchronized canvas等の非同期描画に対応）
-      await new Promise(r=>requestAnimationFrame(r));
-
-      // PDF専用Canvasに合成（画面表示Canvasは不使用）
       pdfComp=document.createElement('canvas'); pdfComp.width=CW; pdfComp.height=CH;
       _rComp=pdfComp;
       const pctx=pdfComp.getContext('2d');
       pctx.fillStyle=bwMode?'#fff':'#1e2430';
       pctx.fillRect(0,0,CW,CH);
-      pctx.drawImage(pdfCv,0,0);
-      pctx.drawImage(pdfAc,0,0);
-      pctx.drawImage(pdfOv,0,0);
+
+      // ① メインDXF図形（draw: cv/ctxのみ使用）
+      {
+        const pdfCv=document.createElement('canvas'); pdfCv.width=CW; pdfCv.height=CH;
+        const pdfCtx=pdfCv.getContext('2d');
+        _rCv=pdfCv;
+        window.cv=pdfCv; window.ctx=pdfCtx;
+        if(typeof draw==='function') draw();
+        pctx.drawImage(pdfCv,0,0);
+        pdfCv.width=1; pdfCv.height=1; _rCv=null; // 即解放
+      }
+
+      // ② 手書き・蛍光ペン（drawAnnotation: 引数ctxのみで完結、グローバル不要）
+      {
+        const pdfAc=document.createElement('canvas'); pdfAc.width=CW; pdfAc.height=CH;
+        const pdfAcCtx=pdfAc.getContext('2d');
+        _rAc=pdfAc;
+        if(typeof drawAnnotation==='function') drawAnnotation(pdfAcCtx);
+        pctx.drawImage(pdfAc,0,0);
+        pdfAc.width=1; pdfAc.height=1; _rAc=null; // 即解放
+      }
+
+      // ③ 寸法（drawOverlay: ov/octxのみ使用）
+      {
+        const pdfOv=document.createElement('canvas'); pdfOv.width=CW; pdfOv.height=CH;
+        const pdfOctx=pdfOv.getContext('2d');
+        _rOv=pdfOv;
+        window.ov=pdfOv; window.octx=pdfOctx;
+        if(typeof drawOverlay==='function') drawOverlay();
+        pctx.drawImage(pdfOv,0,0);
+        pdfOv.width=1; pdfOv.height=1; _rOv=null; // 即解放
+      }
+
+      // 描画完了を待つ（V0_141由来の安全待機）
+      await new Promise(r=>requestAnimationFrame(r));
     }finally{
       // 描画エラー時も必ず状態を復元（表示用Canvasへの影響ゼロ）
       try{Object.defineProperty(window,'devicePixelRatio',{get:()=>dprSave,configurable:true});}catch(e){}
@@ -389,101 +353,13 @@ document.getElementById('savePDFBtn').addEventListener('click', async ()=>{
 });
 
 // =========================================================
-// スクリーンショット保存ボタン（V0_90: html2canvas+実canvas合成）
+// V0_147: スクリーンショット機能削除（screenshotBtnハンドラ・html2canvas依存を廃止）
 // =========================================================
-document.getElementById('screenshotBtn').addEventListener('click', async ()=>{
-  const btn = document.getElementById('screenshotBtn');
-  btn.disabled = true;
-  showGuide('スクリーンショットを保存中...');
-  try{
-    // html2canvasはcanvas内容を描画できないため、実canvasを直接合成する
-    // html2canvasはUIレイヤー（ヘッダー等）取得のみに使い、ステージ領域を実canvasで上書き
-    const dpr = window.devicePixelRatio || 1;
-    const cvEl = document.getElementById('cv');
-    const acEl = document.getElementById('ac');
-    const ovEl = document.getElementById('ov');
-    const stageEl = document.getElementById('stage');
-
-    // Step1: 実canvasを合成（DXF + アノテーション + オーバーレイ）
-    const W = cvEl.width, H = cvEl.height;
-    const stageCanvas = document.createElement('canvas');
-    stageCanvas.width = W; stageCanvas.height = H;
-    const sctx = stageCanvas.getContext('2d');
-    sctx.fillStyle = bwMode ? '#ffffff' : '#1e2430';
-    sctx.fillRect(0, 0, W, H);
-    sctx.drawImage(cvEl, 0, 0);
-    sctx.drawImage(acEl, 0, 0);
-    sctx.drawImage(ovEl, 0, 0);
-
-    let imageBlob = null;
-
-    // Step2: html2canvasでUIレイヤー（ヘッダー等）取得 → ステージ領域を実canvas内容で上書き
-    if(typeof html2canvas !== 'undefined'){
-      try{
-        // V0_118: stageRectをhtml2canvas実行前に取得し、scrollオフセットも加算
-        // （html2canvas完了後に取得するとレイアウト変化で座標がずれる場合があるため）
-        const stageRect = stageEl.getBoundingClientRect();
-        const sx = Math.round((stageRect.left + window.scrollX) * dpr);
-        const sy = Math.round((stageRect.top  + window.scrollY) * dpr);
-        const uiCanvas = await html2canvas(document.body, {
-          scale: dpr,
-          backgroundColor: bwMode ? '#ffffff' : '#0b0f16',
-          logging: false,
-          imageTimeout: 8000
-        });
-        const bctx = uiCanvas.getContext('2d');
-        bctx.fillStyle = bwMode ? '#ffffff' : '#1e2430';
-        bctx.fillRect(sx, sy, W, H);
-        bctx.drawImage(stageCanvas, sx, sy);
-        imageBlob = await new Promise(res => uiCanvas.toBlob(res, 'image/png'));
-      }catch(e){
-        console.warn('html2canvas failed, fallback to canvas composite:', e);
-      }
-    }
-
-    // Step3: フォールバック（html2canvas失敗またはなし）
-    if(!imageBlob){
-      imageBlob = await new Promise(res => stageCanvas.toBlob(res, 'image/png'));
-    }
-
-    const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-    const baseName = (currentFileName||'screenshot').replace(/\.[^.]+$/,'');
-    const fileName = `${baseName}_${ts}.png`;
-    const file = new File([imageBlob], fileName, {type:'image/png'});
-
-    let shared = false;
-    if(navigator.share && typeof navigator.canShare === 'function' && navigator.canShare({files:[file]})){
-      try{
-        await navigator.share({files:[file], title:fileName});
-        shared = true;
-      }catch(shareErr){
-        if(shareErr.name === 'AbortError'){ hideGuide(); return; }
-      }
-    }
-    if(!shared){
-      const url = URL.createObjectURL(imageBlob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(url), 2000);
-    }
-    showGuide('保存しました', 2000);
-  }catch(err){
-    if(err.name !== 'AbortError'){
-      console.error('Screenshot error:', err);
-      hideGuide();
-    } else {
-      hideGuide();
-    }
-  }finally{
-    btn.disabled = false;
-  }
-});
 
 // =========================================================
 // DXF書き出しボタン
 // =========================================================
-document.getElementById('exportDxfBtn').addEventListener('click',exportSketchDxf);
+// V0_154: 「DXF書き込み書出し」ボタンを削除（exportDxfBtn要素なし。exportSketchDxf関数自体は未使用のまま保持）
 
 // =========================================================
 // V0_122: .dxfview書出し（dims + strokes のみ）
@@ -593,7 +469,7 @@ async function exportDxfviewManual(){
     if((!dims||dims.length===0)&&(!strokes||strokes.length===0)&&
        (!savedViews||savedViews.every(function(v){return!v;}))&&
        (!hiddenLayers||hiddenLayers.size===0)){
-      showGuide('保存するデータがありません',2000);return;
+      showGuide('保存するデータがありません',2000);return true; // V0_145: データなし=バックアップ不要なので閉じる処理は継続
     }
     // ── ペイロード作成（V0_136から変更なし）────────────────────────
     const fk=(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null)||currentFileName||'';
@@ -637,13 +513,36 @@ async function exportDxfviewManual(){
         _bkHandleSave(fh); // 今回のFileHandleを記憶（次回のstartIn用）
         _fsaSaved = true;
       } catch(e) {
-        if (e && e.name === 'AbortError') return; // ユーザーキャンセル → 静かに終了
+        if (e && e.name === 'AbortError') return false; // ユーザーキャンセル → 静かに終了（V0_145: 閉じる連携用にfalseを返す）
         // APIエラー（権限・非対応等）→ 従来方式でフォールバック
         console.warn('[backup] showSaveFilePicker failed, fallback to <a>:', e);
       }
     }
 
-    // ── フォールバック: 従来の <a> ダウンロード（iPad Safari等）────
+    // ── V0_146: PWA（ホーム画面起動）時は Web Share API で共有シートを直接表示 ──
+    // PWAでは<a download>が使えず、iOSのプレビュー画面→「その他...」→フォルダ選択という
+    // 遠回りな動線になり、ファイル名にも勝手に「.json」が付く。
+    // navigator.share(File) ならプレビューを飛ばして共有シート（ファイルに保存）へ直行し、
+    // .dxfviewのファイル名もそのまま保持される。
+    // 通常のSafari起動時は従来の<a>ダウンロードのまま（ダウンロード先設定で1タップ保存が最速のため）。
+    if (!_fsaSaved) {
+      var _isStandalone = (window.navigator.standalone === true) ||
+                          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+      if (_isStandalone && navigator.share && typeof navigator.canShare === 'function') {
+        try {
+          var shareFile = new File([blob], fname, { type: 'application/json' });
+          if (navigator.canShare({ files: [shareFile] })) {
+            await navigator.share({ files: [shareFile], title: fname });
+            _fsaSaved = true; // 共有完了扱い
+          }
+        } catch (e) {
+          if (e && e.name === 'AbortError') return false; // 共有シートでキャンセル → 閉じ処理も中断
+          console.warn('[backup] navigator.share failed, fallback to <a>:', e);
+        }
+      }
+    }
+
+    // ── フォールバック: 従来の <a> ダウンロード（Safari等）────
     if (!_fsaSaved) {
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
@@ -655,9 +554,11 @@ async function exportDxfviewManual(){
     if(typeof verify==='function')verify('バックアップ保存',{strokes:typeof strokes!=='undefined'?strokes.length:-1,dims:typeof dims!=='undefined'?dims.length:-1});
     _abMarkSaved(); // V0_141.2: バックアップ成功時に自動バックアップ促進タイマーをリセット
     showGuide('書込みデータを保存しました',2000);
+    return true; // V0_145: 保存成功（閉じる連携用）
   }catch(e){
     console.warn('[dxfview backup] failed',e);
     showGuide('バックアップ保存に失敗しました',2000);
+    return false; // V0_145: 保存失敗時は閉じない（データ消失防止）
   }
 }
 document.getElementById('writeBackupBtn').addEventListener('click',exportDxfviewManual);
@@ -831,246 +732,11 @@ function _abCheck() {
 document.addEventListener('visibilitychange', function() {
   if (document.hidden) {
     // 800msデバウンス中のsaveTimerが未発火でも即時保存（データ消失防止）
-    try { if(typeof doSave==='function') doSave(); } catch(e) {}
+    // V0_144: currentFileNameガード追加（ファイル未読込時にdoSaveすると空データで保存を上書きし消失するため。V0_132のHTML側ハンドラと同一パターン）
+    try { if(typeof doSave==='function' && typeof currentFileName!=='undefined' && currentFileName) doSave(); } catch(e) {}
     // 変更があればバナーを表示（ユーザーがSafariに戻った時に確認できる）
     _abCheck();
   }
 });
 
-// =========================================================
-// V0_123: ハイブリッドPDF書き出し（DXFベクター + 手書き/寸法ラスター）
-// 試験実装。設定パネルの「HD-PDF書出」ボタンから使用。
-// DXF線分・円弧 → jsPDFベクター描画（解像度無制限）
-// 手書き・寸法   → 透過PNGで重ねる（座標系共通で位置ずれなし）
-// V0_124: 日本語フォント外部ファイル（fonts/NotoSansJP.js）から動的ロード
-// =========================================================
-
-// V0_124: 日本語フォント動的ロード（fonts/NotoSansJP.js → window._notoSansJPBase64）
-var _jpFontLoaded=false;
-function _loadJPFont(){
-  return new Promise(function(resolve){
-    if(_jpFontLoaded||window._notoSansJPBase64){_jpFontLoaded=true;resolve();return;}
-    var s=document.createElement('script');
-    s.src='./fonts/NotoSansJP.js';
-    s.onload=function(){_jpFontLoaded=true;resolve();};
-    s.onerror=function(){console.warn('[HybridPDF] フォント読み込み失敗');resolve();};
-    document.head.appendChild(s);
-  });
-}
-
-async function exportHybridPDF(){
-  const btn=document.getElementById('hybridPDFBtn');
-  btn.disabled=true;
-  showGuide('HD-PDFを生成中...');
-  try{
-    // V0_124: 日本語フォントを事前ロード
-    await _loadJPFont();
-
-    // ── 1. バウンディングボックス（現行PDFと同じロジック）──
-    var _hMnX=Infinity,_hMnY=Infinity,_hMxX=-Infinity,_hMxY=-Infinity;
-    function _hExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_hMnX)_hMnX=x;if(y<_hMnY)_hMnY=y;if(x>_hMxX)_hMxX=x;if(y>_hMxY)_hMxY=y;}
-    if(doc){
-      for(const e of doc.sen){_hExp(e.x1,e.y1);_hExp(e.x2,e.y2);}
-      for(const e of doc.enko){const r=e.rx||e.r||0;_hExp(e.cx-r,e.cy-r);_hExp(e.cx+r,e.cy+r);}
-      for(const e of (doc.ten||[])){_hExp(e.x,e.y);}
-      for(const e of (doc.moji||[])){_hExp(e.x,e.y);}
-      for(const e of (doc.solid||[])){for(const p of e.pts)_hExp(p.x,p.y);}
-    }
-    if(typeof pdfImage!=='undefined'&&pdfImage){_hExp(pdfImage.wx,pdfImage.wy);_hExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
-    for(const img of (typeof images!=='undefined'?images:[])){_hExp(img.wx,img.wy);_hExp(img.wx+img.ww,img.wy-img.wh);}
-    for(const s of strokes)for(const p of s.pts)_hExp(p.x,p.y);
-    for(const d of dims){
-      for(const l of(d.lines||[])){_hExp(l.x1,l.y1);_hExp(l.x2,l.y2);}
-      if(d.tx!=null&&d.ty!=null)_hExp(d.tx,d.ty);
-    }
-    if(!isFinite(_hMnX)){showGuide('描画データがありません',2000);return;}
-
-    // ── 2. ページ・キャンバスサイズ決定（現行PDFと同じ定数）──
-    const PAD=0.02;
-    const eW=_hMxX-_hMnX, eH=_hMxY-_hMnY;
-    const extMinX=_hMnX-eW*PAD, extMinY=_hMnY-eH*PAD;
-    const extW=eW*(1+2*PAD), extH=eH*(1+2*PAD);
-    const LONG_PX=6500;
-    const aspect=extW/extH;
-    const CW=aspect>=1?LONG_PX:Math.round(LONG_PX*aspect);
-    const CH=aspect>=1?Math.round(LONG_PX/aspect):LONG_PX;
-    const PDF_LONG_MM=297;
-    const pageMM_W=aspect>=1?PDF_LONG_MM:Math.round(PDF_LONG_MM*aspect);
-    const pageMM_H=aspect>=1?Math.round(PDF_LONG_MM/aspect):PDF_LONG_MM;
-    const pdfScale=Math.min(CW/extW, CH/extH);
-
-    // ── 3. 座標変換（ベクター・ラスター共通で位置ずれゼロ保証）──
-    const tx_p = -extMinX * pdfScale;
-    const ty_p =  CH + extMinY * pdfScale;
-    const _sx = pageMM_W / CW;
-    const _sy = pageMM_H / CH;
-    const w2mx = wx => ( wx * pdfScale + tx_p) * _sx;
-    const w2my = wy => (-wy * pdfScale + ty_p) * _sy;
-
-    // ── 4. グローバル状態退避・PDF用設定 ──
-    const sv={tx,ty,scale};
-    const dprSave=window.devicePixelRatio||1;
-    const ovEl=document.getElementById('ov');
-    tx=tx_p; ty=ty_p; scale=pdfScale;
-    Object.defineProperty(window,'devicePixelRatio',{get:()=>1,configurable:true});
-
-    // 透過キャンバス（手書き用・寸法用）
-    const pdfAc=document.createElement('canvas'); pdfAc.width=CW; pdfAc.height=CH;
-    const pdfAcCtx=pdfAc.getContext('2d');
-    const pdfOv=document.createElement('canvas'); pdfOv.width=CW; pdfOv.height=CH;
-    const pdfOvCtx=pdfOv.getContext('2d');
-
-    // ov/octx を一時差し替え（drawOverlay が ov.width/height・octx を参照するため）
-    const _svOv=window.ov, _svOctx=window.octx;
-    window.ov=pdfOv; window.octx=pdfOvCtx;
-    window._pdfScale=CW*dprSave/(ovEl.width||CW);
-
-    try{
-      // 手書き（strokes）を透過キャンバスへ
-      if(typeof drawAnnotation==='function') drawAnnotation(pdfAcCtx);
-      // 寸法（dims）を透過キャンバスへ
-      if(typeof drawOverlay==='function') drawOverlay();
-      await new Promise(r=>requestAnimationFrame(r));
-    }finally{
-      try{Object.defineProperty(window,'devicePixelRatio',{get:()=>dprSave,configurable:true});}catch(e){}
-      window._pdfScale=undefined;
-      window.ov=_svOv; window.octx=_svOctx;
-      tx=sv.tx; ty=sv.ty; scale=sv.scale;
-      if(typeof scheduleDraw==='function') scheduleDraw();
-      if(typeof scheduleOverlay==='function') scheduleOverlay();
-    }
-
-    // ── 5. jsPDF 生成 ──
-    if(typeof window.jspdf==='undefined'){showGuide('jsPDFが読み込まれていません',2000);return;}
-    const {jsPDF}=window.jspdf;
-    const orient=pageMM_W>=pageMM_H?'l':'p';
-    const pdf=new jsPDF({orientation:orient,unit:'mm',format:[pageMM_W,pageMM_H],compress:true});
-
-    // 白背景
-    pdf.setFillColor(255,255,255);
-    pdf.rect(0,0,pageMM_W,pageMM_H,'F');
-
-    // 色設定ヘルパー（e.color は {r,g,b} オブジェクト。白背景用に近白色は黒に変換）
-    function _setPdfColor(col){
-      const css=(typeof rgbCss==='function')?rgbCss(col,false):'rgb(0,0,0)';
-      let r=0,g=0,b=0;
-      const m=css.match(/rgb\((\d+),(\d+),(\d+)\)/);
-      if(m){r=+m[1];g=+m[2];b=+m[3];}
-      else if(css.length>=7&&css[0]==='#'){r=parseInt(css.slice(1,3),16);g=parseInt(css.slice(3,5),16);b=parseInt(css.slice(5,7),16);}
-      pdf.setDrawColor(r,g,b);
-    }
-
-    // 線幅ヘルパー（現行canvas算出式と同じ: max(0.8, lw*scale*1.4) px → mm変換）
-    function _lwMM(lw){
-      return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx);
-    }
-
-    // ── 6. DXF線分（sen）ベクター描画 ──
-    if(doc&&doc.sen){
-      for(const e of doc.sen){
-        if(hiddenLayers.has(e.layer)) continue;
-        _setPdfColor(e.color);
-        pdf.setLineWidth(_lwMM(e.lw));
-        pdf.line(w2mx(e.x1),w2my(e.y1),w2mx(e.x2),w2my(e.y2));
-      }
-    }
-
-    // ── 7. DXF円・円弧（enko）ベクター描画 ──
-    if(doc&&doc.enko){
-      for(const e of doc.enko){
-        if(hiddenLayers.has(e.layer)) continue;
-        _setPdfColor(e.color);
-        pdf.setLineWidth(_lwMM(e.lw));
-        const r=e.rx||e.r||0; if(r<=0) continue;
-        const a1=e.a1!=null?e.a1:0, a2=e.a2!=null?e.a2:360;
-        const cxmm=w2mx(e.cx), cymm=w2my(e.cy);
-        const rMM=r*pdfScale*_sx;
-        if(a1===0&&a2===360){
-          pdf.circle(cxmm,cymm,rMM,'S');
-        }else{
-          const rad1=a1*Math.PI/180;
-          let rad2=a2*Math.PI/180;
-          if(rad2<=rad1) rad2+=2*Math.PI;
-          const N=36;
-          let px0=cxmm+rMM*Math.cos(rad1), py0=cymm-rMM*Math.sin(rad1);
-          for(let i=1;i<=N;i++){
-            const a=rad1+(rad2-rad1)*i/N;
-            const px1=cxmm+rMM*Math.cos(a), py1=cymm-rMM*Math.sin(a);
-            pdf.line(px0,py0,px1,py1);
-            px0=px1; py0=py1;
-          }
-        }
-      }
-    }
-
-    // ── 7.5 文字（moji）をjsPDFベクター描画（V0_124: 日本語フォント対応）──
-    if(doc&&doc.moji&&doc.moji.length>0&&window._notoSansJPBase64){
-      try{
-        pdf.addFileToVFS('NotoSansJP.ttf',window._notoSansJPBase64);
-        pdf.addFont('NotoSansJP.ttf','NotoSansJP','normal');
-      }catch(er){}
-      for(const e of doc.moji){
-        if(hiddenLayers.has(e.layer)) continue;
-        if(!e.text||!e.text.trim()) continue;
-        const xmm=w2mx(e.x);
-        const ymm=w2my(e.y);
-        const fsMM=e.h*pdfScale*_sx;
-        if(fsMM<0.3) continue;
-        const css=(typeof rgbCss==='function')?rgbCss(e.color,false):'rgb(0,0,0)';
-        const mc=css.match(/rgb\((\d+),(\d+),(\d+)\)/);
-        if(mc) pdf.setTextColor(+mc[1],+mc[2],+mc[3]);
-        pdf.setFont('NotoSansJP','normal');
-        pdf.setFontSize(fsMM*(72/25.4));
-        const lines=e.text.split('\n');
-        for(let i=0;i<lines.length;i++){
-          if(!lines[i].trim()) continue;
-          const opts={baseline:'alphabetic'};
-          if(e.angle&&Math.abs(e.angle)>0.1) opts.angle=e.angle;
-          pdf.text(lines[i],xmm,ymm-fsMM*i,opts);
-        }
-      }
-      pdf.setTextColor(0,0,0);
-    }
-
-    // ── 8. 手書き（strokes）を透過PNGで重ねる ──
-    const strokesPng=pdfAc.toDataURL('image/png');
-    pdf.addImage(strokesPng,'PNG',0,0,pageMM_W,pageMM_H);
-
-    // ── 9. 寸法（dims）を透過PNGで重ねる ──
-    const dimsPng=pdfOv.toDataURL('image/png');
-    pdf.addImage(dimsPng,'PNG',0,0,pageMM_W,pageMM_H);
-
-    // ── 10. 保存 ──
-    const fname=(currentFileName||'drawing').replace(/\.[^.]+$/,'')+'_hd.pdf';
-    pdf.save(fname);
-    showGuide('HD-PDFを保存しました',2000);
-
-  }catch(err){
-    console.error('[HybridPDF]',err);
-    showGuide('HD-PDF出力に失敗しました: '+err.message,3000);
-  }finally{
-    btn.disabled=false;
-  }
-}
-document.getElementById('hybridPDFBtn').addEventListener('click',exportHybridPDF);
-
-// V0_126: PDF解像度倍率（1x/2x/3x）— 設定パネルボタン（既存UIを保持）
-var _pdfResMulti=1;
-(function(){
-  var btns=[
-    {id:'pdfRes1Btn',v:1},
-    {id:'pdfRes2Btn',v:2},
-    {id:'pdfRes3Btn',v:3}
-  ];
-  function setRes(v){
-    _pdfResMulti=v;
-    btns.forEach(function(b){
-      var el=document.getElementById(b.id);
-      if(el) el.classList.toggle('active',b.v===v);
-    });
-  }
-  btns.forEach(function(b){
-    var el=document.getElementById(b.id);
-    if(el) el.addEventListener('click',function(){setRes(b.v);});
-  });
-})();
+// V0_154: HD-PDF書出（試験）機能(exportHybridPDF)・PDF解像度（試験）設定(_pdfResMulti)を削除
