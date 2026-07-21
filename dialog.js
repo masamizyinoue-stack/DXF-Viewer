@@ -22,7 +22,11 @@ function _showMemMenu(idx,anchorBtn){
   document.body.appendChild(menu);
   function closeMenu(){if(document.getElementById('_memMenu'))menu.remove();}
   document.getElementById('_memOvr').onclick=function(){
-    savedViews[idx]={tx:tx,ty:ty,scale:scale};updateViewmemoState(idx);scheduleSave();if(typeof verify==='function')verify('savedViews変更',{slot:idx,action:'overwrite'});
+    // V0_160: savedViewsはファイル横断のグローバル項目。上書き保存時も現在ファイルの
+    // fileKey/fileNameを記録し直す（表示時にどのファイルへ切り替えるか判定するため）
+    var _fk160=(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])?openFiles[currentFileIdx].fileKey:null;
+    savedViews[idx]={tx:tx,ty:ty,scale:scale,fileKey:_fk160,fileName:(typeof currentFileName!=='undefined'?currentFileName:null)};
+    updateViewmemoState(idx);scheduleSave();if(typeof verify==='function')verify('savedViews変更',{slot:idx,action:'overwrite'});
     closeMenu();showGuide('記憶'+(idx+1)+'を上書き保存しました',1500);
   };
   document.getElementById('_memRst').onclick=function(){

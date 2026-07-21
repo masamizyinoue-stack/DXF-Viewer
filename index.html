@@ -95,6 +95,9 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 .viewmemo .show-btn.vm-saved{background:rgba(0,212,255,0.12);border-color:#00d4ff;color:#00d4ff;font-weight:600;box-shadow:0 0 8px rgba(0,212,255,0.25)}
 .viewmemo .full-row{grid-column:1/-1;text-align:center} /* V0_74: 全体ボタン表示 */
 .viewmemo .fit-btn{background:transparent;border:1.5px solid rgba(220,230,245,0.7);color:rgba(235,242,255,0.92);opacity:1;font-weight:normal} /* V0_76: 全体ボタン専用・白系 */
+.viewmemo .vm-file{grid-column:1/-1;font-size:9px;line-height:1.3;color:rgba(170,190,210,.65);text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-2px} /* V0_160: 記憶の保存元ファイル名 */
+.viewmemo .vm-file:empty{display:none}
 #snap-hint{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);
   background:rgba(0,0,0,.82);color:var(--accent);font-size:12px;
   padding:6px 14px;border-radius:8px;pointer-events:none;display:none}
@@ -395,11 +398,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <div id="markPopup"><span style="font-size:15px">●</span>マーク ✕</div>
       <button class="fit-btn" id="fitBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><polyline points="8 3 3 3 3 8"/><polyline points="16 3 21 3 21 8"/><polyline points="21 16 21 21 16 21"/><polyline points="3 16 3 21 8 21"/></svg>全体</button>
     </div>
-    <button class="mem-btn" data-vi="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button>
-    <button class="mem-btn" data-vi="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button>
-    <button class="mem-btn" data-vi="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button>
-    <button class="mem-btn" data-vi="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button>
-    <button class="mem-btn" data-vi="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button>
+    <button class="mem-btn" data-vi="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="0"></div><!-- V0_160: 保存元ファイル名表示 -->
+    <button class="mem-btn" data-vi="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="1"></div>
+    <button class="mem-btn" data-vi="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="2"></div>
+    <button class="mem-btn" data-vi="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="3"></div>
+    <button class="mem-btn" data-vi="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="4"></div>
   </div>
   <div id="snap-hint"></div>
 </div>
@@ -409,7 +412,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V0_159.3</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_00</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -626,18 +629,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=01593"></script>
-<script src="viewer.js?v=01593"></script>
-<script src="utils.js?v=01593"></script>
-<script src="ui.js?v=01593"></script>
-<script src="dialog.js?v=01593"></script>
-<script src="storage.js?v=01593"></script>
-<script src="fonts/NotoSansJP.js?v=01593"></script>
-<script src="export.js?v=01593"></script>
-<script src="tool.js?v=01593"></script>
-<script src="verify.js?v=01593"></script>
+<script src="layer.js?v=100"></script>
+<script src="viewer.js?v=100"></script>
+<script src="utils.js?v=100"></script>
+<script src="ui.js?v=100"></script>
+<script src="dialog.js?v=100"></script>
+<script src="storage.js?v=100"></script>
+<script src="fonts/NotoSansJP.js?v=100"></script>
+<script src="export.js?v=100"></script>
+<script src="tool.js?v=100"></script>
+<script src="verify.js?v=100"></script>
 <script>
-const APP_VERSION = 'V0_159.3';
+const APP_VERSION = 'V1_00';
 
 // =========================================================
 // グローバル状態
@@ -1040,7 +1043,7 @@ fileInput.addEventListener('change',async e=>{
     try{
       doc=parseDXF(buf);
       currentFileSize=f.size; // V0_103
-      hiddenLayers.clear();strokes=[];dims=[];images=[];savedViews=[null,null,null,null,null];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_76: 5スロット
+      hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_160: savedViewsはファイル横断のグローバル項目のためここではリセットしない
       // V0_131: ファイル切替時にマーク自動クリア
       _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
       // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
@@ -1110,7 +1113,7 @@ function switchToFile(idx){
   strokes=f.strokes||[];
   dims=f.dims||[];
   if(typeof images!=='undefined') images=f.images||[];
-  savedViews=f.savedViews||[null,null,null,null,null];
+  // V0_160: savedViewsはファイル横断のグローバル項目のためタブ切替時に入れ替えない
   hiddenLayers=new Set(f.hiddenLayersArr||[]);
   currentFileName=f.currentFileName;
   currentFileSize=f.fileSize||0; // V0_138: タブ切替時にfileKeyが正しく生成されるよう修正
@@ -1223,15 +1226,29 @@ function doCloseTab(idx){
   verify('doCloseTab',{idx:idx,currentFileIdx:currentFileIdx});
   // V0_140: saveCurrentFileState廃止 → viewport状態のみinline同期
   if(idx!==currentFileIdx&&currentFileIdx>=0&&currentFileIdx<openFiles.length){var _cv140=openFiles[currentFileIdx];_cv140.tx=tx;_cv140.ty=ty;_cv140.scale=scale;_cv140.fitScale=fitScale;_cv140.hiddenLayersArr=Array.from(hiddenLayers);}
+  // V0_160.1: 閉じるファイルを参照している記憶(savedViews)スロットをリセットする
+  // （savedViewsはV0_160でファイル横断のグローバル項目になったため、記憶元ファイルが
+  // 閉じられたまま残ると「表示」を押した時に必ず「開かれていません」となってしまう）
+  var _closedFk160=openFiles[idx]?openFiles[idx].fileKey:null;
   openFiles.splice(idx,1);
   if(typeof openFilesBufs!=='undefined') openFilesBufs.splice(idx,1); // V0_138: インデックスずれ修正
+  if(_closedFk160&&typeof savedViews!=='undefined'){
+    var _svCleared160=false;
+    for(var _si160=0;_si160<savedViews.length;_si160++){
+      if(savedViews[_si160]&&savedViews[_si160].fileKey===_closedFk160){
+        savedViews[_si160]=null;
+        if(typeof updateViewmemoState==='function')updateViewmemoState(_si160);
+        _svCleared160=true;
+      }
+    }
+    if(_svCleared160){scheduleSave();showGuide('閉じたファイルの記憶をリセットしました',1500);}
+  }
   if(openFiles.length===0){
     currentFileIdx=-1;
     doc=null;pdfDoc=null;pdfImage=null;
     doSave(); // V0_128: 即時保存（scheduleSaveは800ms非同期のため不可）
     strokes=[];dims=[];
     if(typeof images!=='undefined') images=[];
-    savedViews=[];
     hiddenLayers=new Set();
     currentFileName='';currentFileSize=0;
     var fd=document.getElementById('fileNameDisplay');if(fd) fd.textContent='---';
@@ -1392,8 +1409,10 @@ document.querySelectorAll('.mem-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     const i=parseInt(btn.dataset.vi);
     if(!savedViews[i]){
-      // 未記憶 → 現在位置を記憶
-      savedViews[i]={tx,ty,scale};
+      // 未記憶 → 現在位置を記憶（V0_160: どのファイルの記憶かをfileKey/fileNameで保持。
+      // ファイルを跨いで「表示」した時に元のファイルへ自動で切り替えるための情報）
+      var _fk160=(currentFileIdx>=0&&openFiles[currentFileIdx])?openFiles[currentFileIdx].fileKey:null;
+      savedViews[i]={tx,ty,scale,fileKey:_fk160,fileName:currentFileName};
       updateViewmemoState(i);scheduleSave();verify('savedViews変更',{slot:i});
       btn.style.transform='scale(.88)';setTimeout(()=>{btn.style.transform='';},180);
       showGuide('記憶'+(i+1)+'に保存しました',1500);
@@ -1442,7 +1461,19 @@ document.querySelectorAll('.show-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
     if(_lpFired){_lpFired=false;return;}
     const i=parseInt(btn.dataset.vs);
-    if(savedViews[i]){({tx,ty,scale}=savedViews[i]);scheduleDraw();}
+    var sv=savedViews[i];
+    if(!sv) return;
+    // V0_160: 記憶がどのファイルのものかをfileKeyで判定し、今開いているファイルと
+    // 違う場合は該当タブへ自動的に切り替えてから表示位置を復元する
+    if(sv.fileKey && (currentFileIdx<0 || !openFiles[currentFileIdx] || openFiles[currentFileIdx].fileKey!==sv.fileKey)){
+      var _ti160=openFiles.findIndex(function(f){return f.fileKey===sv.fileKey;});
+      if(_ti160<0){
+        showGuide((sv.fileName||'そのファイル')+'は開かれていません',1800);
+        return;
+      }
+      switchToFile(_ti160);
+    }
+    tx=sv.tx;ty=sv.ty;scale=sv.scale;scheduleDraw();scheduleOverlay();
   });
 });
 
@@ -3801,13 +3832,13 @@ async function openDxfFromDb(name,buf,keyword){
       strokes=_ef.strokes||[];
       dims=_ef.dims||[];
       if(typeof images!=='undefined') images=_ef.images||[];
-      savedViews=_ef.savedViews||[null,null,null,null,null];
+      // V0_160: savedViewsはファイル横断のグローバル項目のためここでは入れ替えない
       hiddenLayers=new Set(_ef.hiddenLayersArr||[]);
       tx=_ef.tx||0; ty=_ef.ty||0; scale=_ef.scale||1;
       if(_ef.fitScale) fitScale=_ef.fitScale;
     } else {
       // ⑦ 新規タブ: まず空初期化、次にIDB復元を試みる（F-1）
-      hiddenLayers.clear(); strokes=[]; dims=[]; images=[]; savedViews=[null,null,null,null,null];
+      hiddenLayers.clear(); strokes=[]; dims=[]; images=[]; // V0_160: savedViewsはグローバルのためリセットしない
       var _dvR=await new Promise(function(resolve){
         try{
           var _r=indexedDB.open('dxfViewerDxfviewDB',1);

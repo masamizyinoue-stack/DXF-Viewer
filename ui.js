@@ -30,5 +30,10 @@ function updateViewmemoState(i){
   const mb=document.querySelector('.mem-btn[data-vi="'+i+'"]');
   const sb=document.querySelector('.show-btn[data-vs="'+i+'"]');
   if(mb) mb.classList.toggle('vm-saved',!!savedViews[i]);
-  if(sb) sb.classList.toggle('vm-saved',!!savedViews[i]);}
+  if(sb) sb.classList.toggle('vm-saved',!!savedViews[i]);
+  // V0_160: savedViewsはファイル横断のグローバル項目になったため、
+  // どのファイルの記憶かを小さく表示（別ファイルを誤って開かないように）
+  const vf=document.querySelector('.vm-file[data-vf="'+i+'"]');
+  if(vf) vf.textContent=(savedViews[i]&&savedViews[i].fileName)?savedViews[i].fileName:'';
+}
 

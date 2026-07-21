@@ -186,11 +186,12 @@ async function tryRestore(){
             var _fst={
               name:_mf.currentFileName||_mf.name,
               currentFileName:_mf.currentFileName||_mf.name,
+              fileKey:_mf.fileKey||_fname, // V0_160: 記憶(savedViews)のファイル横断ジャンプ判定に必須
               doc:_pdoc,pdfDoc:null,pdfImage:null,pdfPageNum:1,
               strokes:_mf.strokes||[],
               dims:_mf.dims||[],
               images:[],
-              savedViews:_sv,
+              savedViews:_sv, // V0_160: 参照のみ残す（もはや読み出しには使わない。後方互換のため保持）
               hiddenLayersArr:_mf.hiddenLayersArr||[],
               tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
               fileSize:_mf.fileSize||0
@@ -213,7 +214,13 @@ async function tryRestore(){
           strokes=_af.strokes;
           dims=_af.dims;
           if(typeof images!=='undefined') images=_af.images||[];
-          savedViews=_af.savedViews;
+          // V0_160: savedViewsはファイル横断のグローバル項目のため、ファイル毎ではなく
+          // 単一のSAVE_KEYからまとめて1回だけ復元する（single-file復元パスと同じ方式）
+          try{
+            const _svRaw=localStorage.getItem(SAVE_KEY);
+            const _svSrc=_svRaw?(JSON.parse(_svRaw).savedViews||[]):[];
+            savedViews=[_svSrc[0]||null,_svSrc[1]||null,_svSrc[2]||null,_svSrc[3]||null,_svSrc[4]||null];
+          }catch(e){savedViews=[null,null,null,null,null];}
           hiddenLayers=new Set(_af.hiddenLayersArr);
           currentFileName=_af.currentFileName;
           currentFileSize=_af.fileSize;
