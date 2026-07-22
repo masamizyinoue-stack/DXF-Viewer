@@ -7,7 +7,18 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DXF View"> <!-- V1_06: ホーム画面追加時の表示名 -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <!-- V1_06 -->
+<!-- V1_06: ホーム画面アイコンが表示されない不具合の修正。参照先の画像ファイルが
+     存在していなかったため、実ファイル(apple-touch-icon.png等)を新規作成して追加。
+     iOSは複数サイズのうち最適なものを自動選択するため主要サイズを列挙する -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="apple-touch-icon-120.png">
+<link rel="icon" sizes="192x192" href="icon-192.png"> <!-- V1_06 -->
+<link rel="icon" sizes="512x512" href="icon-512.png"> <!-- V1_06 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
 </script>
 <!-- V0_147: html2canvas削除（スクショ機能廃止に伴い不要） -->
@@ -412,7 +423,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_05</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_06</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -644,21 +655,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=105"></script>
-<script src="viewer.js?v=105"></script>
-<script src="utils.js?v=105"></script>
-<script src="ui.js?v=105"></script>
-<script src="dialog.js?v=105"></script>
-<script src="storage.js?v=105"></script>
-<script src="fonts/NotoSansJP.js?v=105"></script>
-<script src="export.js?v=105"></script>
-<script src="tool.js?v=105"></script>
-<script src="verify.js?v=105"></script>
+<script src="layer.js?v=106"></script>
+<script src="viewer.js?v=106"></script>
+<script src="utils.js?v=106"></script>
+<script src="ui.js?v=106"></script>
+<script src="dialog.js?v=106"></script>
+<script src="storage.js?v=106"></script>
+<script src="fonts/NotoSansJP.js?v=106"></script>
+<script src="export.js?v=106"></script>
+<script src="tool.js?v=106"></script>
+<script src="verify.js?v=106"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=105"></script>
+<script src="supabase-sync.js?v=106"></script>
 <script>
-const APP_VERSION = 'V1_05';
+const APP_VERSION = 'V1_06';
 
 // =========================================================
 // グローバル状態
