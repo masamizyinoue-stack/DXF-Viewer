@@ -144,6 +144,8 @@ function doSave(){
     if(typeof verify==='function')verify('doSave:done');
     scheduleBkSave(); // V0_121: クールダウン方式バックアップをスケジュール
     _dvAutoSave(); // V0_127: .dxfview自動保存
+    // V1_01: Supabaseへも現在ファイルの注記(strokes/dims)を自動保存（非同期・失敗しても無視）
+    if(typeof _sbPushCurrentAnnotations==='function'){try{_sbPushCurrentAnnotations();}catch(e){}}
   }catch(e){if(typeof verifyWarn==='function')verifyWarn('localStorage保存失敗');}
 }
 

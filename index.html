@@ -412,7 +412,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_00</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_05</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -467,6 +467,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="sp-section">
     <button id="importDxfviewBtn" class="sp-action-btn">書込復元</button> <!-- V0_136: .dxfview保存→書込復元に変更 -->
+  </div>
+  <div class="sp-section"> <!-- V1_03: クラウド保存状況（Supabaseの保存件数・使用サイズ） -->
+    <div class="sp-label">クラウド保存状況（Supabase）</div>
+    <div class="info-box" id="sbUsageBox" style="font-size:12px;color:#888;background:#0a0c10;border:1px solid #2a3040;border-radius:8px;padding:8px;min-height:44px;line-height:1.6">-</div>
+  </div>
+  <div class="sp-section"> <!-- V1_04: 氏名・合言葉でクラウド同期先を指定（端末を変えても復元可能に） / V1_05: 未登録時はSupabase未使用(オプトイン方式)に変更 -->
+    <div class="sp-label">クラウド同期の識別（お名前・合言葉）</div>
+    <div id="sbAuthStatus" style="font-size:12px;color:#888;margin-bottom:6px">-</div>
+    <input type="text" id="sbUserName" placeholder="お名前" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:8px;background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:6px;font-size:14px">
+    <input type="password" id="sbUserPass" placeholder="合言葉" autocomplete="off" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:8px;background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:6px;font-size:14px">
+    <div style="display:flex;gap:8px">
+      <button id="sbAuthSetBtn" class="sp-action-btn" style="flex:1">設定して同期</button>
+      <button id="sbAuthClearBtn" class="sp-danger-btn" style="flex:1">登録解除</button>
+    </div>
+    <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.5">※お名前・合言葉を登録した人のみクラウド保存が有効になります。未登録の場合はSupabaseへ一切保存されず、従来通りこの端末内(localStorage/IndexedDB)のみの保存になります。別の端末で同じお名前・合言葉を設定すると、その端末からもクラウド上の同じデータに繋がります。厳密なパスワード認証ではなく簡易的な識別のためのものです。登録解除してもクラウド上の既存データやこの端末のローカル保存には影響しません。</div>
   </div>
   <div class="sp-section" style="display:flex;flex-direction:column;gap:8px">
     <button id="clearBtn" class="sp-danger-btn">書込み・寸法_全消去</button>
@@ -629,18 +644,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=100"></script>
-<script src="viewer.js?v=100"></script>
-<script src="utils.js?v=100"></script>
-<script src="ui.js?v=100"></script>
-<script src="dialog.js?v=100"></script>
-<script src="storage.js?v=100"></script>
-<script src="fonts/NotoSansJP.js?v=100"></script>
-<script src="export.js?v=100"></script>
-<script src="tool.js?v=100"></script>
-<script src="verify.js?v=100"></script>
+<script src="layer.js?v=105"></script>
+<script src="viewer.js?v=105"></script>
+<script src="utils.js?v=105"></script>
+<script src="ui.js?v=105"></script>
+<script src="dialog.js?v=105"></script>
+<script src="storage.js?v=105"></script>
+<script src="fonts/NotoSansJP.js?v=105"></script>
+<script src="export.js?v=105"></script>
+<script src="tool.js?v=105"></script>
+<script src="verify.js?v=105"></script>
+<!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-sync.js?v=105"></script>
 <script>
-const APP_VERSION = 'V1_00';
+const APP_VERSION = 'V1_05';
 
 // =========================================================
 // グローバル状態
@@ -1058,6 +1076,14 @@ fileInput.addEventListener('change',async e=>{
         }catch(e3){resolve(null);}
       });
       if(_dvR){if(_dvR.dims&&_dvR.dims.length>0)dims=_dvR.dims;if(_dvR.strokes&&_dvR.strokes.length>0)strokes=_dvR.strokes;}}
+      // V1_01: ローカルに注記が無い場合のみSupabaseから自動復元を試みる（既存のローカル
+      // 復元結果を上書きしないよう、strokes/dimsが両方とも空の時だけ実行する）
+      if(strokes.length===0&&dims.length===0&&typeof _sbPullAnnotations==='function'){
+        try{
+          var _sbA=await _sbPullAnnotations(_fkR);
+          if(_sbA){if(_sbA.strokes&&_sbA.strokes.length>0)strokes=_sbA.strokes;if(_sbA.dims&&_sbA.dims.length>0)dims=_sbA.dims;}
+        }catch(e){}
+      }
       buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();scheduleDraw();showInfo();buildSearchIndex();_idbSave(f.name,buf,_searchIdx.map(function(m){return m.text;}));{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}
       saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();// V0_113: openFiles[]登録後に保存されるようdoSave→scheduleSave
       document.body.classList.remove('settings-open');
@@ -1270,7 +1296,56 @@ function doCloseTab(idx){
 
 
 // サイドバー
-document.getElementById('settingsBtn').addEventListener('click',()=>document.body.classList.add('settings-open'));
+document.getElementById('settingsBtn').addEventListener('click',()=>{
+  document.body.classList.add('settings-open');
+  // V1_03: 設定を開くたびにSupabaseのクラウド保存状況（保存件数・使用サイズ）を取得して表示
+  var _sbBox=document.getElementById('sbUsageBox');
+  if(_sbBox&&typeof _sbGetUsageStats==='function'){
+    _sbBox.textContent='読み込み中…';
+    _sbGetUsageStats().then(function(stats){
+      if(!_sbBox) return;
+      if(!stats){ _sbBox.textContent='取得できませんでした（オフライン、またはSupabase未接続）'; return; }
+      var mb=(stats.tableBytes/1024/1024).toFixed(1);
+      var pct=(stats.usedRatio*100).toFixed(1);
+      _sbBox.innerHTML='保存件数: '+stats.rowCount+'件<br>使用量: 約'+mb+'MB / 500MB（Free枠の'+pct+'%）';
+    });
+  } else if(_sbBox){
+    _sbBox.textContent='Supabase未接続';
+  }
+  // V1_04: 設定を開くたびに現在の同期識別状態（氏名 or 未登録）を表示
+  // V1_05: 未登録時の表示文言を「クラウド未使用」に変更（オプトイン方式のため）
+  var _sbAuthStatus=document.getElementById('sbAuthStatus');
+  if(_sbAuthStatus&&typeof _sbGetAuthStatus==='function'){
+    var _st=_sbGetAuthStatus();
+    _sbAuthStatus.textContent=(_st.mode==='user')?('現在: '+_st.name+' さんとして同期中'):'現在: 未登録（クラウド保存オフ・ローカル保存のみ）';
+  }
+});
+// V1_04: 氏名・合言葉を登録し、以後そのキーでクラウド同期する
+document.getElementById('sbAuthSetBtn').addEventListener('click',()=>{
+  var _nameEl=document.getElementById('sbUserName');
+  var _passEl=document.getElementById('sbUserPass');
+  var _statusEl=document.getElementById('sbAuthStatus');
+  if(typeof _sbSetUserCredentials!=='function') return;
+  _sbSetUserCredentials(_nameEl.value,_passEl.value).then(function(res){
+    if(!res.ok){ showGuide(res.error||'設定に失敗しました',2000); return; }
+    if(_statusEl) _statusEl.textContent='現在: '+res.name+' さんとして同期中';
+    _passEl.value='';
+    showGuide(res.name+'さんの識別で同期するようになりました',2000);
+  });
+});
+// V1_05: クラウド同期の登録を解除する（以後Supabaseへ一切保存しなくなる）
+document.getElementById('sbAuthClearBtn').addEventListener('click',()=>{
+  var _nameEl=document.getElementById('sbUserName');
+  var _passEl=document.getElementById('sbUserPass');
+  var _statusEl=document.getElementById('sbAuthStatus');
+  if(typeof _sbClearUserCredentials!=='function') return;
+  var res=_sbClearUserCredentials();
+  if(!res.ok){ showGuide(res.error||'解除に失敗しました',2000); return; }
+  if(_statusEl) _statusEl.textContent='現在: 未登録（クラウド保存オフ・ローカル保存のみ）';
+  if(_nameEl) _nameEl.value='';
+  if(_passEl) _passEl.value='';
+  showGuide('クラウド同期の登録を解除しました',2000);
+});
 document.getElementById('settingsClose').addEventListener('click',()=>document.body.classList.remove('settings-open'));
 // V0_129: Safari終了・バックグラウンド移行時に即時保存
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&currentFileName)doSave();}); // V0_132: ガード追加
@@ -3858,6 +3933,13 @@ async function openDxfFromDb(name,buf,keyword){
       if(_dvR){
         if(_dvR.strokes&&_dvR.strokes.length>0) strokes=_dvR.strokes;
         if(_dvR.dims&&_dvR.dims.length>0) dims=_dvR.dims;
+      }
+      // V1_01: ローカルに注記が無い場合のみSupabaseから自動復元を試みる
+      if(strokes.length===0&&dims.length===0&&typeof _sbPullAnnotations==='function'){
+        try{
+          var _sbA2=await _sbPullAnnotations(_fk);
+          if(_sbA2){if(_sbA2.strokes&&_sbA2.strokes.length>0)strokes=_sbA2.strokes;if(_sbA2.dims&&_sbA2.dims.length>0)dims=_sbA2.dims;}
+        }catch(e){}
       }
       // ⑧ openFilesへ登録
       openFiles.push({name:name,fileKey:_fk});
