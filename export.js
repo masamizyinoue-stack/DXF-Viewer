@@ -488,7 +488,13 @@ async function exportDxfviewManual(){
       savedViews:(typeof savedViews!=='undefined'?savedViews:[null,null,null,null,null]),
       hiddenLayers:(typeof hiddenLayers!=='undefined'?[...hiddenLayers]:[])
     };
-    const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+    // V1_16: type:'application/json'のままだと、PWA(standalone)でのプレビュー画面
+    // 経由の保存時にiOSがJSONと認識して勝手に「.json」を末尾に付与してしまい、
+    // 「◯◯_書込み.dxfview.json」という名前で保存される不具合が判明した（書込復元側の
+    // accept='.dxfview'と拡張子が一致せず、復元時に選べなくなる恐れがある）。
+    // application/octet-stream（種類不明の汎用バイナリ）にすることで、iOSに拡張子を
+    // 推測・付与させず、ダウンロード時のファイル名(fname)をそのまま使わせる
+    const blob=new Blob([JSON.stringify(payload)],{type:'application/octet-stream'});
     const base=(currentFileName||'').replace(/\.[^.]+$/,'')||null;
     const fname=(base?base+'_書込み':'書込み')+'.dxfview';
 
@@ -500,7 +506,7 @@ async function exportDxfviewManual(){
         var _prevHandle = await _bkHandleLoad();
         var opts = {
           suggestedName: fname,
-          types: [{ description: 'DXFView Backup', accept: { 'application/json': ['.dxfview'] } }]
+          types: [{ description: 'DXFView Backup', accept: { 'application/octet-stream': ['.dxfview'] } }] // V1_16: blobのtype変更に合わせて一致させる
         };
         if (_prevHandle) {
           // 前回ハンドルをstartInに指定（無効な場合はブラウザが自動的にデフォルトへ）
@@ -525,6 +531,20 @@ async function exportDxfviewManual(){
     // navigator.share(File) ならプレビューを飛ばして共有シート（ファイルに保存）へ直行し、
     // .dxfviewのファイル名もそのまま保持される。
     // 通常のSafari起動時は従来の<a>ダウンロードのまま（ダウンロード先設定で1タップ保存が最速のため）。
+    //
+    // 【V1_13〜V1_17での検討経緯・最終方針】
+    // 実機検証の結果、以下3方式はいずれも一長一短でトレードオフの関係にあり、
+    // 「タップ無し・共有シートの選択肢が豊富・余分なファイルも出ない」を同時に
+    // 満たす方法はiOSの仕様上存在しないことを確認した：
+    //   (a) Web Share + textなし(V1_13): タップ無し／選択肢少ない(コピー・Dropbox等が
+    //       出ない)／余分ファイル無し
+    //   (b) Web Share + text指定(V1_14): タップ無し／選択肢豊富／余分な「ファイル
+    //       <日時>.txt」が毎回もう1つ保存される
+    //   (c) <a>ダウンロードに統一(V1_15/V1_16): 保存前にiOS標準のプレビュー画面
+    //       →「その他...」を押す一手間が必要／選択肢豊富／余分ファイル無し
+    // ユーザーと相談の上、「保存の一手間が無いこと」を最優先し、(b)のWeb Share+text
+    // 方式を最終採用とした（余分なテキストファイルが毎回1つ増える点は、ユーザーが
+    // 把握・許容の上で受け入れ済み）。
     if (!_fsaSaved) {
       var _isStandalone = (window.navigator.standalone === true) ||
                           (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
@@ -532,7 +552,10 @@ async function exportDxfviewManual(){
         try {
           var shareFile = new File([blob], fname, { type: 'application/json' });
           if (navigator.canShare({ files: [shareFile] })) {
-            await navigator.share({ files: [shareFile], title: fname });
+            // V1_17: text指定のWeb Share方式（上記経緯により最終採用）。
+            // 余分なテキストファイルが毎回もう1つ保存されるのは既知・許容済みの
+            // 仕様上の制約であり、不具合ではない
+            await navigator.share({ files: [shareFile], text: fname });
             _fsaSaved = true; // 共有完了扱い
           }
         } catch (e) {
