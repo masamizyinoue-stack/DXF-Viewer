@@ -295,6 +295,7 @@ ov.addEventListener('touchstart',e=>{
       // ペンモード or 手書きモード+非描画ツール: パンのみ（既存動作）
       if(sketching){sketching=false;sketchPts=[];}
       panning=true;
+      _tapStartTime=Date.now();_tapStartX=sx;_tapStartY=sy; // V1_18: ダブルタップ全体表示の起点記録
     }
   }
 },{passive:false});
@@ -389,6 +390,26 @@ ov.addEventListener('touchend',e=>{
     if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser')||(window.SW&&window.SW.active))){
       handlePointerUp(lastMX,lastMY,false);
     }
+    // V1_18: ダブルタップ全体表示（V0_80で誤操作防止のため一旦廃止したが再要望により復活）。
+    // パン中(panning===true)の単純タップに限定して判定することで、描画・計測ツール
+    // 操作中（DIM/LP/LL/sketch/SW等）の誤爆は起きない設計にしている
+    if(!isPen&&panning
+        &&!sketching&&!(window.SW&&window.SW.active)
+        &&!(window.DIM&&window.DIM.active)&&!(window.LP&&window.LP.active)&&!(window.LL&&window.LL.active)
+        &&_tapStartTime){
+      var _tapDt=Date.now()-_tapStartTime;
+      var _tapDd=Math.hypot(lastMX-_tapStartX,lastMY-_tapStartY);
+      if(_tapDt<300&&_tapDd<12){ // 短時間・小移動＝ドラッグではなくタップ
+        var _tapNow=Date.now();
+        if(_tapNow-_lastTapTime<400&&Math.hypot(lastMX-_lastTapX,lastMY-_lastTapY)<40){
+          fit();scheduleDraw();scheduleSave(); // V0_74のfitBtnと同じ処理
+          _lastTapTime=0; // 3連続タップ等での誤爆防止
+        } else {
+          _lastTapTime=_tapNow;_lastTapX=lastMX;_lastTapY=lastMY;
+        }
+      }
+    }
+    _tapStartTime=0;
     if(!isPen){panning=false;mouseDown=false;}
     pinchDist=null;pinchMid=null;return;
   }

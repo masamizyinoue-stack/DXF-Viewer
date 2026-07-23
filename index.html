@@ -423,7 +423,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_17</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_21</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -614,6 +614,17 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
 </div>
 
+<!-- V1_20: 画面説明PDFをアプリ内オーバーレイ表示に変更（window.open方式はPWA単独起動時に
+     閉じるボタンが無いブラウザタブが開いてしまい戻れなくなるため、専用閉じるボタンに変更）
+     V1_21: iframe直表示はPWA(ホーム画面起動=WKWebView)だと1ページ目から動かせない既知の
+     制限があるため、PDFを事前にページ毎のPNG画像に変換し、縦スクロールで全ページ閲覧
+     できる方式に変更（screen-guide-pages/page-1.png〜page-4.png） -->
+<div id="screenGuideOverlay" style="display:none;position:fixed;inset:0;z-index:9200;background:#222">
+  <button id="screenGuideCloseBtn" style="position:absolute;top:10px;right:10px;z-index:9201;width:40px;height:40px;border-radius:20px;border:1px solid var(--border);background:var(--sb-bg);color:var(--text);font-size:18px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent">✕</button>
+  <div id="screenGuideScroll" style="position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;background:#222;padding:44px 0 24px">
+  </div>
+</div>
+
 <!-- V0_98: 文字検索パネル -->
 <div id="searchOverlay">
   <div id="searchBg"></div>
@@ -670,21 +681,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=117"></script>
-<script src="viewer.js?v=117"></script>
-<script src="utils.js?v=117"></script>
-<script src="ui.js?v=117"></script>
-<script src="dialog.js?v=117"></script>
-<script src="storage.js?v=117"></script>
-<script src="fonts/NotoSansJP.js?v=117"></script>
-<script src="export.js?v=117"></script>
-<script src="tool.js?v=117"></script>
-<script src="verify.js?v=117"></script>
+<script src="layer.js?v=121"></script>
+<script src="viewer.js?v=121"></script>
+<script src="utils.js?v=121"></script>
+<script src="ui.js?v=121"></script>
+<script src="dialog.js?v=121"></script>
+<script src="storage.js?v=121"></script>
+<script src="fonts/NotoSansJP.js?v=121"></script>
+<script src="export.js?v=121"></script>
+<script src="tool.js?v=121"></script>
+<script src="verify.js?v=121"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=117"></script>
+<script src="supabase-sync.js?v=121"></script>
 <script>
-const APP_VERSION = 'V1_17';
+const APP_VERSION = 'V1_21';
 
 // =========================================================
 // グローバル状態
@@ -721,6 +732,8 @@ var dragImageStart=null;
 var isPen=false;
 var mouseDown=false,lastMX=0,lastMY=0,panning=false;
 var pinchDist=null,pinchMid=null;
+// V1_18: ダブルタップ全体表示用（パン中の単純タップのみ対象。詳細はtool.js touchend参照）
+var _tapStartTime=0,_tapStartX=0,_tapStartY=0,_lastTapTime=0,_lastTapX=0,_lastTapY=0;
 // ERASER_RADIUS_PX → tool.js
 
 // showGuide / hideGuide → ui.js
@@ -1059,9 +1072,27 @@ function _fileKey(name,size){return name+'\x00'+size;}
 // ファイル
 const fileInput=document.getElementById('file');
 document.getElementById('openFileBtnMain').addEventListener('click',()=>fileInput.click());
-// V1_12: 画面説明PDFを別タブで開く（アプリ本体とは別ファイル。書式・機能には影響しない）
+// V1_12: 画面説明PDFを開く（アプリ本体とは別ファイル。書式・機能には影響しない）
+// V1_20: PWA単独起動時にwindow.openだと閉じるボタンの無いタブが開くことがあるため、
+// アプリ内オーバーレイ+専用閉じるボタン表示に変更
+// V1_21: iframeでのPDF直表示はPWA(WKWebView)だと1ページ目から動かせない制限があるため、
+// 事前変換したページ毎PNG画像(screen-guide-pages/page-N.png)を縦スクロールで表示する方式に変更
+const SCREEN_GUIDE_PAGE_COUNT=4;
 document.getElementById('screenGuideBtn').addEventListener('click',()=>{
-  window.open('screen-guide.pdf','_blank');
+  var box=document.getElementById('screenGuideScroll');
+  if(!box.dataset.loaded){
+    var html='';
+    for(var i=1;i<=SCREEN_GUIDE_PAGE_COUNT;i++){
+      html+='<img src="screen-guide-pages/page-'+i+'.png" style="display:block;width:100%;height:auto;margin:0 0 10px" alt="画面説明 '+i+'ページ目">';
+    }
+    box.innerHTML=html;
+    box.dataset.loaded='1';
+  }
+  box.scrollTop=0;
+  document.getElementById('screenGuideOverlay').style.display='block';
+});
+document.getElementById('screenGuideCloseBtn').addEventListener('click',()=>{
+  document.getElementById('screenGuideOverlay').style.display='none';
 });
 fileInput.addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
@@ -1652,8 +1683,9 @@ document.addEventListener('click',function(e){
 });
 // 初期表示（ページ読み込み時: スケッチが選択済み）
 updateToolColorDots();
-// ダブルタップ全体表示は削除（V0_80: 誤操作防止）
-// 全体表示は「全体」ボタン(fitBtn)のみで実行
+// V0_80: ダブルタップ全体表示は誤操作防止のため一旦廃止し「全体」ボタン(fitBtn)のみに限定していたが、
+// V1_18でユーザー要望により復活。tool.js touchendでパン中の単純タップに限定して判定し、
+// 描画・計測ツール操作中は対象外にすることで誤操作を防いでいる
 // 2本指パンと競合するため2本指タップUndoは廃止 → ↩ボタンで操作
 // viewmemo初期状態
 [0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_76: 5スロット対応
