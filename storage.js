@@ -463,6 +463,24 @@ function scheduleBkSave(){
 // doSave() のたびに dims/strokes を IDB へ自動保存する
 // =========================================================
 var _DV_IDB_NAME='dxfViewerDxfviewDB';
+// V1_40: _dvAutoSave()はdoSave()のたび（編集操作のたび、約800msデバウンス）に
+// 呼ばれる高頻度な処理だが、従来は毎回indexedDB.open()で新規接続を開き、
+// 一度もclose()していなかった。これはV1_24/V1_36でdxfIndex用DB(_idbConn)側に
+// 実際にクラッシュを引き起こしたのと同じ「未クローズ接続が溜まる」パターンで、
+// 長時間の編集セッションで同様の問題が起きうるため、同じ対策（接続キャッシュ＋
+// onclose検知による自動再接続）をこちらにも適用した
+var _dvIdbConn=null;
+function _dvOpenIdb(cb){
+  if(_dvIdbConn){cb(null,_dvIdbConn);return;}
+  var req=indexedDB.open(_DV_IDB_NAME,1);
+  req.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
+  req.onsuccess=function(e){
+    _dvIdbConn=e.target.result;
+    _dvIdbConn.onclose=function(){_dvIdbConn=null;};
+    cb(null,_dvIdbConn);
+  };
+  req.onerror=function(e){cb(e.target.error,null);};
+}
 function _dvAutoSave(){
   try{
     var fk=(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null)||currentFileName||'';
@@ -474,24 +492,34 @@ function _dvAutoSave(){
     var _dvFn=(_dvCf&&_dvCf.currentFileName)||currentFileName||'';
     var _dvFs=(_dvCf&&_dvCf.fileSize!=null)?_dvCf.fileSize:currentFileSize||0;
     if(typeof verify==='function')verify('IDB保存開始',{fk:fk});
-    var r=indexedDB.open(_DV_IDB_NAME,1);
-    r.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
-    r.onsuccess=function(e){
-      var db=e.target.result;
+    var _rec={
+      fk:fk,
+      format:'dxfview',          version:1,
+      fileName:_dvFn,fileSize:_dvFs,
+      savedAt:new Date().toISOString(),
+      dims:_dvDims.slice(),
+      strokes:_dvStrokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});})
+    };
+    // V1_40: 接続が無効化されていた場合に備え、transaction()呼び出しをtry/catchで
+    // 囲み、失敗時はキャッシュを破棄して1回だけ再接続してから保存する
+    function _dvPut(db,isRetry){
       try{
         var tx=db.transaction('dv','readwrite');
-        tx.objectStore('dv').put({
-          fk:fk,
-          format:'dxfview',          version:1,
-          fileName:_dvFn,fileSize:_dvFs,
-          savedAt:new Date().toISOString(),
-          dims:_dvDims.slice(),
-          strokes:_dvStrokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});})
-        });
+        tx.objectStore('dv').put(_rec);
         tx.oncomplete=function(){if(typeof verify==='function')verify('IDB保存成功',{fk:fk});};
         tx.onerror=function(ev){if(typeof verifyWarn==='function')verifyWarn('IDB保存失敗',{fk:fk,err:String(ev.target.error)});console.warn('[dxfview auto-save] tx error',ev.target.error);};
-      }catch(er){console.warn('[dxfview auto-save] put error',er);}
-    };
-    r.onerror=function(e){if(typeof verifyWarn==='function')verifyWarn('IDB保存失敗(open)',{fk:fk});console.warn('[dxfview auto-save] open error',e.target.error);};
+      }catch(er){
+        if(isRetry){console.warn('[dxfview auto-save] put error(retry)',er);return;}
+        _dvIdbConn=null;
+        _dvOpenIdb(function(err2,db2){
+          if(err2){console.warn('[dxfview auto-save] reopen error',err2);return;}
+          _dvPut(db2,true);
+        });
+      }
+    }
+    _dvOpenIdb(function(err,db){
+      if(err){if(typeof verifyWarn==='function')verifyWarn('IDB保存失敗(open)',{fk:fk});console.warn('[dxfview auto-save] open error',err);return;}
+      _dvPut(db,false);
+    });
   }catch(e){console.warn('[dxfview auto-save]',e);}
 }

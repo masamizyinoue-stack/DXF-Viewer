@@ -37,17 +37,8 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
   display:flex;align-items:center;gap:6px;padding:0 10px;position:relative;z-index:10;flex-shrink:0;
   overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none} /* V0_159: コマンドが収まらない場合は横スライドで全て選択可能に */
 .topbar::-webkit-scrollbar{display:none}
-#searchMenuPopup{display:none;position:fixed;top:0;left:0;background:var(--topbar-bg);
-  border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.5);
-  z-index:2000;min-width:150px} /* V0_159.1: .topbarのoverflow-y:hiddenでポップアップが
-  非表示になるバグを修正。absolute→fixedにし、topbarのクリッピングの影響を受けないようにした */
-#searchMenuPopup.open{display:flex;flex-direction:column}
-#searchMenuPopup button{display:flex;align-items:center;gap:8px;background:transparent;border:none;
-  color:var(--text);font-size:13px;padding:11px 14px;cursor:pointer;text-align:left;white-space:nowrap;
-  -webkit-tap-highlight-color:transparent}
-#searchMenuPopup button:active{background:rgba(255,255,255,.1)}
-#searchMenuPopup button+button{border-top:1px solid var(--border)}
-#searchMenuBtn.active{background:rgba(0,212,255,0.22);border-color:#00d4ff;color:#00d4ff} /* V0_159 */
+/* V1_38: フォルダ検索は「検索してファイルを開く」と機能が重複するため廃止。
+   検索ボタンは画面検索の単独ボタンとなったため、選択メニュー用CSS(#searchMenuPopup等)は削除した */
 .logo-block{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex-shrink:0;padding:0 4px;max-width:150px;min-width:0}
 .logo-text{font-size:17px;font-weight:700;color:var(--accent);line-height:1.2;white-space:nowrap}
 .logo-sub{font-size:10px;color:var(--text-dim);white-space:nowrap}
@@ -130,6 +121,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   color:var(--accent);font-size:15px;cursor:pointer;text-align:left;width:calc(100% - 32px);
   -webkit-tap-highlight-color:transparent}
 #openFileBtnMain:active{background:rgba(46,204,113,.18)}
+/* V1_24: 「検索してファイルを開く」ボタン（フォルダインデックス検索）。#openFileBtnMainと
+   同じ箱サイズ（padding/border-radius/font-size/width）で並べた。
+   V1_26: 色も#openFileBtnMainと完全に同じ緑蛍光デザインに統一（要望により変更） */
+#openFileSearchBtnMain{display:flex;align-items:center;gap:12px;margin:0 16px 14px;padding:14px 16px;
+  background:rgba(46,204,113,.08);border:1.5px solid var(--accent);border-radius:12px;
+  color:var(--accent);font-size:15px;cursor:pointer;text-align:left;width:calc(100% - 32px);
+  -webkit-tap-highlight-color:transparent}
+#openFileSearchBtnMain:active{background:rgba(46,204,113,.18)}
 .sp-file-icon{font-size:26px;flex-shrink:0}
 .sp-section{padding:12px 16px;border-top:1px solid var(--border)}
 .sp-label{font-size:11px;color:var(--text-dim);margin-bottom:8px;
@@ -212,6 +211,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #searchOverlay.open{display:block}
 #searchBg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
 #searchPanel{position:absolute;right:0;top:0;bottom:0;width:320px;max-width:85vw;background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;z-index:1}
+/* V1_27: 「テキスト読込」ピック中は背景の暗幕(searchBg/allSearchBg)へのタップを
+   無効化し、下の図面キャンバスへタップを届かせる。pointer-eventsは継承されるため
+   親(#searchOverlay等)をnoneにするだけでsearchBgも連動して無効化される。
+   パネル自体(#searchPanel等)はpointer-events:autoで再度有効化し、閉じるボタン等の
+   操作は引き続きできるようにする。暗幕も薄くして図面が見やすいようにする */
+#searchOverlay.picking{pointer-events:none}
+#searchOverlay.picking #searchPanel{pointer-events:auto}
+#searchOverlay.picking #searchBg{background:rgba(0,0,0,.15)}
 #searchInput{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);font-size:16px;box-sizing:border-box;-webkit-appearance:none;outline:none}
 #searchInput:focus{border-color:var(--accent)}
 .search-result-item{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;font-size:14px;color:var(--text);word-break:break-all;-webkit-tap-highlight-color:rgba(0,212,255,.2)}
@@ -221,6 +228,10 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #allSearchOverlay.open{display:block}
 #allSearchBg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
 #allSearchPanel{position:absolute;right:0;top:0;bottom:0;width:340px;max-width:88vw;background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;z-index:1}
+/* V1_27: 「テキスト読込」ピック中の背景タップ通過（詳細は#searchOverlay.pickingのコメント参照） */
+#allSearchOverlay.picking{pointer-events:none}
+#allSearchOverlay.picking #allSearchPanel{pointer-events:auto}
+#allSearchOverlay.picking #allSearchBg{background:rgba(0,0,0,.15)}
 #allSearchPanel .sp-header{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
 #allSearchPanel .sp-title{font-size:15px;font-weight:600;color:var(--text);flex:1}
 #allSearchPanel .sp-close{background:none;border:none;color:var(--text-dim,#6b7f99);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1}
@@ -239,7 +250,31 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V0_101: フォルダ一括インデックス */
 #folderIndexBtn{width:100%;padding:10px 0;border-radius:9px;border:none;background:var(--accent,#00d4ff);color:#000;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 #folderIndexBtn:active{opacity:.8}
+/* V1_27: 「テキスト読込」ボタン（画面検索/全図面検索共通）。押すと図面上の文字を
+   タップして検索欄へ自動入力するピックモードに入る。ピック中は.pickingで
+   黄色表示にして待機中であることを示す */
+.text-pick-btn{width:100%;padding:10px 0;border-radius:9px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;-webkit-tap-highlight-color:transparent}
+.text-pick-btn:active{background:rgba(255,255,255,.07)}
+.text-pick-btn.picking{border-color:#ffd700;background:rgba(255,215,0,.12);color:#ffd700}
 #folderProgress{font-size:13px;color:var(--accent,#00d4ff);min-height:18px;text-align:center}
+/* V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索と同じdxfIndexを共有） */
+#openFileOverlay{display:none;position:fixed;inset:0;z-index:300}
+#openFileOverlay.open{display:block}
+#openFileBg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+#openFilePanel{position:absolute;right:0;top:0;bottom:0;width:340px;max-width:88vw;background:var(--bg-panel);display:flex;flex-direction:column;overflow:hidden;z-index:1}
+/* V1_29: 「テキスト読込」ピック中の背景タップ通過（詳細は#searchOverlay.pickingのコメント参照） */
+#openFileOverlay.picking{pointer-events:none}
+#openFileOverlay.picking #openFilePanel{pointer-events:auto}
+#openFileOverlay.picking #openFileBg{background:rgba(0,0,0,.15)}
+#openFilePanel .sp-header{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+#openFilePanel .sp-title{font-size:15px;font-weight:600;color:var(--text);flex:1}
+#openFilePanel .sp-close{background:none;border:none;color:var(--text-dim,#6b7f99);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1}
+#openFileSearchInput{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);font-size:16px;box-sizing:border-box;-webkit-appearance:none;outline:none}
+#openFileSearchInput:focus{border-color:var(--accent)}
+#openFolderIndexBtn{width:100%;padding:10px 0;border-radius:9px;border:none;background:var(--accent,#00d4ff);color:#000;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+#openFolderIndexBtn:active{opacity:.8}
+#openFolderProgress{font-size:13px;color:var(--accent,#00d4ff);min-height:18px;text-align:center}
+#openFileIndexClearBtn{align-self:flex-end;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--text-dim,#6b7f99);background:transparent;color:var(--text-dim,#6b7f99);cursor:pointer}
 /* V0_107: タブバー */
 #tabBar{display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:#0d1117;border-bottom:1px solid #2a3040;min-height:0;max-height:40px;flex-shrink:0}
 #tabBar:empty{max-height:0;border-bottom:none}
@@ -363,23 +398,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11.01"/><line x1="12" y1="11" x2="12" y2="11.01"/><line x1="16" y1="11" x2="16" y2="11.01"/><line x1="8" y1="15" x2="8" y2="15.01"/><line x1="12" y1="15" x2="12" y2="15.01"/><line x1="16" y1="15" x2="16" y2="15.01"/><line x1="8" y1="19" x2="8" y2="19.01"/><line x1="12" y1="19" x2="12" y2="19.01"/><line x1="16" y1="19" x2="16" y2="19.01"/></svg>
 </button>
   <div class="tb-sep"></div>
-  <!-- V0_159: 「画面検索」「フォルダ検索」を「検索」ボタン+選択メニューに統合 -->
-  <div class="search-menu-wrap" style="position:relative">
-  <button class="tb-btn" id="searchMenuBtn" title="検索">
-  <span class="tb-tool-label">検索</span>
+  <!-- V1_38: フォルダ検索は「検索してファイルを開く」と重複するため削除。
+       検索ボタンは画面検索専用の単独ボタンに変更（旧V0_159の選択メニューを廃止） -->
+  <button class="tb-btn" id="searchMenuBtn" title="画面検索">
+  <span class="tb-tool-label">画面検索</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 </button>
-  <div id="searchMenuPopup">
-    <button id="searchMenuItemScreen">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      画面検索
-    </button>
-    <button id="searchMenuItemFolder">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><line x1="21" y1="21" x2="15" y2="15"/><line x1="10" y1="7" x2="10" y2="13"/><line x1="7" y1="10" x2="13" y2="10"/></svg>
-      フォルダ検索
-    </button>
-  </div>
-  </div>
   <!-- V0_147: スクショボタン削除 / V0_154: PDF書出ボタンは設定パネルへ移動 -->
   <button class="tb-btn" id="writeBackupBtn" title="書込みデータをバックアップ保存（.dxfview）"> <!-- V0_136: 書込バックアップボタン -->
   <span class="tb-tool-label">書込バックアップ</span>
@@ -423,12 +447,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_21</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_40</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
     <span class="sp-file-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
     <span>ファイルを開く<br><small style="font-size:12px;opacity:.7">DXF 対応</small></span> <!-- V0_148.3: 表記のみ変更（機能は変更なし） -->
+  </button>
+  <!-- V1_24: 「ファイルを開く」の中で検索とネイティブ選択を両方行うのはわかりにくいとの
+       指摘を受け、検索してファイルを開く機能を別ボタンとして分離した -->
+  <button id="openFileSearchBtnMain">
+    <span class="sp-file-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+    <span>検索してファイルを開く<br><small style="font-size:12px;opacity:.7">フォルダをインデックス化して検索</small></span>
   </button>
   <div class="sp-section"> <!-- V1_12: 画面説明PDFを開くボタン -->
     <button id="screenGuideBtn" class="sp-action-btn">画面説明</button>
@@ -638,6 +668,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
         <input type="search" id="searchInput" placeholder="キーワードを入力…" autocomplete="off" autocorrect="off" spellcheck="false" style="flex:1;width:auto;min-width:0">
         <button id="searchClearBtn" style="background:none;border:none;color:var(--text-dim,#6b7f99);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">✕</button>
       </div>
+      <!-- V1_27: テキスト読込ボタン。押すと図面上の文字をタップして検索欄へ自動入力できる。
+           V1_28: 視認性・操作性を考慮し検索欄の直下に移動（入力操作の並びとして自然な位置） -->
+      <button id="screenTextPickBtn" class="text-pick-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M20 7V5a1 1 0 0 0-1-1h-2M20 17v2a1 1 0 0 1-1 1h-2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+        テキスト読込
+      </button>
       <div id="searchCount" style="font-size:13px;color:var(--text-dim);min-height:18px"></div>
     </div>
     <div id="searchResultList" style="flex:1;overflow-y:auto"></div>
@@ -658,10 +694,49 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       </button>
       <div id="folderProgress"></div>
       <div style="display:flex;gap:4px;align-items:center"><input type="search" id="allSearchInput" placeholder="キーワードを入力…" autocomplete="off" autocorrect="off" spellcheck="false" style="flex:1;min-width:0"><button id="asrInputClearBtn" style="background:none;border:none;color:var(--text-dim,#888);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">✕</button><!-- V0_110: 音声入力 --><button id="voiceSearchBtn" style="background:none;border:none;color:var(--text-dim,#888);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0" title="音声入力">🎤</button><!-- /V0_110: 音声入力 --></div>
+      <!-- V1_27: テキスト読込ボタン。押すと図面上の文字をタップして検索欄へ自動入力できる。
+           V1_28: 視認性・操作性を考慮し検索欄の直下に移動（入力操作の並びとして自然な位置） -->
+      <button id="allTextPickBtn" class="text-pick-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M20 7V5a1 1 0 0 0-1-1h-2M20 17v2a1 1 0 0 1-1 1h-2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+        テキスト読込
+      </button>
       <div id="allSearchCount" style="font-size:13px;color:var(--text-dim);min-height:18px"></div>
       <button id="allSearchClearBtn">インデックスをクリア</button>
     </div>
     <div id="allSearchResultList" style="flex:1;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- V1_22: 「ファイルを開く」フォルダインデックス検索パネル。全図面検索(V0_100〜)と
+     同じdxfIndex(IndexedDB)を共有し、事前にフォルダをインデックス作成しておけば
+     ファイル名で絞り込んでタップするだけで開けるようにしたもの。未インデックスの
+     新規ファイルは「ネイティブのファイル選択を使う」から従来通り開ける -->
+<div id="openFileOverlay">
+  <div id="openFileBg"></div>
+  <div id="openFilePanel">
+    <div class="sp-header">
+      <span class="sp-title">ファイルを開く</span>
+      <button class="sp-close" id="openFileClose">✕</button>
+    </div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <button id="openFolderIndexBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+        フォルダを選択してインデックス作成
+      </button>
+      <div id="openFolderProgress"></div>
+      <div style="display:flex;gap:4px;align-items:center"><input type="search" id="openFileSearchInput" placeholder="ファイル名・図面内の文字で検索…" autocomplete="off" autocorrect="off" spellcheck="false" style="flex:1;min-width:0"><button id="openFileSearchClearBtn" style="background:none;border:none;color:var(--text-dim,#888);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">✕</button></div>
+      <!-- V1_29: テキスト読込ボタン。押すと図面上の文字をタップして検索欄へ自動入力できる
+           （画面検索/全図面検索と同じ機能。検索欄の直下に配置） -->
+      <button id="openFileTextPickBtn" class="text-pick-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M20 7V5a1 1 0 0 0-1-1h-2M20 17v2a1 1 0 0 1-1 1h-2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="13" y2="13"/></svg>
+        テキスト読込
+      </button>
+      <div id="openFileSearchCount" style="font-size:13px;color:var(--text-dim);min-height:18px"></div>
+      <!-- V1_24: ネイティブ選択は設定パネルの「ファイルを開く」ボタンに役割分離したため、
+           このパネル内の重複したフォールバックボタンは削除した -->
+      <button id="openFileIndexClearBtn">インデックスをクリア</button>
+    </div>
+    <div id="openFileResultList" style="flex:1;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -681,21 +756,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=121"></script>
-<script src="viewer.js?v=121"></script>
-<script src="utils.js?v=121"></script>
-<script src="ui.js?v=121"></script>
-<script src="dialog.js?v=121"></script>
-<script src="storage.js?v=121"></script>
-<script src="fonts/NotoSansJP.js?v=121"></script>
-<script src="export.js?v=121"></script>
-<script src="tool.js?v=121"></script>
-<script src="verify.js?v=121"></script>
+<script src="layer.js?v=140"></script>
+<script src="viewer.js?v=140"></script>
+<script src="utils.js?v=140"></script>
+<script src="ui.js?v=140"></script>
+<script src="dialog.js?v=140"></script>
+<script src="storage.js?v=140"></script>
+<script src="fonts/NotoSansJP.js?v=140"></script>
+<script src="export.js?v=140"></script>
+<script src="tool.js?v=140"></script>
+<script src="verify.js?v=140"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=121"></script>
+<script src="supabase-sync.js?v=140"></script>
 <script>
-const APP_VERSION = 'V1_21';
+const APP_VERSION = 'V1_40';
 
 // =========================================================
 // グローバル状態
@@ -1071,7 +1146,12 @@ function _fileKey(name,size){return name+'\x00'+size;}
 
 // ファイル
 const fileInput=document.getElementById('file');
+// V1_22で「ファイルを開く」をインデックス検索パネル経由に変更したが、検索と
+// ネイティブ選択が1つのボタンに同居してわかりにくいとの指摘を受け、
+// V1_24で元の単純なネイティブファイル選択に戻し、検索機能は別ボタン
+// (#openFileSearchBtnMain)に分離した
 document.getElementById('openFileBtnMain').addEventListener('click',()=>fileInput.click());
+document.getElementById('openFileSearchBtnMain').addEventListener('click',()=>openOpenFilePanel());
 // V1_12: 画面説明PDFを開く（アプリ本体とは別ファイル。書式・機能には影響しない）
 // V1_20: PWA単独起動時にwindow.openだと閉じるボタンの無いタブが開くことがあるため、
 // アプリ内オーバーレイ+専用閉じるボタン表示に変更
@@ -1094,6 +1174,12 @@ document.getElementById('screenGuideBtn').addEventListener('click',()=>{
 document.getElementById('screenGuideCloseBtn').addEventListener('click',()=>{
   document.getElementById('screenGuideOverlay').style.display='none';
 });
+// V1_40: ファイルを開く処理はparseDXF/PDF読込・IndexedDB復元・Supabase復元と
+// 複数のawaitをまたぐ非同期処理で、その途中でタブ切替やタブを閉じる操作を
+// 行うと、進行中の読込処理が完了した際に別タブのdoc/strokes/dims等を誤って
+// 上書きしてしまう競合状態(race condition)がありえた。ファイルを開いている間は
+// タブ切替・タブを閉じる操作をブロックする共通フラグを追加した
+var _isOpeningFileBusy=false;
 fileInput.addEventListener('change',async e=>{
   const f=e.target.files[0];if(!f)return;
   // V0_148: 同名ファイルの二重オープン防止（気付かず2つ開いて別々に書き込む事故を防ぐ）
@@ -1106,10 +1192,15 @@ fileInput.addEventListener('change',async e=>{
     e.target.value='';
     return;
   }}
+  if(_isOpeningFileBusy){e.target.value='';return;} // V1_40: 多重実行防止
+  _isOpeningFileBusy=true;
+  try{
   verify('fileInput.change:start');
   resetToolStates(); // V0_139: ファイル切替時に計測ツール状態をリセット
   // V0_140: saveCurrentFileState廃止 → 前ファイルのviewport状態をinline同期
-  if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140fi=openFiles[currentFileIdx];_pf140fi.tx=tx;_pf140fi.ty=ty;_pf140fi.scale=scale;_pf140fi.fitScale=fitScale;_pf140fi.hiddenLayersArr=Array.from(hiddenLayers);}
+  // V1_40: PDFタブの表示内容(pdfDoc/pdfImage/pdfPageNum)もここで退避しないと、
+  // 別ファイルを開いた後にこのタブへ戻った際PDFが消えてしまうため追加
+  if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140fi=openFiles[currentFileIdx];_pf140fi.tx=tx;_pf140fi.ty=ty;_pf140fi.scale=scale;_pf140fi.fitScale=fitScale;_pf140fi.hiddenLayersArr=Array.from(hiddenLayers);_pf140fi.pdfDoc=pdfDoc;_pf140fi.pdfImage=pdfImage;_pf140fi.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
   currentFileName=f.name;
   const buf=await f.arrayBuffer();
   doc=null;pdfDoc=null;pdfImage=null;
@@ -1154,10 +1245,13 @@ fileInput.addEventListener('change',async e=>{
   // V0_119: fileKeyベースで同名異サイズを別タブとして管理
   if(currentFileIdx<0){openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=0;}else{var _xi=openFiles.findIndex(function(x){return x.fileKey===_fileKey(f.name,f.size);});if(_xi>=0){currentFileIdx=_xi;}else{openFiles.push({name:f.name,fileKey:_fileKey(f.name,f.size)});currentFileIdx=openFiles.length-1;}}openFilesBufs[currentFileIdx]=buf;
   // V0_140: saveCurrentFileState()削除 → strokes/dims/images/savedViewsをopenFiles[]に参照として設定
-  {var _nf140=openFiles[currentFileIdx];_nf140.strokes=strokes;_nf140.dims=dims;_nf140.images=typeof images!=='undefined'?images:[];_nf140.savedViews=savedViews;_nf140.doc=doc;_nf140.hiddenLayersArr=Array.from(hiddenLayers);_nf140.tx=tx;_nf140.ty=ty;_nf140.scale=scale;_nf140.fitScale=fitScale;_nf140.currentFileName=currentFileName;_nf140.fileSize=currentFileSize;}
+  // V1_40: PDFを開いた場合、pdfDoc/pdfImage/pdfPageNumがopenFiles[]に一度も
+  // 保存されていなかったため、このタブから他タブへ移動して戻ると必ずPDFが
+  // 消えてしまう不具合があった。ここで初回登録時に保存するようにした
+  {var _nf140=openFiles[currentFileIdx];_nf140.strokes=strokes;_nf140.dims=dims;_nf140.images=typeof images!=='undefined'?images:[];_nf140.savedViews=savedViews;_nf140.doc=doc;_nf140.hiddenLayersArr=Array.from(hiddenLayers);_nf140.tx=tx;_nf140.ty=ty;_nf140.scale=scale;_nf140.fitScale=fitScale;_nf140.currentFileName=currentFileName;_nf140.fileSize=currentFileSize;_nf140.pdfDoc=pdfDoc;_nf140.pdfImage=pdfImage;_nf140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
   updateFileNavUI();// V0_112
   verify('fileInput.change:done');
-  e.target.value='';
+  }finally{_isOpeningFileBusy=false;e.target.value='';} // V1_40
 });
 
 // V0_93: マルチファイル管理 ─────────────────────────────────────
@@ -1190,6 +1284,7 @@ function switchToFile(idx){
     _prevF.tx=tx;_prevF.ty=ty;_prevF.scale=scale;_prevF.fitScale=fitScale;
     var _pn2=1;try{if(typeof pdfPageNum!=='undefined')_pn2=pdfPageNum;}catch(e){}
     _prevF.pdfPageNum=_pn2;
+    _prevF.pdfDoc=pdfDoc;_prevF.pdfImage=pdfImage; // V1_40: PDF内容も退避
     _prevF.hiddenLayersArr=Array.from(hiddenLayers);
   }
   currentFileIdx=idx;
@@ -1209,7 +1304,14 @@ function switchToFile(idx){
   if(typeof buildLayerModal==='function') buildLayerModal();
   if(typeof buildSnapCache==='function') buildSnapCache();
   if(typeof checkPerfMode==='function') checkPerfMode();
-  fit(); scheduleDraw(); scheduleOverlay();buildSearchIndex();
+  // V1_39: タブ切替時に、そのタブの前回の表示状態（拡大率・位置）を復元する。
+  // 従来はここで無条件にfit()を呼んでいたため、Aを拡大表示→Bを開く→Aに戻る、
+  // という操作でAの拡大表示が失われ全体表示にリセットされてしまっていた。
+  // 保存済みのscaleがあればtx/ty/scale/fitScaleを復元し、初回表示等でまだ
+  // 記録が無い場合のみ従来通りfit()する
+  if(typeof f.scale==='number'){tx=f.tx||0;ty=f.ty||0;scale=f.scale;if(f.fitScale)fitScale=f.fitScale;}
+  else fit();
+  scheduleDraw(); scheduleOverlay();buildSearchIndex();
   updateFileNameDisplay(); scheduleSave();
   var ppc=document.getElementById('pdfPageCtrl');
   if(ppc) ppc.style.display=pdfDoc?'':'none';
@@ -1244,10 +1346,10 @@ function updateFileNavUI(){
       var close=document.createElement('button');
       close.className='tab-close';
       close.textContent='✕';
-      close.addEventListener('click',function(e){e.stopPropagation();closeTab(idx);});
+      close.addEventListener('click',function(e){e.stopPropagation();if(_isOpeningFileBusy)return;closeTab(idx);}); // V1_40: 読込中は操作不可
       item.appendChild(name);
       item.appendChild(close);
-      item.addEventListener('click',function(){if(idx!==currentFileIdx) switchToFile(idx);});
+      item.addEventListener('click',function(){if(_isOpeningFileBusy)return;if(idx!==currentFileIdx) switchToFile(idx);}); // V1_40: 読込中は操作不可
       bar.appendChild(item);
     })(order[k]);
   }
@@ -1312,7 +1414,9 @@ function closeTab(idx){
 function doCloseTab(idx){
   verify('doCloseTab',{idx:idx,currentFileIdx:currentFileIdx});
   // V0_140: saveCurrentFileState廃止 → viewport状態のみinline同期
-  if(idx!==currentFileIdx&&currentFileIdx>=0&&currentFileIdx<openFiles.length){var _cv140=openFiles[currentFileIdx];_cv140.tx=tx;_cv140.ty=ty;_cv140.scale=scale;_cv140.fitScale=fitScale;_cv140.hiddenLayersArr=Array.from(hiddenLayers);}
+  // V1_40: 別タブを閉じる際も現在表示中タブのpdfDoc/pdfImage/pdfPageNumを
+  // 退避する（無いとPDF表示中に他タブを閉じただけでPDFが消える不具合があった）
+  if(idx!==currentFileIdx&&currentFileIdx>=0&&currentFileIdx<openFiles.length){var _cv140=openFiles[currentFileIdx];_cv140.tx=tx;_cv140.ty=ty;_cv140.scale=scale;_cv140.fitScale=fitScale;_cv140.hiddenLayersArr=Array.from(hiddenLayers);_cv140.pdfDoc=pdfDoc;_cv140.pdfImage=pdfImage;_cv140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
   // V0_160.1: 閉じるファイルを参照している記憶(savedViews)スロットをリセットする
   // （savedViewsはV0_160でファイル横断のグローバル項目になったため、記憶元ファイルが
   // 閉じられたまま残ると「表示」を押した時に必ず「開かれていません」となってしまう）
@@ -1635,7 +1739,10 @@ document.querySelectorAll('.show-btn').forEach(btn=>{
 
 
 // V0_71: コンテキスト感知色丸ボタン制御
-const DIM_TOOLS=['dxdy','diag','lp','circDim','radDim'];
+// V1_30: 「2線間」(ll)がこの一覧に含まれておらず、2線間コマンド中に寸法色選択ボタン
+// (dimColorDot)が表示されない不具合を修正。他の寸法系ツール(dxdy/diag/lp/circDim/
+// radDim)と同様、llもDIM_TOOLSに含めることでボタンが表示されるようにした
+const DIM_TOOLS=['dxdy','diag','lp','ll','circDim','radDim'];
 function updateToolColorDots(){
   const isSk=currentTool==='sketch';
   const isHl=currentTool==='hl';
@@ -3849,6 +3956,90 @@ function jumpToSearchResult(item){
   },400);
 }
 
+// V1_27: 「テキスト読込」機能。画面検索/全図面検索のどちらかのボタンを押すと
+// ピックモードに入り、次に図面上でタップした文字要素(doc.moji)の内容を
+// その検索欄へ自動入力する。ピック中はtool.js touchendのダブルタップ全体表示より
+// 優先して処理され（詳細はtool.js側のコメント参照）、また検索パネルの暗幕
+// (searchBg/allSearchBg)のタップも無効化して図面へタップが届くようにしている
+// (詳細は#searchOverlay.pickingのCSSコメント参照)
+var _textPickTarget=null; // null | 'screen' | 'all' | 'openFile'
+function _setTextPickMode(target){
+  _textPickTarget=target;
+  var ov1=document.getElementById('searchOverlay');
+  var ov2=document.getElementById('allSearchOverlay');
+  var ov3=document.getElementById('openFileOverlay'); // V1_29
+  if(ov1) ov1.classList.toggle('picking', target==='screen');
+  if(ov2) ov2.classList.toggle('picking', target==='all');
+  if(ov3) ov3.classList.toggle('picking', target==='openFile');
+  // V1_31: 「検索してファイルを開く」ボタンは設定パネル(settingsPanel)を開いたまま
+  // 表示されるため、その状態でテキスト読込ピックモードに入ると、設定パネルの
+  // 暗幕(#settingsOverlay)がopenFileOverlayの下に残ったままタップを奪ってしまい、
+  // 1回目のタップで設定パネルが閉じるだけで文字が拾えず、2回目のタップで
+  // ようやく拾える不具合があった。ピックモードに入る瞬間に設定パネルを閉じることで
+  // 1回のタップで文字を読み込めるようにした
+  if(target) document.body.classList.remove('settings-open');
+  if(target) showGuide('図面上の文字をタップしてください（もう一度ボタンを押すと中止）',0);
+  else hideGuide();
+  var b1=document.getElementById('screenTextPickBtn');
+  var b2=document.getElementById('allTextPickBtn');
+  var b3=document.getElementById('openFileTextPickBtn'); // V1_29
+  if(b1) b1.classList.toggle('picking', target==='screen');
+  if(b2) b2.classList.toggle('picking', target==='all');
+  if(b3) b3.classList.toggle('picking', target==='openFile');
+}
+function _tapPickText(sx0,sy0){
+  if(!doc||!doc.moji||doc.moji.length===0){showGuide('図面に文字がありません',2000);return;}
+  var mctx=document.getElementById('ov').getContext('2d');
+  var best=null,bestArea=Infinity;
+  for(var i=0;i<doc.moji.length;i++){
+    var e=doc.moji[i];
+    if(!e.text||!e.text.trim()) continue;
+    var pos=w2s(e.x,e.y);
+    var dx=sx0-pos[0], dy=sy0-pos[1];
+    var ang=(e.angle||0)*Math.PI/180;
+    var cos=Math.cos(ang), sin=Math.sin(ang);
+    // drawText()は-angleで回転して描画しているため、当たり判定は逆回転(+angle)で
+    // タップ座標を文字ローカル座標系に戻す
+    var lx=dx*cos-dy*sin, ly=dx*sin+dy*cos;
+    if(e.widthFactor&&Math.abs(e.widthFactor-1)>0.01) lx/=e.widthFactor;
+    var fs=Math.max(6,e.h*scale);
+    mctx.font=fs+'px sans-serif';
+    var lines=e.text.split('\n');
+    var maxW=0;
+    for(var li=0;li<lines.length;li++){var w=mctx.measureText(lines[li]).width;if(w>maxW)maxW=w;}
+    var n=lines.length;
+    var pad=Math.max(4,fs*0.15);
+    var top=-fs*(n-1)-fs*0.85-pad, bottom=fs*0.3+pad, left=-pad, right=maxW+pad;
+    if(lx>=left&&lx<=right&&ly>=top&&ly<=bottom){
+      var area=(right-left)*(bottom-top);
+      if(area<bestArea){bestArea=area;best=e;}
+    }
+  }
+  if(!best){showGuide('文字が見つかりませんでした。もう一度タップしてください',2200);return;}
+  var target=_textPickTarget;
+  var text=best.text.replace(/\n/g,' ').trim();
+  _setTextPickMode(null);
+  if(target==='screen'){
+    document.getElementById('searchInput').value=text;
+    doSearch();
+  } else if(target==='all'){
+    document.getElementById('allSearchInput').value=text;
+    doAllSearch();
+  } else if(target==='openFile'){ // V1_29
+    document.getElementById('openFileSearchInput').value=text;
+    doOpenFileSearch();
+  }
+  showGuide('「'+text+'」を検索欄に入力しました',2200);
+}
+document.getElementById('screenTextPickBtn').addEventListener('click',function(){
+  _setTextPickMode(_textPickTarget==='screen'?null:'screen');
+});
+document.getElementById('allTextPickBtn').addEventListener('click',function(){
+  _setTextPickMode(_textPickTarget==='all'?null:'all');
+});
+document.getElementById('openFileTextPickBtn').addEventListener('click',function(){ // V1_29
+  _setTextPickMode(_textPickTarget==='openFile'?null:'openFile');
+});
 function openScreenSearch(){ // V0_159: 画面検索（旧searchBtnクリック処理を関数化）
   // DXFが開かれていたら再インデックス（念のため）
   if(doc&&doc.moji) buildSearchIndex();
@@ -3860,49 +4051,154 @@ function openScreenSearch(){ // V0_159: 画面検索（旧searchBtnクリック�
   if(inp.value.trim()) doSearch();
   setTimeout(function(){inp.focus();},120);
 }
-function closeSearch(){document.getElementById('searchOverlay').classList.remove('open');_searchHighlight=null;scheduleOverlay();}
+function closeSearch(){document.getElementById('searchOverlay').classList.remove('open');_searchHighlight=null;scheduleOverlay();if(_textPickTarget==='screen')_setTextPickMode(null);} // V1_27: パネルを閉じたらテキスト読込ピックモードも解除
 document.getElementById('searchClose').addEventListener('click',closeSearch);
 document.getElementById('searchBg').addEventListener('click',closeSearch);
 document.getElementById('searchInput').addEventListener('input',doSearch);
 
 // V0_100: IndexedDB 全図面検索 ───────────────────────────────────────
 var _IDB_NAME='dxfViewerDB', _IDB_VER=1, _IDB_STORE='dxfIndex';
+// V1_24: 「フォルダを選択してインデックス作成」実行中に落ちる不具合の修正。
+// 従来は_idbSave()を呼ぶたび（＝フォルダ内のファイル1件ごと）にindexedDB.open()で
+// 新しい接続を作っており、一度も閉じていなかった。数十〜数百件のフォルダを
+// インデックスすると同数の未クローズ接続が溜まり、WKWebView(PWA)のリソースを
+// 圧迫してクラッシュしていたと考えられる。接続を1つだけ作って使い回すように変更した
+var _idbConn=null;
 function _openIdb(cb){
+  if(_idbConn){cb(null,_idbConn);return;}
   var req=indexedDB.open(_IDB_NAME,_IDB_VER);
   req.onupgradeneeded=function(e){
     var db=e.target.result;
     if(!db.objectStoreNames.contains(_IDB_STORE))
       db.createObjectStore(_IDB_STORE,{keyPath:'name'});
   };
-  req.onsuccess=function(e){cb(null,e.target.result);};
+  req.onsuccess=function(e){
+    _idbConn=e.target.result;
+    // V1_36: 接続がブラウザ側で予期せず閉じられた場合にキャッシュを破棄し、
+    // 次回呼び出し時に自動で再接続できるようにする
+    _idbConn.onclose=function(){_idbConn=null;};
+    cb(null,_idbConn);
+  };
   req.onerror=function(e){cb(e.target.error,null);};
 }
-function _idbSave(name,buf,texts){
+// V1_36: 「同じフォルダを索引化すると初回は成功するが、2回目以降は全件エラーになる」
+// 「索引完了と表示されるのにキーワード検索が反応しない」という不具合の修正。
+// 原因はV1_24で導入した接続キャッシュ(_idbConn)が、大量ファイル処理後にブラウザ側
+// (WKWebView)によって無効化されることがあり、無効な接続のままdb.transaction()を
+// 呼ぶと例外が発生していたこと。この例外はprocessFolderFiles()側のtry/catchで
+// 「ファイル解析エラー」として誤ってカウントされてしまっていた。
+// ここでキャッシュ済み接続が無効かどうかを検知し、無効なら破棄して1回だけ
+// 再接続してから処理する共通ヘルパーに一本化した
+function _idbTx(mode,cb){
   _openIdb(function(err,db){
+    if(err){cb(err,null);return;}
+    try{
+      cb(null,db.transaction(_IDB_STORE,mode));
+    }catch(e){
+      _idbConn=null;
+      _openIdb(function(err2,db2){
+        if(err2){cb(err2,null);return;}
+        try{
+          cb(null,db2.transaction(_IDB_STORE,mode));
+        }catch(e2){
+          cb(e2,null);
+        }
+      });
+    }
+  });
+}
+function _idbSave(name,buf,texts){
+  _idbTx('readwrite',function(err,tx){
     if(err)return;
-    var tx=db.transaction(_IDB_STORE,'readwrite');
-    tx.objectStore(_IDB_STORE).put({name:name,buf:buf,texts:texts,ts:Date.now()});
+    var req=tx.objectStore(_IDB_STORE).put({name:name,buf:buf,texts:texts,ts:Date.now()});
+    // V1_37: put()自体が失敗した場合（データ破損・容量超過等）に気づけるよう
+    // コンソールへ記録する。processFolderFiles()の成功/失敗カウントには
+    // 影響させない（従来通り解析成功時点でdone扱いとする）
+    req.onerror=function(e){console.warn('[_idbSave] 保存失敗:',name,e.target.error);};
+  });
+}
+// V1_37: 「前回のインデックス対象フォルダ」表示が、実際にインデックス済みなのか
+// 単に前回試みたフォルダ名を覚えているだけなのか分かりにくいとの指摘を受けて
+// 追加。実際にIndexedDBへ保存されている件数を数える
+function _idbCount(cb){
+  _idbTx('readonly',function(err,tx){
+    if(err){cb(0);return;}
+    var req=tx.objectStore(_IDB_STORE).count();
+    req.onsuccess=function(e){cb(e.target.result||0);};
+    req.onerror=function(){cb(0);};
   });
 }
 function _idbGetAll(cb){
-  _openIdb(function(err,db){
+  _idbTx('readonly',function(err,tx){
     if(err){cb([]);return;}
-    var tx=db.transaction(_IDB_STORE,'readonly');
     var req=tx.objectStore(_IDB_STORE).getAll();
     req.onsuccess=function(e){cb(e.target.result||[]);};
     req.onerror=function(){cb([]);};
   });
 }
 function _idbClear(){
-  _openIdb(function(err,db){
+  _idbTx('readwrite',function(err,tx){
     if(err)return;
-    var tx=db.transaction(_IDB_STORE,'readwrite');
     tx.objectStore(_IDB_STORE).clear();
+  });
+}
+// V1_23: 「ファイルを開く」パネルの不安定・重い・落ちる不具合の修正で追加した
+// 軽量なファイル名一覧取得（getAllKeys()、bufを一切読み込まない）。
+// V1_25: 図面内の文字も検索対象にする際、texts[]も併せて軽量に取得できる
+// _idbGetAllNameTexts()（下記）に一本化したため、こちらは使用箇所がなくなり削除した。
+// V1_23: 開く時だけ1件分のbufを取得（全件同時読込を避け、必要な1ファイル分のみ
+// メモリに載せる）
+function _idbGetOne(name,cb){
+  _idbTx('readonly',function(err,tx){
+    if(err){cb(null);return;}
+    var req=tx.objectStore(_IDB_STORE).get(name);
+    req.onsuccess=function(e){cb(e.target.result||null);};
+    req.onerror=function(){cb(null);};
+  });
+}
+// V1_25: 「検索してファイルを開く」でファイル名だけでなく図面内の文字も検索対象に
+// してほしいとの要望で追加。_idbGetAll()のようにgetAll()で全件のbufを含む完全な
+// レコードを一度にメモリへ載せるのではなく、カーソルで1件ずつ読みながら{name,
+// texts,ts}だけを取り出して積み上げる方式にしている。カーソル走査中は各レコードの
+// bufも一時的にデシリアライズされるが、そのレコード自体を保持しないため（v.bufへ
+// 参照を残さない）、V1_23で修正した「全ファイルのbufを同時に保持し続けて重い・
+// 落ちる」問題を再発させない
+function _idbGetAllNameTexts(cb){
+  _idbTx('readonly',function(err,tx){
+    if(err){cb([]);return;}
+    var out=[];
+    var req=tx.objectStore(_IDB_STORE).openCursor();
+    req.onsuccess=function(e){
+      var cursor=e.target.result;
+      if(cursor){
+        var v=cursor.value;
+        out.push({name:v.name,texts:v.texts||[],ts:v.ts||0});
+        cursor.continue();
+      } else {
+        cb(out);
+      }
+    };
+    req.onerror=function(){cb(out);};
   });
 }
 
 function openAllSearchPanel(){
   document.getElementById('allSearchOverlay').classList.add('open');
+  // V1_33: 進捗表示が空（インデックス処理中・完了直後の表示が残っていない）場合は
+  // 直近にインデックスしたフォルダ名を表示し、どのフォルダの索引か分かるようにする
+  // V1_37: 「前回のインデックス対象フォルダ」という表示だと、実際に保存済みなのか
+  // 単に前回試みたフォルダ名を覚えているだけなのか分かりにくいとの指摘のため、
+  // 実際にIndexedDBへ保存されている件数を調べて表示するよう変更した
+  var prog=document.getElementById('folderProgress');
+  if(prog&&!prog.textContent&&_dxfIndexFolderName){
+    var _fn=_dxfIndexFolderName;
+    _idbCount(function(n){
+      if(prog.textContent) return; // 表示中に他の処理が進捗を書き換えていたら上書きしない
+      prog.textContent = n>0
+        ? 'インデックス済み: 「'+_fn+'」（'+n+'件 保存済み）'
+        : '「'+_fn+'」のインデックスは保存されていません。再度インデックス作成してください';
+    });
+  }
   var inp=document.getElementById('allSearchInput');
   if(inp.value.trim()) doAllSearch();
   setTimeout(function(){inp.focus();},120);
@@ -3947,6 +4243,12 @@ function doAllSearch(){
 // ・F-2: 既存タブ時はstrokes/dims/images/savedViewsを上書きせず保持
 // ・F-3: findIndexをfileKeyベースに変更（同名異サイズ問題を修正）
 async function openDxfFromDb(name,buf,keyword){
+  // V1_40: fileInput側と同じ「ファイルを開いている最中はタブ切替・新規オープンを
+  // ブロックする」フラグ。検索結果を連続タップした場合や、読込中にタブを
+  // 切替えた場合に、非同期処理完了時に別タブのdoc/strokes/dimsを誤って
+  // 上書きする競合状態を防ぐ
+  if(_isOpeningFileBusy) return;
+  _isOpeningFileBusy=true;
   verify('openDxfFromDb:before',{name:name});
   try{
     // V0_148: 同名ファイルの二重オープン防止
@@ -4049,44 +4351,138 @@ async function openDxfFromDb(name,buf,keyword){
     var _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';
     // マークポップアップ（V0_104）
     var _mp=document.getElementById('markPopup');if(_mp){if(_searchMarks.length>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
-  }catch(err){alert('図面を開けません: '+err.message);}
+  }catch(err){alert('図面を開けません: '+err.message);}finally{_isOpeningFileBusy=false;} // V1_40
 }
-// V0_159: 「画面検索」「フォルダ検索」を「検索」ボタン配下のポップアップメニューに統合
+// V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索(V0_100〜)と同じ
+// dxfIndex(IndexedDB)を共有し、ファイル名で絞り込んで開けるようにしたもの）
+function openOpenFilePanel(){
+  document.getElementById('openFileOverlay').classList.add('open');
+  // V1_33: 進捗表示が空の場合は直近にインデックスしたフォルダ名を表示する
+  // V1_37: 実際の保存件数を調べて表示するよう変更（詳細はopenAllSearchPanel参照）
+  var oprog=document.getElementById('openFolderProgress');
+  if(oprog&&!oprog.textContent&&_dxfIndexFolderName){
+    var _fn2=_dxfIndexFolderName;
+    _idbCount(function(n){
+      if(oprog.textContent) return;
+      oprog.textContent = n>0
+        ? 'インデックス済み: 「'+_fn2+'」（'+n+'件 保存済み）'
+        : '「'+_fn2+'」のインデックスは保存されていません。再度インデックス作成してください';
+    });
+  }
+  doOpenFileSearch();
+}
+function closeOpenFilePanel(){document.getElementById('openFileOverlay').classList.remove('open');if(_textPickTarget==='openFile')_setTextPickMode(null);} // V1_29: パネルを閉じたらテキスト読込ピックモードも解除
+var _openFileSearchGen=0;
+var _openFileOpening=false; // V1_23: 開く処理の多重タップ防止
+// V1_23: bufを含まない軽量な一覧のみで表示・絞り込みを行い、タップされた1件だけ
+// _idbGetOneでbufを取得して開く方式（不安定・重い・落ちる不具合の修正）。
+// V1_25: ファイル名だけでなく図面内の文字（全図面検索と同じtexts[]）も検索対象に
+// 追加。一覧取得は_idbGetAllNameTexts()（bufを保持しない軽量版）を使うため、
+// V1_23で修正した「全ファイルのbufを同時に読み込んで重い・落ちる」問題は
+// 再発しない
+function doOpenFileSearch(){
+  var gen=++_openFileSearchGen;
+  var kw=document.getElementById('openFileSearchInput').value.trim().toLowerCase();
+  var list=document.getElementById('openFileResultList');
+  var cnt=document.getElementById('openFileSearchCount');
+  _idbGetAllNameTexts(function(records){
+    if(gen!==_openFileSearchGen) return;
+    list.innerHTML='';
+    if(records.length===0){
+      cnt.textContent='';
+      var d=document.createElement('div');
+      d.style.cssText='padding:24px 16px;text-align:center;color:var(--text-dim,#6b7f99);font-size:13px';
+      d.textContent='インデックスがありません。「フォルダを選択してインデックス作成」を押してください';
+      list.appendChild(d);
+      return;
+    }
+    var filtered=[];
+    records.forEach(function(r){
+      if(!kw){filtered.push({name:r.name,matched:[]});return;}
+      var nameHit=r.name.toLowerCase().indexOf(kw)>=0;
+      var textHits=(r.texts||[]).filter(function(t){return t.toLowerCase().indexOf(kw)>=0;});
+      if(nameHit||textHits.length>0) filtered.push({name:r.name,matched:textHits});
+    });
+    filtered.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});}); // V0_157と同じ自然順
+    cnt.textContent=filtered.length+'件（全'+records.length+'件）';
+    if(filtered.length===0){
+      var d2=document.createElement('div');
+      d2.style.cssText='padding:24px 16px;text-align:center;color:var(--text-dim,#6b7f99);font-size:13px';
+      d2.textContent='見つかりません';
+      list.appendChild(d2);
+      return;
+    }
+    filtered.forEach(function(item){
+      var el=document.createElement('div');el.className='asr-item';
+      var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=item.name;
+      el.appendChild(fn);
+      if(item.matched&&item.matched.length>0){
+        var ht=document.createElement('div');ht.className='asr-hit';
+        ht.textContent=item.matched.slice(0,4).join(' / ')+(item.matched.length>4?' …':'');
+        el.appendChild(ht);
+      }
+      el.addEventListener('click',function(){
+        if(_openFileOpening) return; // 多重タップで複数ファイルを同時読込しない
+        _openFileOpening=true;
+        fn.textContent=item.name+'　読込中…';
+        _idbGetOne(item.name,function(rec){
+          _openFileOpening=false;
+          if(!rec){showGuide('「'+item.name+'」を読み込めませんでした',2500);fn.textContent=item.name;return;}
+          closeOpenFilePanel();
+          openDxfFromDb(rec.name,rec.buf,kw||null); // V1_25: キーワードがあれば図面内マークも表示
+        });
+      });
+      list.appendChild(el);
+    });
+  });
+}
+document.getElementById('openFileClose').addEventListener('click',closeOpenFilePanel);
+document.getElementById('openFileBg').addEventListener('click',closeOpenFilePanel);
+// V1_23: 検索欄の入力ごとに即実行せず150msデバウンスし、連続入力時の再描画負荷を抑える
+var _openFileSearchDebTimer=null;
+document.getElementById('openFileSearchInput').addEventListener('input',function(){
+  clearTimeout(_openFileSearchDebTimer);
+  _openFileSearchDebTimer=setTimeout(doOpenFileSearch,150);
+});
+document.getElementById('openFileSearchClearBtn').addEventListener('click',function(){
+  document.getElementById('openFileSearchInput').value='';
+  doOpenFileSearch();
+});
+document.getElementById('openFileIndexClearBtn').addEventListener('click',function(){
+  if(confirm('検索インデックスを全て削除しますか？')){
+    _idbClear();
+    // V1_33: フォルダ名表示もあわせてクリア
+    _dxfIndexFolderName='';
+    try{localStorage.removeItem('_dxfIndexFolderName');}catch(e){}
+    document.getElementById('folderProgress').textContent='';
+    document.getElementById('openFolderProgress').textContent='';
+    doOpenFileSearch();
+    document.getElementById('allSearchResultList').innerHTML='';
+    document.getElementById('allSearchCount').textContent='インデックスをクリアしました';
+  }
+});
+// V1_38: フォルダ検索は「検索してファイルを開く」と重複するため削除。
+// 検索ボタンは画面検索専用となったため、選択メニュー(V0_159)は廃止し直接
+// openScreenSearch()を呼ぶだけのシンプルなボタンにした
 (function(){
   var menuBtn=document.getElementById('searchMenuBtn');
-  var popup=document.getElementById('searchMenuPopup');
-  if(!menuBtn||!popup) return;
-  function closeMenu(){popup.classList.remove('open');menuBtn.classList.remove('active');}
-  function toggleMenu(e){
-    e.stopPropagation();
-    var willOpen=!popup.classList.contains('open');
-    if(willOpen){
-      // V0_159.1: position:fixedのポップアップをボタン直下に配置（topbarのoverflow-y:hiddenで
-      // 隠れてしまうバグの修正。開くたびにボタンの実座標を取得して都度位置決めする）
-      var r=menuBtn.getBoundingClientRect();
-      popup.style.top=(r.bottom+6)+'px';
-      popup.style.left=r.left+'px';
-      popup.classList.add('open');menuBtn.classList.add('active');
-    } else closeMenu();
-  }
-  menuBtn.addEventListener('click',toggleMenu);
-  document.getElementById('searchMenuItemScreen').addEventListener('click',function(e){
-    e.stopPropagation();closeMenu();openScreenSearch();
-  });
-  document.getElementById('searchMenuItemFolder').addEventListener('click',function(e){
-    e.stopPropagation();closeMenu();openAllSearchPanel();
-  });
-  document.addEventListener('click',function(e){
-    if(popup.classList.contains('open')&&!popup.contains(e.target)&&e.target!==menuBtn) closeMenu();
+  if(!menuBtn) return;
+  menuBtn.addEventListener('click',function(e){
+    e.stopPropagation();openScreenSearch();
   });
 })();
-function closeAllSearch(){document.getElementById('allSearchOverlay').classList.remove('open');}
+function closeAllSearch(){document.getElementById('allSearchOverlay').classList.remove('open');if(_textPickTarget==='all')_setTextPickMode(null);} // V1_27: パネルを閉じたらテキスト読込ピックモードも解除
 document.getElementById('allSearchClose').addEventListener('click',closeAllSearch);
 document.getElementById('allSearchBg').addEventListener('click',closeAllSearch);
 document.getElementById('allSearchInput').addEventListener('input',doAllSearch);
 document.getElementById('allSearchClearBtn').addEventListener('click',function(){
   if(confirm('検索インデックスを全て削除しますか？')){
     _idbClear();
+    // V1_33: フォルダ名表示もあわせてクリア
+    _dxfIndexFolderName='';
+    try{localStorage.removeItem('_dxfIndexFolderName');}catch(e){}
+    document.getElementById('folderProgress').textContent='';
+    document.getElementById('openFolderProgress').textContent='';
     document.getElementById('allSearchResultList').innerHTML='';
     document.getElementById('allSearchCount').textContent='インデックスをクリアしました';
   }
@@ -4106,37 +4502,66 @@ document.getElementById('markPopup').addEventListener('click',function(){
 });
 
 // V0_101: フォルダ一括インデックス ──────────────────────────────────
+// V1_22: 同じ#folderInputを「全図面検索」パネルと「ファイルを開く」パネルの両方から
+// 使い回すため、どちらから起動したかを_folderIndexSourceで記録し、進捗表示先を切替える
+var _folderIndexSource='allSearch';
+// V1_33: 「どのフォルダをインデックスしたか分からない」との指摘を受け追加。
+// 直近にフォルダ選択インデックスを実行したフォルダ名をlocalStorageへ永続化し、
+// アプリを再読込してパネルを開いた直後でも分かるようにする（通常のファイル
+// オープンによる自動追加インデックスではこの値は更新しない）
+var _dxfIndexFolderName=(function(){try{return localStorage.getItem('_dxfIndexFolderName')||'';}catch(e){return '';}})();
 document.getElementById('folderIndexBtn').addEventListener('click', function(){
+  _folderIndexSource='allSearch';
+  document.getElementById('folderInput').click();
+});
+document.getElementById('openFolderIndexBtn').addEventListener('click', function(){
+  _folderIndexSource='openFile';
   document.getElementById('folderInput').click();
 });
 document.getElementById('folderInput').addEventListener('change', function(e){
-  var files = Array.from(e.target.files).filter(function(f){
+  var progEl = document.getElementById(_folderIndexSource==='openFile'?'openFolderProgress':'folderProgress');
+  var allFiles = Array.from(e.target.files);
+  var files = allFiles.filter(function(f){
     return f.name.toLowerCase().endsWith('.dxf');
   });
   if(files.length === 0){
-    document.getElementById('folderProgress').textContent = 'DXFファイルが見つかりません';
+    progEl.textContent = 'DXFファイルが見つかりません';
     return;
   }
-  processFolderFiles(files);
+  // V1_33: webkitRelativePathの先頭セグメント＝選択したフォルダ名を取得
+  var folderName='';
+  var relRef=files[0].webkitRelativePath||(allFiles[0]&&allFiles[0].webkitRelativePath)||'';
+  if(relRef) folderName=relRef.split('/')[0];
+  processFolderFiles(files, progEl, folderName);
   e.target.value = '';
 });
-function processFolderFiles(files){
-  var prog = document.getElementById('folderProgress');
+function processFolderFiles(files, progEl, folderName){
+  var prog = progEl || document.getElementById('folderProgress');
   var total = files.length;
   var done = 0;
   var errors = 0;
-  prog.textContent = '準備中… (0 / ' + total + '件)';
+  var errorSamples=[]; // V1_35: エラー内容をユーザーに見せるため、代表的なメッセージを保持
+  var fn = folderName ? '「'+folderName+'」' : ''; // V1_33: 進捗表示にフォルダ名を含める
+  prog.textContent = (fn?fn+'を':'')+'準備中… (0 / ' + total + '件)';
   // 非同期で順番に処理
   function next(idx){
     if(idx >= total){
-      prog.textContent = '完了: ' + (total - errors) + '件インデックス済み' + (errors > 0 ? '（' + errors + '件エラー）' : '');
-      // 検索入力に値があれば再検索
+      // V1_35: エラーがあった場合、原因がすぐ分かるよう代表的なエラー内容を併記する
+      // （従来はconsole.warnのみでユーザーからは原因が見えなかった）
+      var errMsg = errorSamples.length ? '（'+errors+'件エラー: '+errorSamples.join(' / ')+'）' : (errors>0?'（'+errors+'件エラー）':'');
+      prog.textContent = (fn?fn+'の':'')+'インデックスが完了しました: ' + (total - errors) + '件' + errMsg;
+      if(folderName){ // V1_33: 次回パネルを開いた時のためにフォルダ名を保存
+        _dxfIndexFolderName=folderName;
+        try{localStorage.setItem('_dxfIndexFolderName',folderName);}catch(e){}
+      }
+      // 検索入力に値があれば再検索（全図面検索・ファイルを開くの両パネル）
       var inp = document.getElementById('allSearchInput');
       if(inp.value.trim()) doAllSearch();
+      if(document.getElementById('openFileOverlay').classList.contains('open')) doOpenFileSearch();
       return;
     }
     var f = files[idx];
-    prog.textContent = '処理中… ' + (idx + 1) + ' / ' + total + '件: ' + f.name;
+    prog.textContent = (fn?fn+'を':'')+'処理中… ' + (idx + 1) + ' / ' + total + '件: ' + f.name;
     var reader = new FileReader();
     reader.onload = function(ev){
       try{
@@ -4153,6 +4578,8 @@ function processFolderFiles(files){
         done++;
       }catch(err){
         errors++;
+        var _emsg=(err&&err.message)?err.message:String(err);
+        if(errorSamples.length<3&&errorSamples.indexOf(_emsg)<0) errorSamples.push(_emsg); // V1_35
         console.warn('[FolderIndex] ' + f.name + ':', err.message);
       }
       setTimeout(function(){ next(idx + 1); }, 0);
