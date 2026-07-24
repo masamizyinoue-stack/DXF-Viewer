@@ -38,3 +38,45 @@ function _showMemMenu(idx,anchorBtn){
     if(!menu.contains(ev.target)){closeMenu();document.removeEventListener('click',_dc);}
   });},10);
 }
+
+// =========================================================
+// V1_64: PDFページ番号ジャンプ（#pageInfoタップで表示）
+// 依存グローバル: pdfDoc, pdfPageNum (viewer.js)
+// 依存関数: renderPdfPage (viewer.js), scheduleSave, showGuide (ui.js)
+// =========================================================
+function _showPageJumpDialog(anchorEl){
+  if(!pdfDoc) return;
+  var existing=document.getElementById('_pageJumpMenu');
+  if(existing){existing.remove();return;}
+  var total=pdfDoc.numPages;
+  var menu=document.createElement('div');
+  menu.id='_pageJumpMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:180px;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.right=(window.innerWidth-r.right)+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">ページ移動（全'+total+'ページ）</div>'
+    +'<input type="number" id="_pageJumpInput" min="1" max="'+total+'" value="'+pdfPageNum+'" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;font-size:16px;background:#0a0c10;color:#eee;border:1px solid #2a3040;text-align:center">'
+    +'<button id="_pageJumpGo" style="background:#1a7a3a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;">移動</button>'
+    +'<button id="_pageJumpCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_pageJumpMenu'))menu.remove();}
+  var inp=document.getElementById('_pageJumpInput');
+  inp.focus();inp.select();
+  async function doJump(){
+    var n=parseInt(inp.value,10);
+    if(!n||n<1||n>total){showGuide('1〜'+total+'の範囲でページ番号を入力してください',2000);return;}
+    closeMenu();
+    if(n===pdfPageNum) return;
+    pdfPageNum=n;
+    var pi=document.getElementById('pageInfo');if(pi)pi.textContent=pdfPageNum+'/'+total;
+    await renderPdfPage(pdfPageNum);
+    scheduleSave(); // V1_64: PDFページジャンプを保存
+  }
+  document.getElementById('_pageJumpGo').onclick=doJump;
+  inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();doJump();}});
+  document.getElementById('_pageJumpCnl').onclick=closeMenu;
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}

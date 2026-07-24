@@ -176,11 +176,46 @@ async function tryRestore(){
         var _activeLocal=-1;
         for(var _i=0;_i<_md.files.length;_i++){
           var _mf=_md.files[_i];
-          if(_mf.isPDF) continue;
           var _fname=_mf.fileKey||_mf.currentFileName||_mf.name; // V0_116: fileKey優先（後方互換fallback付き）
           // V0_114: IDB優先→localStorageフォールバック
           var _buf2=await _lsIdbGetP(_fname,FILE_KEY+'_'+_i);
           if(!_buf2) continue;
+          // V1_55: 従来はPDFタブを無条件でcontinueして復元対象から除外していたため、
+          // DXFと一緒にPDFタブを開いていた場合、アプリを閉じて再度開くとPDFタブだけ
+          // 消えてしまう不具合があった。pdfjsLib.getDocument()でpdfDocを再構築し、
+          // 保存されていたページを再描画してpdfImageも復元するようにした
+          if(_mf.isPDF){
+            try{
+              if(typeof pdfjsLib==='undefined') continue;
+              var _pnR=_mf.pdfPageNum||1;
+              var _pdocR=await pdfjsLib.getDocument({data:_buf2.slice(0)}).promise; // V1_52同様、bufをdetachさせないようコピーを渡す
+              var _pageR=await _pdocR.getPage(_pnR);
+              var _vpR=_pageR.getViewport({scale:3});
+              var _offR=document.createElement('canvas');
+              _offR.width=_vpR.width;_offR.height=_vpR.height;
+              await _pageR.render({canvasContext:_offR.getContext('2d'),viewport:_vpR}).promise;
+              var _pdfImgR={img:_offR,wx:0,wy:_vpR.height/3,ww:_vpR.width/3,wh:_vpR.height/3};
+              var _sv3=(_mf.savedViews||[]).slice();
+              while(_sv3.length<5)_sv3.push(null);
+              var _fstP={
+                name:_mf.currentFileName||_mf.name,
+                currentFileName:_mf.currentFileName||_mf.name,
+                fileKey:_mf.fileKey||_fname,
+                doc:null,pdfDoc:_pdocR,pdfImage:_pdfImgR,pdfPageNum:_pnR,
+                strokes:_mf.strokes||[],
+                dims:_mf.dims||[],
+                images:[],
+                savedViews:_sv3,
+                hiddenLayersArr:_mf.hiddenLayersArr||[],
+                tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
+                fileSize:_mf.fileSize||0
+              };
+              if(_i===_md.currentFileIdx) _activeLocal=_restored.length;
+              _restored.push(_fstP);
+              _rbufs.push(_buf2);
+            }catch(e2){console.warn('[PDFタブ復元]',e2);}
+            continue;
+          }
           try{
             var _pdoc=parseDXF(_buf2);
             var _sv=(_mf.savedViews||[]).slice();
@@ -211,7 +246,10 @@ async function tryRestore(){
           var _ai=(_activeLocal>=0)?_activeLocal:_restored.length-1;
           currentFileIdx=_ai;
           var _af=openFiles[_ai];
-          doc=_af.doc; pdfDoc=null; pdfImage=null;
+          // V1_55: PDFタブも復元対象になったため、_af.pdfDoc/_af.pdfImageを
+          // そのまま採用する（従来はDXF専用の前提でpdfDoc/pdfImageを常にnullにしていた）
+          doc=_af.doc||null; pdfDoc=_af.pdfDoc||null; pdfImage=_af.pdfImage||null;
+          try{if(typeof pdfPageNum!=='undefined')pdfPageNum=_af.pdfPageNum||1;}catch(e){}
           // V0_140: deep copy廃止 → 参照エイリアス（openFiles[]を唯一の本体とする）
           strokes=_af.strokes;
           dims=_af.dims;
@@ -270,6 +308,11 @@ async function tryRestore(){
             if(typeof updateToolColorDots==='function')updateToolColorDots();
           }
           const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';
+          // V1_55: PDFタブ復元時、ページ送りUI(#pdfPageCtrl/#pageInfo)もswitchToFile()と
+          // 同じ内容で復元する（従来はDXF専用の前提でこのUIに一切触れていなかった）
+          {var _ppcR=document.getElementById('pdfPageCtrl');
+          if(_ppcR) _ppcR.style.display=pdfDoc?'':'none';
+          if(pdfDoc){var _piR=document.getElementById('pageInfo');if(_piR)_piR.textContent=(pdfPageNum||1)+'/'+pdfDoc.numPages;}}
           updateFileNameDisplay();
           [0,1,2,3,4].forEach(function(i){updateViewmemoState(i);});
           buildLayerModal();

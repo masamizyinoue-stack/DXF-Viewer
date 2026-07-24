@@ -277,10 +277,11 @@ function handlePointerUp(sx,sy,isPenInput){
       snapshot();
       if(currentTool==='hl'){
         // 蛍光ペン: hl:true フラグ付きで保存（V0_70）
-        strokes.push({pts:[...sketchPts],color:{...currentHL_Color},lw:currentHL_LW,hl:true});
+        // V1_65: PDFの場合、現在ページ番号をpageとして付与（ページごとに書き込みを分離するため）
+        strokes.push({pts:[...sketchPts],color:{...currentHL_Color},lw:currentHL_LW,hl:true,page:_curPage()});
         if(typeof verify==='function')verify('蛍光追加',{len:strokes.length});
       } else {
-        strokes.push({pts:[...sketchPts],color:{...currentColor},lw:currentLW}); // ③ 絶対px値で保存
+        strokes.push({pts:[...sketchPts],color:{...currentColor},lw:currentLW,page:_curPage()}); // ③ 絶対px値で保存
         if(typeof verify==='function')verify('ペン追加',{len:strokes.length});
       }
       sketching=false;sketchPts=[];scheduleOverlay();doSave(); // V0_103: 即時保存
@@ -294,8 +295,11 @@ function handlePointerUp(sx,sy,isPenInput){
 // =========================================================
 function eraseAt(wx,wy){
   const r=ERASER_RADIUS_PX/scale;
-  strokes=strokes.filter(s=>!s.pts.some(p=>Math.hypot(p.x-wx,p.y-wy)<r));
-  dims=dims.filter(d=>Math.hypot(d.tx-wx,d.ty-wy)>=r);
+  // V1_65: 現在表示中のページ(_curPage())のstrokes/dimsのみを消しゴム対象にする。
+  // 他ページの要素は(s.page||1)!==curの条件で常にtrue（=残す）扱いになるため触れない
+  var cur=_curPage();
+  strokes=strokes.filter(s=>(s.page||1)!==cur||!s.pts.some(p=>Math.hypot(p.x-wx,p.y-wy)<r));
+  dims=dims.filter(d=>(d.page||1)!==cur||Math.hypot(d.tx-wx,d.ty-wy)>=r);
   // V0_140: filter後は新配列になるためopenFiles[]に明示同期
   if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){
     openFiles[currentFileIdx].strokes=strokes;
