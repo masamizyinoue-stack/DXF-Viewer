@@ -19,6 +19,149 @@
 
 // ERASER_RADIUS_PX: var宣言でグローバル公開（drawOverlayがHTMLから参照するため）
 var ERASER_RADIUS_PX=20;
+// V1_46: 手書きモードで指計測時、指に隠れないようカーソルを上にずらすオフセット量(px)
+var FINGER_CURSOR_OFFSET_Y=60;
+
+// V1_47: 手書きモードでの指計測 対象判定・呼び分け（DIM=直径/半径、LP=線と点、LL=2線間、
+// それ以外の水平/鉛直(dxdy)・斜め(diag)はDIM.active等の状態フラグを持たずcurrentToolで
+// 判定するhandlePointerDown/Move/Up内蔵の仕組みのため、ここで一本化して呼び分ける）
+function _fingerMeasureActive(){
+  return (window.DIM&&window.DIM.active)||(window.LP&&window.LP.active)||(window.LL&&window.LL.active)
+      ||currentTool==='dx'||currentTool==='dy'||currentTool==='dxdy'||currentTool==='diag';
+}
+function _fingerMeasureDown(sx,sy){
+  if(window.DIM&&window.DIM.active) window.DIM.handleDown(sx,sy);
+  else if(window.LP&&window.LP.active) window.LP.handleDown(sx,sy);
+  else if(window.LL&&window.LL.active) window.LL.handleDown(sx,sy);
+  else handlePointerDown(sx,sy,true); // dx/dy/dxdy/diag: ペン相当のダウン→ムーブ→アップで確定
+}
+function _fingerMeasureMove(sx,sy){
+  if(window.DIM&&window.DIM.active) window.DIM.handleMove(sx,sy);
+  else if(window.LP&&window.LP.active) window.LP.handleMove(sx,sy);
+  else if(window.LL&&window.LL.active) window.LL.handleMove(sx,sy);
+  else handlePointerMove(sx,sy,true);
+}
+function _fingerMeasureUp(sx,sy){
+  if(window.DIM&&window.DIM.active) window.DIM.handleUp(sx,sy);
+  else if(window.LP&&window.LP.active) window.LP.handleUp(sx,sy);
+  else if(window.LL&&window.LL.active) window.LL.handleUp(sx,sy);
+  else handlePointerUp(sx,sy,true);
+}
+
+// V1_48: 水平/鉛直・斜め(dimState方式)の点確定処理を一本化。
+// handlePointerDown(指:即確定)・handlePointerUp(ペン:離して確定)の両方、および
+// 「2線間の交点」ボタン(IPX)からの点供給からも共通で呼べるようにする。
+// saveImmediately: 3点そろって寸法を確定した際に即時保存(doSave)するかどうか
+// （従来、指操作時は呼ばれておらず、ペン操作時のみ呼ばれていた挙動をそのまま踏襲）
+function _dimStateCommitPoint(pt,saveImmediately){
+  dimState.pts.push(pt);
+  // ガイドメッセージ更新
+  if(currentTool==='dxdy'||currentTool==='diag'){
+    if(dimState.pts.length===1) showGuide('2点目を選択してください');
+    else if(dimState.pts.length===2) showGuide('寸法線の位置を指定してください');
+  }
+  const need=3; // diag も dxdy も 3ステップ（P1→P2→位置）
+  if(dimState.pts.length>=need){
+    const[p1,p2,p3]=dimState.pts;
+    snapshot();
+    let dimType=currentTool;
+    if(currentTool==='dxdy'&&dimState.pts.length>=2){
+      const p1_=dimState.pts[0], p2_=dimState.pts[1];
+      const p3_=dimState.pts[2]||p2_;
+      const midX=(p1_.x+p2_.x)/2, midY=(p1_.y+p2_.y)/2;
+      const horizOfs=Math.abs(p3_.x-midX);
+      const vertOfs=Math.abs(p3_.y-midY);
+      dimType = vertOfs >= horizOfs ? 'dx' : 'dy';
+    }
+    dims.push(buildDim(p1,p2,p3||p2,dimType));
+    if(typeof verify==='function')verify('寸法追加',{len:dims.length});
+    dimState={pts:[]};
+    if(saveImmediately) doSave(); // V0_103: 即時保存
+    hideGuide();
+    showGuide('寸法を追加しました ↩ で取消', 2000);
+  }
+  scheduleOverlay();
+}
+
+// V1_49: 手書きモードで指計測中、候補（線・円・スナップ点・交点）がまだ見つかって
+// いない間、実際の指位置より少し上（V1_46のオフセット位置）に「指の形」の仮カーソルを
+// 表示する。候補が見つかったら、各ツールが元々描画している専用のマーカー（スナップ
+// マーカーやハイライト等）に表示を譲り、この仮カーソルは消す。
+// ペン入力時はペン先そのものが正確なカーソルとして見えるため対象外（従来通り）。
+function _fingerCursorInfo(){
+  if(!(typeof inputMode!=='undefined'&&inputMode==='freehand'&&mouseDown&&!isPen)) return null;
+  if(window.DIM&&window.DIM.active){
+    var D=window.DIM;
+    if(D.phase===0){
+      if(!D._hoverPos) return null;
+      var nearEnk=(typeof findNearestCircleEdge==='function')?findNearestCircleEdge(D._hoverPos.x,D._hoverPos.y):null;
+      return nearEnk?null:{wx:D._hoverPos.x,wy:D._hoverPos.y};
+    }
+    if(D.phase===2){
+      var c=D.cur;
+      if(c&&c.type&&c.type!=='default') return null; // 何らかのスナップ済み
+      var hp=D._hoverPos||c;
+      return hp?{wx:hp.x,wy:hp.y}:null;
+    }
+    return null;
+  }
+  if(window.LP&&window.LP.active){
+    var P=window.LP;
+    if(P.phase===0) return P._hoverLine?null:(P._hoverPos?{wx:P._hoverPos.x,wy:P._hoverPos.y}:null);
+    if(P.phase===1) return P.cur?null:(P._hoverPos?{wx:P._hoverPos.x,wy:P._hoverPos.y}:null);
+    if(P.phase===2) return P._hoverPos?{wx:P._hoverPos.x,wy:P._hoverPos.y}:null;
+    return null;
+  }
+  if(window.LL&&window.LL.active){
+    var Q=window.LL;
+    if(Q.phase===0||Q.phase===1) return Q._hoverLine?null:(Q._hoverPos?{wx:Q._hoverPos.x,wy:Q._hoverPos.y}:null);
+    if(Q.phase===2) return Q._hoverPos?{wx:Q._hoverPos.x,wy:Q._hoverPos.y}:null;
+    return null;
+  }
+  if(window.IPX&&window.IPX.active){
+    var X=window.IPX;
+    return X._hoverLine?null:(X._hoverPos?{wx:X._hoverPos.x,wy:X._hoverPos.y}:null);
+  }
+  if(currentTool==='dx'||currentTool==='dy'||currentTool==='dxdy'||currentTool==='diag'){
+    if(typeof snapPt!=='undefined'&&snapPt) return null;
+    if(typeof currentCursorWorld!=='undefined'&&currentCursorWorld) return {wx:currentCursorWorld.x,wy:currentCursorWorld.y};
+    return null;
+  }
+  return null;
+}
+
+// V1_50: 見た目をシンプルな十字印に変更。白背景(bwMode)・黒背景のどちらでも
+// 見えるよう、背景と反対系統の色のハロー（縁取り）を下地に描き、その上に
+// 視認性の高い赤系の線を重ねる（ハロー色だけを背景で切り替える方式）
+function _drawFingerCursor(){
+  var info=_fingerCursorInfo();
+  if(!info) return;
+  var sc=w2s(info.wx,info.wy);
+  var sx=sc[0],sy=sc[1];
+  var dpr=window.devicePixelRatio||1;
+  var r=11;
+  var haloColor=(typeof bwMode!=='undefined'&&bwMode)?'rgba(255,255,255,0.95)':'rgba(0,0,0,0.6)';
+  octx.save();
+  octx.scale(dpr,dpr);
+  octx.lineCap='round';
+  // ハロー（背景色に応じた太めの縁取り）
+  octx.strokeStyle=haloColor; octx.lineWidth=5;
+  octx.beginPath();
+  octx.moveTo(sx-r,sy); octx.lineTo(sx+r,sy);
+  octx.moveTo(sx,sy-r); octx.lineTo(sx,sy+r);
+  octx.stroke();
+  // 十字本体
+  octx.strokeStyle='#ff3b30'; octx.lineWidth=2.5;
+  octx.beginPath();
+  octx.moveTo(sx-r,sy); octx.lineTo(sx+r,sy);
+  octx.moveTo(sx,sy-r); octx.lineTo(sx,sy+r);
+  octx.stroke();
+  octx.restore();
+}
+// V1_49: drawOverlayへの連結はindex.html側（DIM/LP/LL/IPXの後、最後尾）で行う。
+// 理由: tool.jsはDIM/LP/LL/IPXより先に読み込まれるため、ここでwindow.drawOverlayを
+// ラップすると各ツールの上書き(overlay)より先に描画されてしまい、指カーソルが
+// 各ツールのマーカーの下に隠れてしまう。最前面に出すため一番最後に連結する。
 
 // =========================================================
 // ポインタ座標取得
@@ -29,6 +172,8 @@ function getPos(e){const r=ov.getBoundingClientRect();return {x:e.clientX-r.left
 // ポインタダウン処理
 // =========================================================
 function handlePointerDown(sx,sy,isPenInput){
+  // V1_48: 「2線間の交点」ピック中は、通常のツール処理より優先してIPXへ渡す
+  if(window.IPX&&window.IPX.active){window.IPX.handleDown(sx,sy);return;}
   // DIMシステムがアクティブな場合は DIM の pointerup ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
   if(window.LP&&window.LP.active)return;
@@ -44,32 +189,8 @@ function handlePointerDown(sx,sy,isPenInput){
       dimPendingDown=true;return;
     }
     const snap=snapAt(wx,wy);const pt=snap||{x:wx,y:wy};
-    dimState.pts.push(pt);
-    // ガイドメッセージ更新
-    if(currentTool==='dxdy'||currentTool==='diag'){
-      if(dimState.pts.length===1) showGuide('2点目を選択してください');
-      else if(dimState.pts.length===2) showGuide('寸法線の位置を指定してください');
-    }
-    const need=3; // diag も dxdy も 3ステップ（P1→P2→位置）
-    if(dimState.pts.length>=need){
-      const[p1,p2,p3]=dimState.pts;
-      snapshot();
-      let dimType=currentTool;
-      if(currentTool==='dxdy'&&dimState.pts.length>=2){
-        const p1_=dimState.pts[0], p2_=dimState.pts[1];
-        const p3_=dimState.pts[2]||p2_;
-        const midX=(p1_.x+p2_.x)/2, midY=(p1_.y+p2_.y)/2;
-        const horizOfs=Math.abs(p3_.x-midX);
-        const vertOfs=Math.abs(p3_.y-midY);
-        dimType = vertOfs >= horizOfs ? 'dx' : 'dy';
-      }
-      dims.push(buildDim(p1,p2,p3||p2,dimType));
-      if(typeof verify==='function')verify('寸法追加',{len:dims.length});
-      dimState={pts:[]};
-      hideGuide();
-      showGuide('寸法を追加しました ↩ で取消', 2000);
-    }
-    scheduleOverlay();return;
+    _dimStateCommitPoint(pt,false);
+    return;
   }
   // 消しゴム
   if(currentTool==='eraser'){
@@ -97,6 +218,8 @@ function handlePointerDown(sx,sy,isPenInput){
 // ポインタムーブ処理
 // =========================================================
 function handlePointerMove(sx,sy,isPenInput){
+  // V1_48: 「2線間の交点」ピック中は、通常のツール処理より優先してIPXへ渡す
+  if(window.IPX&&window.IPX.active){window.IPX.handleMove(sx,sy);return;}
   if(typeof _dimTextDrag!=='undefined'&&_dimTextDrag&&typeof _dimTextDragMove==='function'&&_dimTextDragMove(sx,sy)) return; // V0_102
   // DIMシステムがアクティブな場合は DIM の pointermove ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
@@ -131,6 +254,8 @@ function handlePointerMove(sx,sy,isPenInput){
 // ポインタアップ処理
 // =========================================================
 function handlePointerUp(sx,sy,isPenInput){
+  // V1_48: 「2線間の交点」ピック中は、通常のツール処理より優先してIPXへ渡す
+  if(window.IPX&&window.IPX.active){window.IPX.handleUp(sx,sy);return;}
   if(typeof _dimTextDragUp==='function'&&_dimTextDragUp()) return; // V0_102
   // DIMシステムがアクティブな場合は DIM の pointerup ハンドラに任せる
   if(window.DIM&&window.DIM.active)return;
@@ -142,33 +267,8 @@ function handlePointerUp(sx,sy,isPenInput){
     if(currentTool==='dx'||currentTool==='dy'||currentTool==='dxdy'||currentTool==='diag'){
       const[wx2,wy2]=s2w(sx,sy);
       const pt=snapPt||{x:wx2,y:wy2};
-      dimState.pts.push(pt);
-      // ガイドメッセージ更新
-      if(currentTool==='dxdy'||currentTool==='diag'){
-        if(dimState.pts.length===1) showGuide('2点目を選択してください');
-        else if(dimState.pts.length===2) showGuide('寸法線の位置を指定してください');
-      }
-      const need=3; // diag も dxdy も 3ステップ（P1→P2→位置）
-      if(dimState.pts.length>=need){
-        const[p1,p2,p3]=dimState.pts;
-        snapshot();
-        let dimType=currentTool;
-        if(currentTool==='dxdy'&&dimState.pts.length>=2){
-          const p1_=dimState.pts[0], p2_=dimState.pts[1];
-          const p3_=dimState.pts[2]||p2_;
-          const midX=(p1_.x+p2_.x)/2, midY=(p1_.y+p2_.y)/2;
-          const horizOfs=Math.abs(p3_.x-midX);
-          const vertOfs=Math.abs(p3_.y-midY);
-          dimType = vertOfs >= horizOfs ? 'dx' : 'dy';
-        }
-        dims.push(buildDim(p1,p2,p3||p2,dimType));
-        if(typeof verify==='function')verify('寸法追加',{len:dims.length});
-        dimState={pts:[]};
-        doSave(); // V0_103: 即時保存
-        hideGuide();
-        showGuide('寸法を追加しました ↩ で取消', 2000);
-      }
-      scheduleOverlay();return;
+      _dimStateCommitPoint(pt,true);
+      return;
     }
   }
   if(currentTool==='eraser'){eraserPos=null;scheduleOverlay();scheduleSave();return;}
@@ -283,12 +383,18 @@ ov.addEventListener('touchstart',e=>{
     const t=fingers[0];
     const sx=t.clientX-r.left,sy=t.clientY-r.top;
     isPen=false;mouseDown=true;lastMX=sx;lastMY=sy;
-    // V0_79: 手書きモード + スケッチ/蛍光ペン → 指で描画
-    // V0_152.2: 手書きモード + サブ窓作成中(SW.active) → 指1本で対角ドラッグできるように追加
-    if(inputMode==='freehand'
-        &&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser'||(window.SW&&window.SW.active))
-        &&!(window.DIM&&window.DIM.active)
-        &&!(window.LP&&window.LP.active)){
+    // V1_46/V1_47: 手書きモード + 計測ツール（DIM/LP/LL・水平鉛直・斜め）選択中 →
+    // 指でも計測できるようにする。指先で候補点が隠れないよう、実際の指位置より
+    // 少し上をカーソル位置として扱う。
+    if(inputMode==='freehand'&&_fingerMeasureActive()){
+      panning=false;
+      const fy=sy-FINGER_CURSOR_OFFSET_Y;
+      _fingerMeasureDown(sx,fy);
+      lastMX=sx;lastMY=fy;
+    } else if(inputMode==='freehand'
+        &&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser'||(window.SW&&window.SW.active))){
+      // V0_79: 手書きモード + スケッチ/蛍光ペン → 指で描画
+      // V0_152.2: 手書きモード + サブ窓作成中(SW.active) → 指1本で対角ドラッグできるように追加
       panning=false;
       handlePointerDown(sx,sy,false); // currentTool===sketch/hl/サブ窓作成中 なので描画(操作)開始
     } else {
@@ -333,6 +439,13 @@ ov.addEventListener('touchmove',e=>{
     }
     tx=mid.x-wx*scale;ty=mid.y+wy*scale;
     pinchDist=dist;pinchMid=mid;scheduleDraw();
+  } else if(fingers.length===1&&mouseDown&&!panning&&inputMode==='freehand'&&_fingerMeasureActive()){
+    // V1_46/V1_47: 手書きモード 指1本での計測継続（DIM/LP/LL・水平鉛直・斜め）。
+    // 指位置より少し上をカーソルとして扱う
+    const t=fingers[0];
+    const sx=t.clientX-r.left,sy=t.clientY-r.top-FINGER_CURSOR_OFFSET_Y;
+    _fingerMeasureMove(sx,sy);
+    lastMX=sx;lastMY=sy;
   } else if(fingers.length===1&&mouseDown&&!panning&&(sketching||(inputMode==='freehand'&&currentTool==='eraser')||(window.SW&&window.SW.active))){
     // V0_79: 手書きモード 指1本描画中 / V0_152.2: サブ窓作成の対角ドラッグ中も含む
     const t=fingers[0];
@@ -385,6 +498,11 @@ ov.addEventListener('touchend',e=>{
   }
   // 全タッチ終了
   if(remaining.length===0){
+    // V1_46/V1_47: 手書きモードで指計測中（DIM/LP/LL・水平鉛直・斜め）だった場合は
+    // 指を離した位置で確定
+    if(!isPen&&inputMode==='freehand'&&_fingerMeasureActive()){
+      _fingerMeasureUp(lastMX,lastMY);
+    }
     // V0_79: 手書きモードで指描画中だった場合はストロークを確定
     // V0_152.2: サブ窓作成の対角ドラッグ中(指を離して矩形確定)も含む
     if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser')||(window.SW&&window.SW.active))){
@@ -434,10 +552,16 @@ ov.addEventListener('touchend',e=>{
     const t=remFing[0];
     const sx=t.clientX-r.left,sy=t.clientY-r.top;
     mouseDown=true;lastMX=sx;lastMY=sy;
-    // V0_79: 手書きモード+描画ツールなら描画再開、そうでなければパン
-    // V0_152.2: サブ窓作成中(SW.active)も対象に追加
-    if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl'||(window.SW&&window.SW.active))
-        &&!(window.DIM&&window.DIM.active)&&!(window.LP&&window.LP.active)){
+    // V1_46/V1_47: 手書きモード+計測ツール（DIM/LP/LL・水平鉛直・斜め）なら指計測を
+    // 再開（カーソルは指の少し上）
+    if(inputMode==='freehand'&&_fingerMeasureActive()){
+      panning=false;
+      const fy=sy-FINGER_CURSOR_OFFSET_Y;
+      _fingerMeasureDown(sx,fy);
+      lastMX=sx;lastMY=fy;
+    } else if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl'||(window.SW&&window.SW.active))){
+      // V0_79: 手書きモード+描画ツールなら描画再開
+      // V0_152.2: サブ窓作成中(SW.active)も対象に追加
       panning=false;
       handlePointerDown(sx,sy,false); // 新しい指で描画(操作)再開
     } else {
@@ -453,10 +577,26 @@ ov.addEventListener('touchend',e=>{
 // =========================================================
 // ツール切替ボタン
 // =========================================================
+// V1_45: 色丸ボタン廃止に伴い、「選択中のツールアイコンをもう一度押すと
+// 色・太さの選択ポップアップが開く」という操作に統合した。対象はペン・蛍光・
+// 寸法系ツール（色/太さ設定を持つもの）のみで、それ以外（消しゴム等）は
+// 従来通り再選択の動作のみとなる。
+const _TOOL_COLOR_MODE={sketch:'sketch',hl:'hl',dxdy:'dim',diag:'dim',ll:'dim',lp:'dim',circDim:'dim',radDim:'dim'};
 document.querySelectorAll('.tool-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
+  btn.addEventListener('click',(e)=>{
+    const _mode=_TOOL_COLOR_MODE[btn.dataset.tool];
+    if(btn.classList.contains('active')&&_mode){
+      // 既に選択中のアイコンの再タップ：ツールの再選択・状態リセットは行わず、
+      // 色・太さの選択ポップアップだけを開く。DIM/LP/LL等、同じボタンに登録された
+      // 他のフックリスナー（計測状態のリセットを行う）が発火して計測途中の状態を
+      // 壊してしまわないよう、stopImmediatePropagation()で止める
+      if(e&&e.stopImmediatePropagation)e.stopImmediatePropagation();
+      if(typeof openContextPopup==='function')openContextPopup(_mode,btn);
+      return;
+    }
     document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');currentTool=btn.dataset.tool;
+    if(window.IPX&&window.IPX.active&&typeof ipxCancel==='function')ipxCancel(); // V1_48: ツール切替時は交点ピックを中止
     dimState={pts:[]};dimPendingDown=false;sketching=false;sketchPts=[];snapPt=null;scheduleOverlay();
     if(typeof updateToolColorDots==='function')updateToolColorDots();
 
