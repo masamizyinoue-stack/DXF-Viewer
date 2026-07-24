@@ -29,6 +29,11 @@
   --bg:#0d1117;--sb-bg:#0f1318;--topbar-bg:#0f1318;
   --accent:#2ecc71;--accent-2:#f39c12;
   --text:#e0e0e0;--text-dim:#888;--border:#2a3040;
+  /* V1_41: 画面検索/検索してファイルを開くパネル(#searchPanel等)が参照する
+     --bg-panelがどこにも定義されていなかったため、実質透明(背景色なし)に
+     なっており、下の図面が透けて見え視認性が悪くなっていた。不透明な色を
+     定義して修正した */
+  --bg-panel:#10151c;
 }
 body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden;
   background:var(--bg);color:var(--text);
@@ -447,7 +452,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_40</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_42</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -756,21 +761,21 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=140"></script>
-<script src="viewer.js?v=140"></script>
-<script src="utils.js?v=140"></script>
-<script src="ui.js?v=140"></script>
-<script src="dialog.js?v=140"></script>
-<script src="storage.js?v=140"></script>
-<script src="fonts/NotoSansJP.js?v=140"></script>
-<script src="export.js?v=140"></script>
-<script src="tool.js?v=140"></script>
-<script src="verify.js?v=140"></script>
+<script src="layer.js?v=142"></script>
+<script src="viewer.js?v=142"></script>
+<script src="utils.js?v=142"></script>
+<script src="ui.js?v=142"></script>
+<script src="dialog.js?v=142"></script>
+<script src="storage.js?v=142"></script>
+<script src="fonts/NotoSansJP.js?v=142"></script>
+<script src="export.js?v=142"></script>
+<script src="tool.js?v=142"></script>
+<script src="verify.js?v=142"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=140"></script>
+<script src="supabase-sync.js?v=142"></script>
 <script>
-const APP_VERSION = 'V1_40';
+const APP_VERSION = 'V1_42';
 
 // =========================================================
 // グローバル状態
@@ -3505,6 +3510,9 @@ function _swAttachInput(sw){
       } else {
         if(sketching){sketching=false;sketchPts=[];}
         panning=true;
+        // V1_42: 「テキスト読込」ピック中にサブ窓内で単純タップした場合を
+        // 検出できるよう、メイン画面(tool.js)と同様にタップ起点を記録する
+        _tapStartTime=Date.now();_tapStartX=sxf;_tapStartY=syf;
       }
     }
   },{passive:false});
@@ -3594,6 +3602,17 @@ function _swAttachInput(sw){
       if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
         withCtx(function(){ handlePointerUp(lastMX,lastMY,false); });
       }
+      // V1_42: 「テキスト読込」ピック中は、サブ窓内での単純タップ（ドラッグ量が
+      // 小さい）を検出して文字を拾う。サブ窓自身のtx/ty/scaleで座標変換する
+      // 必要があるためwithCtx()内で_tapPickText()を呼ぶ
+      if(!isPen&&panning&&!sketching&&_textPickTarget&&_tapStartTime){
+        var _swTapDt=Date.now()-_tapStartTime;
+        var _swTapDd=Math.hypot(lastMX-_tapStartX,lastMY-_tapStartY);
+        if(_swTapDt<300&&_swTapDd<12&&typeof _tapPickText==='function'){
+          withCtx(function(){ _tapPickText(lastMX,lastMY); });
+        }
+      }
+      _tapStartTime=0;
       if(!isPen){panning=false;mouseDown=false;}
       pinchDist=null;pinchMid=null;return;
     }
