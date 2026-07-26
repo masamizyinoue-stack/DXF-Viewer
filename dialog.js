@@ -80,3 +80,178 @@ function _showPageJumpDialog(anchorEl){
     if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
   });},10);
 }
+
+// =========================================================
+// V1_69: インデックスパターンの登録名入力ダイアログ
+// 依存関数: showGuide (ui.js)
+// =========================================================
+function _showIndexProfileNameDialog(anchorEl, onConfirm){
+  var existing=document.getElementById('_idxNameMenu');
+  if(existing){existing.remove();return;}
+  var menu=document.createElement('div');
+  menu.id='_idxNameMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-236))+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">インデックスの登録名</div>'
+    +'<input type="text" id="_idxNameInput" placeholder="例：現場A" maxlength="30" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;font-size:16px;background:#0a0c10;color:#eee;border:1px solid #2a3040">'
+    +'<button id="_idxNameGo" style="background:#1a7a3a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;">登録</button>'
+    +'<button id="_idxNameCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_idxNameMenu'))menu.remove();}
+  var inp=document.getElementById('_idxNameInput');
+  inp.focus();
+  function doConfirm(){
+    var name=inp.value.trim();
+    if(!name){showGuide('名前を入力してください',2000);return;}
+    closeMenu();
+    onConfirm(name);
+  }
+  document.getElementById('_idxNameGo').onclick=doConfirm;
+  inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();doConfirm();}});
+  document.getElementById('_idxNameCnl').onclick=closeMenu;
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
+
+// =========================================================
+// V1_69: 登録済みインデックスパターンの一覧表示・切替・削除
+// 依存関数: _idbListProfiles/_idbLoadProfile/_idbDeleteProfile/_idbCountByFolder/
+//           _buildIndexSummaryText/doOpenFileSearch (index.html), showGuide (ui.js)
+// =========================================================
+function _showIndexProfileListMenu(anchorEl){
+  var existing=document.getElementById('_idxListMenu');
+  if(existing){existing.remove();return;}
+  var menu=document.createElement('div');
+  menu.id='_idxListMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:240px;max-width:320px;max-height:60vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-336))+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">登録インデックス</div>'
+    +'<div id="_idxListBody" style="color:#889;font-size:13px;text-align:center;padding:8px 0;">読み込み中…</div>'
+    +'<button id="_idxListCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">閉じる</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_idxListMenu'))menu.remove();}
+  document.getElementById('_idxListCnl').onclick=closeMenu;
+
+  function render(list){
+    var body=document.getElementById('_idxListBody');
+    if(!body) return;
+    if(!list||list.length===0){
+      body.style.cssText='color:#889;font-size:13px;text-align:center;padding:8px 0;';
+      body.textContent='登録済みのインデックスはありません';
+      return;
+    }
+    body.style.cssText='';
+    body.textContent='';
+    list.forEach(function(p){
+      var row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid #2a3d55;';
+      var info=document.createElement('div');
+      info.style.cssText='flex:1;min-width:0;cursor:pointer;';
+      var dateStr=p.savedAt?new Date(p.savedAt).toLocaleDateString('ja-JP'):'';
+      info.innerHTML='<div style="color:#eee;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+p.name+'</div>'
+        +'<div style="color:#889;font-size:11px;">'+p.count+'件'+(dateStr?'・'+dateStr:'')+'</div>';
+      info.onclick=function(){
+        closeMenu();
+        showGuide('「'+p.name+'」に切り替えています…',0);
+        _idbLoadProfile(p.name,function(err){
+          if(err){showGuide('切り替えに失敗しました',2000);return;}
+          var oprog=document.getElementById('openFolderProgress');
+          var fprog=document.getElementById('folderProgress');
+          _idbCountByFolder(function(counts){
+            var txt=_buildIndexSummaryText(counts);
+            if(oprog)oprog.textContent=txt;
+            if(fprog)fprog.textContent=txt;
+          });
+          if(typeof doOpenFileSearch==='function')doOpenFileSearch();
+          showGuide('「'+p.name+'」に切り替えました',2000);
+        });
+      };
+      var delBtn=document.createElement('button');
+      delBtn.textContent='×';
+      delBtn.title='削除';
+      delBtn.style.cssText='background:#8B0000;color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:14px;cursor:pointer;flex-shrink:0;';
+      delBtn.onclick=function(ev){
+        ev.stopPropagation();
+        if(!confirm('「'+p.name+'」を削除しますか？')) return;
+        _idbDeleteProfile(p.name,function(){ _idbListProfiles(render); });
+      };
+      row.appendChild(info);row.appendChild(delBtn);
+      body.appendChild(row);
+    });
+  }
+
+  if(typeof _idbListProfiles==='function') _idbListProfiles(render);
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
+
+// =========================================================
+// V1_70: 開いているファイル一覧（タブが多い時に見失わないための一覧パネル）
+// 依存グローバル: openFiles, currentFileIdx (index.html)
+// 依存関数: switchToFile (index.html)
+// =========================================================
+function _showOpenFilesListMenu(anchorEl){
+  var existing=document.getElementById('_tabListMenu');
+  if(existing){existing.remove();return;}
+  var menu=document.createElement('div');
+  menu.id='_tabListMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:340px;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.right=(window.innerWidth-r.right)+'px';
+  function closeMenu(){if(document.getElementById('_tabListMenu'))menu.remove();}
+
+  var title=document.createElement('div');
+  title.style.cssText='color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;';
+  title.textContent='開いているファイル（'+openFiles.length+'件）';
+  menu.appendChild(title);
+
+  if(openFiles.length===0){
+    var e=document.createElement('div');
+    e.style.cssText='color:#889;font-size:13px;text-align:center;padding:8px 0;';
+    e.textContent='開いているファイルはありません';
+    menu.appendChild(e);
+  } else {
+    // 最後に表示していた順（新しいものが上）に並べる。同値(未表示のまま復元された
+    // タブ等)はopenFiles配列の順番を保つ
+    var idxs=openFiles.map(function(f,i){return i;});
+    idxs.sort(function(a,b){return (openFiles[b]._lastActiveTs||0)-(openFiles[a]._lastActiveTs||0);});
+    // V1_71: タブバーと同じ配色（赤=アクティブ/黄=前回/青=前々回）を共通関数で判定し統一する
+    var _ranks71=(typeof _getTabRecencyRanks==='function')?_getTabRecencyRanks():{recent1:-1,recent2:-1};
+    idxs.forEach(function(idx){
+      var f=openFiles[idx];
+      var row=document.createElement('div');
+      var isActive=(idx===currentFileIdx);
+      var isRecent1=(idx===_ranks71.recent1), isRecent2=(idx===_ranks71.recent2);
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:8px;border-bottom:1px solid #2a3d55;cursor:pointer;'+(isActive?'background:rgba(255,85,85,.15);':'');
+      var isPdf=(f.currentFileName||f.name||'').toLowerCase().endsWith('.pdf');
+      var badge=document.createElement('span');
+      badge.textContent=isPdf?'PDF':'DXF';
+      badge.style.cssText='font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;flex-shrink:0;background:'+(isPdf?'#8e44ad':'#1a7a3a')+';color:#fff;';
+      var info=document.createElement('div');
+      info.style.cssText='flex:1;min-width:0;';
+      var timeStr=f._lastActiveTs?'表示済み':'未表示';
+      var sub=[f.folder||'',timeStr].filter(Boolean).join('・');
+      var nameColor=isActive?'#ff5555':isRecent1?'#ffd60a':isRecent2?'#4da6ff':'#eee';
+      info.innerHTML='<div style="color:'+nameColor+';font-size:13px;font-weight:'+(isActive?'700':'400')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(f.currentFileName||f.name||'---')+'</div>'
+        +'<div style="color:#889;font-size:11px;">'+sub+'</div>';
+      row.appendChild(badge);row.appendChild(info);
+      row.addEventListener('click',function(){
+        closeMenu();
+        if(idx!==currentFileIdx&&typeof switchToFile==='function') switchToFile(idx);
+      });
+      menu.appendChild(row);
+    });
+  }
+
+  document.body.appendChild(menu);
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
