@@ -223,8 +223,11 @@ function _showIndexProfileListMenu(anchorEl){
 
 // =========================================================
 // V1_70: 開いているファイル一覧（タブが多い時に見失わないための一覧パネル）
-// 依存グローバル: openFiles, currentFileIdx (index.html)
-// 依存関数: switchToFile (index.html)
+// V1_80: 並び順を設定パネルと同じ4種類(名前順/開いた順/アクセス順/任意)から
+//        選べるようにし(_computeTabOrder/_setTabSortMode(index.html)を共通利用)、
+//        各行にチェックボックスを追加して複数タブをまとめて閉じられるようにした
+// 依存グローバル: openFiles, currentFileIdx, _tabSortMode (index.html)
+// 依存関数: switchToFile, _computeTabOrder, _setTabSortMode, doCloseTab (index.html)
 // =========================================================
 function _showOpenFilesListMenu(anchorEl){
   var existing=document.getElementById('_tabListMenu');
@@ -242,16 +245,79 @@ function _showOpenFilesListMenu(anchorEl){
   title.textContent='開いているファイル（'+openFiles.length+'件）';
   menu.appendChild(title);
 
-  if(openFiles.length===0){
-    var e=document.createElement('div');
-    e.style.cssText='color:#889;font-size:13px;text-align:center;padding:8px 0;';
-    e.textContent='開いているファイルはありません';
-    menu.appendChild(e);
-  } else {
-    // 最後に表示していた順（新しいものが上）に並べる。同値(未表示のまま復元された
-    // タブ等)はopenFiles配列の順番を保つ
-    var idxs=openFiles.map(function(f,i){return i;});
-    idxs.sort(function(a,b){return (openFiles[b]._lastActiveTs||0)-(openFiles[a]._lastActiveTs||0);});
+  // V1_80: 並び順選択（設定パネルの「タブの並び順」と同じ4択・同じ状態を共有する）
+  var sortRow=document.createElement('div');
+  sortRow.style.cssText='display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 6px;justify-content:center;';
+  var _sortOptions=[['name','名前順'],['opened','開いた順'],['access','アクセス順'],['manual','任意']];
+  var _sortBtns={};
+  _sortOptions.forEach(function(opt){
+    var b=document.createElement('button');
+    b.type='button';
+    b.textContent=opt[1];
+    b.style.cssText='font-size:11px;padding:4px 8px;border-radius:12px;border:1px solid #3a5578;cursor:pointer;background:none;color:#aac8e8;';
+    b.addEventListener('click',function(){
+      if(typeof _setTabSortMode==='function') _setTabSortMode(opt[0]);
+      updateSortBtns();
+      renderList();
+    });
+    _sortBtns[opt[0]]=b;
+    sortRow.appendChild(b);
+  });
+  function updateSortBtns(){
+    _sortOptions.forEach(function(opt){
+      var active=(typeof _tabSortMode!=='undefined')&&_tabSortMode===opt[0];
+      _sortBtns[opt[0]].style.background=active?'#4a9eff':'none';
+      _sortBtns[opt[0]].style.color=active?'#04203f':'#aac8e8';
+      _sortBtns[opt[0]].style.fontWeight=active?'700':'400';
+    });
+  }
+  menu.appendChild(sortRow);
+
+  var listBody=document.createElement('div');
+  listBody.style.cssText='display:flex;flex-direction:column;gap:2px;';
+  menu.appendChild(listBody);
+
+  var closeSelBtn=document.createElement('button');
+  closeSelBtn.type='button';
+  closeSelBtn.disabled=true;
+  closeSelBtn.style.cssText='background:#8B0000;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;opacity:.5;margin-top:4px;';
+  closeSelBtn.textContent='選択したタブを閉じる';
+  menu.appendChild(closeSelBtn);
+
+  var selected=new Set(); // 選択中のfileKey（インデックスは閉じるたびにずれるためfileKeyで管理する）
+  function updateCloseSelBtn(){
+    var n=selected.size;
+    closeSelBtn.disabled=(n===0);
+    closeSelBtn.style.opacity=(n===0)?'.5':'1';
+    closeSelBtn.textContent=(n===0)?'選択したタブを閉じる':('選択した'+n+'件を閉じる');
+  }
+  closeSelBtn.onclick=function(){
+    if(selected.size===0) return;
+    var keys=Array.from(selected);
+    if(!confirm('選択した'+keys.length+'件のタブを閉じますか？')) return;
+    // V1_80: fileKeyから現在のインデックスを都度引き直し、降順(インデックスが大きい方)から
+    // 閉じることで、途中でopenFiles[]がsplice()されてもまだ処理していない選択項目の
+    // インデックスに影響が出ないようにする
+    var idxs=keys.map(function(k){return openFiles.findIndex(function(x){return x.fileKey===k;});})
+      .filter(function(i){return i>=0;})
+      .sort(function(a,b){return b-a;});
+    idxs.forEach(function(i){ if(typeof doCloseTab==='function') doCloseTab(i); });
+    closeMenu();
+    if(typeof showGuide==='function') showGuide(idxs.length+'件のタブを閉じました',2000);
+  };
+
+  function renderList(){
+    listBody.innerHTML='';
+    if(openFiles.length===0){
+      var e=document.createElement('div');
+      e.style.cssText='color:#889;font-size:13px;text-align:center;padding:8px 0;';
+      e.textContent='開いているファイルはありません';
+      listBody.appendChild(e);
+      return;
+    }
+    // V1_80: 設定パネルの「タブの並び順」と同じ並び順ロジックを共有する
+    // （従来はこのパネルだけ常にアクセス順(_lastActiveTs降順)固定だった）
+    var idxs=(typeof _computeTabOrder==='function')?_computeTabOrder():openFiles.map(function(f,i){return i;});
     // V1_71: タブバーと同じ配色（赤=アクティブ/黄=前回/青=前々回）を共通関数で判定し統一する
     var _ranks71=(typeof _getTabRecencyRanks==='function')?_getTabRecencyRanks():{recent1:-1,recent2:-1};
     idxs.forEach(function(idx){
@@ -260,6 +326,18 @@ function _showOpenFilesListMenu(anchorEl){
       var isActive=(idx===currentFileIdx);
       var isRecent1=(idx===_ranks71.recent1), isRecent2=(idx===_ranks71.recent2);
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:8px;border-bottom:1px solid #2a3d55;cursor:pointer;'+(isActive?'background:rgba(255,85,85,.15);':'');
+
+      var cb=document.createElement('input');
+      cb.type='checkbox';
+      cb.style.cssText='width:20px;height:20px;flex-shrink:0;cursor:pointer;';
+      cb.checked=f.fileKey?selected.has(f.fileKey):false;
+      cb.addEventListener('click',function(ev){ ev.stopPropagation(); }); // 行クリック(タブ切替)を誘発しない
+      cb.addEventListener('change',function(){
+        if(!f.fileKey) return; // fileKeyが無い異常系は選択対象にしない
+        if(cb.checked) selected.add(f.fileKey); else selected.delete(f.fileKey);
+        updateCloseSelBtn();
+      });
+
       var _nameLower76=(f.currentFileName||f.name||'').toLowerCase();
       var isPdf=_nameLower76.endsWith('.pdf');
       var isExcel76=(typeof _isExcelName==='function')&&_isExcelName(_nameLower76); // V1_76
@@ -273,14 +351,18 @@ function _showOpenFilesListMenu(anchorEl){
       var nameColor=isActive?'#ff5555':isRecent1?'#ffd60a':isRecent2?'#4da6ff':'#eee';
       info.innerHTML='<div style="color:'+nameColor+';font-size:13px;font-weight:'+(isActive?'700':'400')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(f.currentFileName||f.name||'---')+'</div>'
         +'<div style="color:#889;font-size:11px;">'+sub+'</div>';
-      row.appendChild(badge);row.appendChild(info);
+      row.appendChild(cb);row.appendChild(badge);row.appendChild(info);
       row.addEventListener('click',function(){
         closeMenu();
         if(idx!==currentFileIdx&&typeof switchToFile==='function') switchToFile(idx);
       });
-      menu.appendChild(row);
+      listBody.appendChild(row);
     });
   }
+
+  updateSortBtns();
+  updateCloseSelBtn();
+  renderList();
 
   document.body.appendChild(menu);
   setTimeout(function(){document.addEventListener('click',function _dc(ev){

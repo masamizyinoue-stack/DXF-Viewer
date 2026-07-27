@@ -738,7 +738,13 @@ async function renderPdfPage(n){
   // PDFのテキスト位置(getTextContent)はPDFページのデフォルトのポイント単位(scale=1相当)で
   // 得られ、pdfImageのワールド座標(wx=0,wy=vp.height/3=ページ高さ)と同じ単位・原点
   // （左下原点・Y上向き）のため、追加の座標変換なしでそのままワールド座標として使える
-  pdfMoji=await _pdfPageTextItems(page);
+  // V1_81: ↑この前提は/Rotateが付いていない（回転0度の）PDFでのみ成立する。
+  // /Rotate 90/180/270が付与されたPDF（実寸法師3D等のプロッタ出力でよく見られる）では、
+  // getTextContent()の座標は回転前の生のPDFユーザー空間のままなのに対し、pdfImageは
+  // vp（回転込みのgetViewport）で描画されるため幅と高さが入れ替わり、テキスト位置が
+  // 画像とずれて画面検索・テキスト読込が機能しなくなっていた。vpを渡し、実際にrenderPdfPage()
+  // で使ったviewportと同じ変換をテキスト側にも適用することでこのずれを解消する
+  pdfMoji=await _pdfPageTextItems(page,vp);
   fit();scheduleDraw();
   if(typeof buildSearchIndex==='function') buildSearchIndex();
   if(typeof scheduleOverlay==='function') scheduleOverlay();
@@ -746,16 +752,25 @@ async function renderPdfPage(n){
 
 // V1_51: PDF 1ページ分のテキストを、doc.moji相当の形状 {text,x,y,h,angle,widthFactor} の
 // 配列に変換する。取得に失敗した場合は空配列を返す（画像のみのスキャンPDF等）
-async function _pdfPageTextItems(page){
+// V1_81: 第2引数viewportに、実際にpdfImageを描画したgetViewport()の戻り値を渡すことで、
+// ページに/Rotateが付いていても画像とテキスト位置の対応が取れるようにした。
+// 呼び出し元がviewportを渡さない場合（フォルダインデックス作成・タブ復元時の再抽出など、
+// 文字列のみ必要で位置は使わない箇所）は、renderPdfPage()と同じscale:3で自前生成する
+async function _pdfPageTextItems(page,viewport){
   try{
     var tc=await page.getTextContent();
+    var vp=viewport||page.getViewport({scale:3});
     var arr=[];
     tc.items.forEach(function(it){
       var t=(it.str||'').trim();
       if(!t) return;
-      var tr=it.transform; // [a,b,c,d,e,f]: e,f がテキスト原点のx,y(PDFポイント単位)
-      var h=Math.hypot(tr[2],tr[3])||Math.hypot(tr[0],tr[1])||10; // フォント高さの目安
-      arr.push({text:t,x:tr[4],y:tr[5],h:h,angle:0,widthFactor:1});
+      // V1_81: viewport.transform(scale:3・回転込み)とitem.transform(回転前の生座標)を
+      // 合成し、実際にcanvasへ描画された位置（vpと同じピクセル空間）を求める。
+      // その後 /3 でscale:3を打ち消し、Y軸をワールド座標(左下原点・Y上向き)に合わせて反転する
+      var tr=pdfjsLib.Util.transform(vp.transform,it.transform);
+      var hRaw=Math.hypot(tr[2],tr[3])||Math.hypot(tr[0],tr[1])||30; // フォント高さの目安(vp空間)
+      var h=hRaw/3;
+      arr.push({text:t,x:tr[4]/3,y:(vp.height-tr[5])/3,h:h,angle:0,widthFactor:1});
     });
     return arr;
   }catch(e){ console.warn('[PDF文字抽出]',e); return []; }

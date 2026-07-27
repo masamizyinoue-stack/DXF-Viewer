@@ -552,7 +552,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_79</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_82</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -894,24 +894,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=179"></script>
-<script src="viewer.js?v=179"></script>
-<script src="utils.js?v=179"></script>
-<script src="ui.js?v=179"></script>
-<script src="dialog.js?v=179"></script>
-<script src="storage.js?v=179"></script>
-<script src="fonts/NotoSansJP.js?v=179"></script>
-<script src="export.js?v=179"></script>
-<script src="tool.js?v=179"></script>
-<script src="verify.js?v=179"></script>
+<script src="layer.js?v=182"></script>
+<script src="viewer.js?v=182"></script>
+<script src="utils.js?v=182"></script>
+<script src="ui.js?v=182"></script>
+<script src="dialog.js?v=182"></script>
+<script src="storage.js?v=182"></script>
+<script src="fonts/NotoSansJP.js?v=182"></script>
+<script src="export.js?v=182"></script>
+<script src="tool.js?v=182"></script>
+<script src="verify.js?v=182"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=179"></script>
+<script src="pc.js?v=182"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=179"></script>
+<script src="supabase-sync.js?v=182"></script>
 <script>
-const APP_VERSION = 'V1_79';
+const APP_VERSION = 'V1_82';
 
 // =========================================================
 // グローバル状態
@@ -1671,21 +1671,10 @@ function _tabItemPointerDown(ev,itemEl,fileKey){
   },400);
 }
 
-function updateFileNavUI(){
-  var bar=document.getElementById('tabBar');
-  if(!bar) return;
-  // V1_70: currentFileIdxのタブに「最後に表示していた通し番号」を記録する。
-  // updateFileNavUI()は切替・新規オープン・タブを閉じた際など、タブの状態が
-  // 変わり得るタイミングで必ず呼ばれるため、ここに集約するだけで済む
-  // （currentFileIdx=...の代入箇所すべてに手を入れる必要が無い）。
-  // 単に呼ばれただけ（タブ切替を伴わない再描画）でも値を更新するが、
-  // それはアクティブタブ自身の値が更新されるだけで他タブの順位には影響しない
-  if(currentFileIdx>=0&&openFiles[currentFileIdx]){
-    openFiles[currentFileIdx]._lastActiveTs=++_tabActivitySeq;
-  }
-  var tlb=document.getElementById('tabListBtn');
-  if(tlb) tlb.style.display=openFiles.length>0?'flex':'none';
-  bar.innerHTML='';
+// V1_80: タブの表示順の計算をupdateFileNavUI()から切り出した共通関数。
+// 「開いているファイル一覧」パネル(dialog.js _showOpenFilesListMenu)でも同じ並び順を
+// 使えるようにするための共通化
+function _computeTabOrder(){
   // V0_157: タブは開いた順ではなく、ファイル名順（自然順=数字を数値として比較）で
   // 左から並べる。openFiles[]の実体・currentFileIdxなど内部インデックスは変更せず、
   // 表示のための並び順(order[])だけを別途ソートする。
@@ -1707,6 +1696,25 @@ function updateFileNavUI(){
       return na.localeCompare(nb,undefined,{numeric:true,sensitivity:'base'});
     });
   }
+  return order;
+}
+
+function updateFileNavUI(){
+  var bar=document.getElementById('tabBar');
+  if(!bar) return;
+  // V1_70: currentFileIdxのタブに「最後に表示していた通し番号」を記録する。
+  // updateFileNavUI()は切替・新規オープン・タブを閉じた際など、タブの状態が
+  // 変わり得るタイミングで必ず呼ばれるため、ここに集約するだけで済む
+  // （currentFileIdx=...の代入箇所すべてに手を入れる必要が無い）。
+  // 単に呼ばれただけ（タブ切替を伴わない再描画）でも値を更新するが、
+  // それはアクティブタブ自身の値が更新されるだけで他タブの順位には影響しない
+  if(currentFileIdx>=0&&openFiles[currentFileIdx]){
+    openFiles[currentFileIdx]._lastActiveTs=++_tabActivitySeq;
+  }
+  var tlb=document.getElementById('tabListBtn');
+  if(tlb) tlb.style.display=openFiles.length>0?'flex':'none';
+  bar.innerHTML='';
+  var order=_computeTabOrder();
   var _ranks71=_getTabRecencyRanks(), _recent1=_ranks71.recent1, _recent2=_ranks71.recent2;
   var _activeItemEl=null;
   for(var k=0;k<order.length;k++){
@@ -1952,14 +1960,19 @@ function updateInputModeUI(){
   if(fr)fr.checked=(inputMode==='freehand');
 }
 updateInputModeUI();
+// V1_80: タブの並び順を変更する処理を共通関数化。設定パネルのラジオボタンだけでなく
+// 「開いているファイル一覧」パネル(dialog.js _showOpenFilesListMenu)の並び順選択からも
+// 同じ処理を呼べるようにした（設定パネル側の選択状態(updateTabSortModeUI)も連動して更新される）
+function _setTabSortMode(mode){
+  _tabSortMode=mode;
+  try{localStorage.setItem('_tabSortMode',_tabSortMode);}catch(e){}
+  if(typeof updateTabSortModeUI==='function')updateTabSortModeUI();
+  if(typeof updateFileNavUI==='function')updateFileNavUI();
+}
 // V1_70: タブの並び順設定（名前順/開いた順）
 document.querySelectorAll('input[name="tabSortMode"]').forEach(function(r){
   r.addEventListener('change',function(){
-    if(this.checked){
-      _tabSortMode=this.value;
-      try{localStorage.setItem('_tabSortMode',_tabSortMode);}catch(e){}
-      if(typeof updateFileNavUI==='function')updateFileNavUI();
-    }
+    if(this.checked) _setTabSortMode(this.value);
   });
 });
 function updateTabSortModeUI(){
@@ -4533,6 +4546,14 @@ if(_calcBtnEl){
 var _searchIdx=[];
 var _searchHighlight=null;
 
+// V1_82: 検索・テキスト読込で全角/半角を区別しないための正規化関数。
+// NFKCで全角英数字・記号を半角に統一した上でtoLowerCase()する（大文字小文字も従来通り無視）。
+// 画面検索・全図面検索・検索して開く・登録インデックス検索・キーワードハイライトの
+// 全ての比較箇所で、入力側・図面内テキスト側の両方にこれを適用する
+function _normalizeForSearch(s){
+  try{ return (s||'').normalize('NFKC').toLowerCase(); }catch(e){ return (s||'').toLowerCase(); }
+}
+
 function buildSearchIndex(){
   _searchIdx=[];
   // V1_51: DXFのdoc.mojiが無い場合はPDFから抽出したpdfMojiを使う
@@ -4545,7 +4566,7 @@ function buildSearchIndex(){
 }
 
 function doSearch(){
-  var kw=(document.getElementById('searchInput').value||'').trim().toLowerCase();
+  var kw=_normalizeForSearch((document.getElementById('searchInput').value||'').trim());
   var list=document.getElementById('searchResultList');
   var countEl=document.getElementById('searchCount');
   list.innerHTML='';
@@ -4554,7 +4575,7 @@ function doSearch(){
     countEl.textContent='インデックスが空です（DXFを再読込してください）';
     return;
   }
-  var results=_searchIdx.filter(function(m){return m.text.toLowerCase().includes(kw);});
+  var results=_searchIdx.filter(function(m){return _normalizeForSearch(m.text).includes(kw);});
   countEl.textContent='検索結果: '+results.length+'件';
   results.slice(0,200).forEach(function(item){
     var li=document.createElement('div');
@@ -5115,7 +5136,7 @@ function openAllSearchPanel(){
 var _allSearchGen=0; // V0_103: 重複防止用世代カウンタ
 function doAllSearch(){
   var gen=++_allSearchGen;
-  var kw=document.getElementById('allSearchInput').value.trim().toLowerCase();
+  var kw=_normalizeForSearch(document.getElementById('allSearchInput').value.trim());
   var list=document.getElementById('allSearchResultList');
   var cnt=document.getElementById('allSearchCount');
   list.innerHTML='';
@@ -5131,7 +5152,7 @@ function doAllSearch(){
     list.innerHTML=''; // 最新世代のみリスト再構築
     var hits=[];
     records.forEach(function(rec){
-      var matched=(rec.texts||[]).filter(function(t){return t.toLowerCase().indexOf(kw)>=0;});
+      var matched=(rec.texts||[]).filter(function(t){return _normalizeForSearch(t).indexOf(kw)>=0;});
       if(matched.length>0) hits.push({name:rec.name,matched:matched,folder:rec.folder});
     });
     cnt.textContent=hits.length+'件（全'+records.length+'図面）';
@@ -5206,9 +5227,9 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
     _searchHighlight=null;
     _searchMarks=[];_markKeyword=keyword||null;
     if(keyword){
-      var _kl=keyword.toLowerCase();
+      var _kl=_normalizeForSearch(keyword);
       var _mojiSrc151=(doc&&doc.moji)?doc.moji:((typeof pdfMoji!=='undefined'&&pdfMoji)?pdfMoji:[]);
-      _mojiSrc151.forEach(function(m){if(m.text&&m.text.toLowerCase().indexOf(_kl)>=0)_searchMarks.push(m);});
+      _mojiSrc151.forEach(function(m){if(m.text&&_normalizeForSearch(m.text).indexOf(_kl)>=0)_searchMarks.push(m);});
     }
 
     // ④ fileKey生成
@@ -5329,7 +5350,7 @@ var _openFileOpening=false; // V1_23: 開く処理の多重タップ防止
 // 再発しない
 function doOpenFileSearch(){
   var gen=++_openFileSearchGen;
-  var kw=document.getElementById('openFileSearchInput').value.trim().toLowerCase();
+  var kw=_normalizeForSearch(document.getElementById('openFileSearchInput').value.trim());
   var list=document.getElementById('openFileResultList');
   var cnt=document.getElementById('openFileSearchCount');
   _idbGetAllNameTexts(function(records){
@@ -5346,8 +5367,8 @@ function doOpenFileSearch(){
     var filtered=[];
     records.forEach(function(r){
       if(!kw){filtered.push({name:r.name,matched:[]});return;}
-      var nameHit=r.name.toLowerCase().indexOf(kw)>=0;
-      var textHits=(r.texts||[]).filter(function(t){return t.toLowerCase().indexOf(kw)>=0;});
+      var nameHit=_normalizeForSearch(r.name).indexOf(kw)>=0;
+      var textHits=(r.texts||[]).filter(function(t){return _normalizeForSearch(t).indexOf(kw)>=0;});
       if(nameHit||textHits.length>0) filtered.push({name:r.name,matched:textHits});
     });
     filtered.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});}); // V0_157と同じ自然順
