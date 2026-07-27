@@ -19,10 +19,19 @@
 <link rel="apple-touch-icon" sizes="120x120" href="apple-touch-icon-120.png">
 <link rel="icon" sizes="192x192" href="icon-192.png"> <!-- V1_06 -->
 <link rel="icon" sizes="512x512" href="icon-512.png"> <!-- V1_06 -->
+<!-- V1_73: V1_72でpdf.jsを6.1.200(ESモジュール配布)へ更新したところ、実機での
+     テキスト読込で「文字化け」よりも悪い「文字が全く認識されない」という
+     退行が発生したため、pdf.js周りをV1_71時点の3.11.174(classic script)へ
+     いったん巻き戻す。原因未特定のため、他バージョンは変更しない -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
 </script>
 <!-- V0_147: html2canvas削除（スクショ機能廃止に伴い不要） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- V1_76: Excel(.xlsx/.xls/.csv)表示・テキスト読込用。SheetJSはcdnjs/unpkgでは
+     旧版(0.18.5)しか配布されておらず、公式CDN(cdn.sheetjs.com)のみ最新版を
+     classic scriptタグ(window.XLSXグローバル)で配布しているため、pdf.jsのような
+     ESモジュール移行の問題は発生しない -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -64,6 +73,15 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 
 .color-dot{width:22px;height:22px;border-radius:50%;display:block;border:2.5px solid rgba(255,255,255,.45)}
 .stage{flex:1;position:relative;overflow:hidden;background:#000;min-height:0}
+/* V1_76: Excel表示オーバーレイ（シンプルな表形式のみ、セル色・結合・罫線は再現しない） */
+#excelView{display:none;position:absolute;inset:0;flex-direction:column;background:#fff;z-index:5}
+#excelSheetTabs{display:flex;gap:4px;padding:6px 8px;background:#e8e8e8;border-bottom:1px solid #bbb;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.excel-sheet-tab{padding:6px 12px;border-radius:6px;border:1px solid #bbb;background:#fff;color:#333;font-size:13px;white-space:nowrap;cursor:pointer;flex-shrink:0}
+.excel-sheet-tab.active{background:#217346;color:#fff;border-color:#217346}
+#excelTableWrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
+#excelTable{border-collapse:collapse;font-size:13px;color:#111}
+#excelTable td{border:1px solid #ccc;padding:4px 8px;white-space:nowrap;cursor:pointer}
+#excelTable td:active{background:#ffe9a8}
 #cv,#ov{position:absolute;top:0;left:0;width:100%;height:100%}
 #ac{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none} /* V0_82: Annotation専用Canvas */
 #ov{pointer-events:all;cursor:crosshair;touch-action:none}
@@ -181,7 +199,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   padding:14px 16px;min-width:252px;max-height:80vh;overflow-y:auto;
   box-shadow:0 8px 32px rgba(0,0,0,.65);flex-direction:column;gap:14px}
 #colorOverlay.open{display:flex}
-.co-hl-colors{display:flex;gap:8px}
+.co-hl-colors{display:flex;gap:8px;flex-wrap:wrap} /* V1_74: 10色化で折り返しが必要なため追加 */
 .hl-color-btn{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .hl-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
 .co-hl-lw{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
@@ -194,7 +212,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 .dim-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
 .co-label{font-size:11px;color:var(--text-dim);margin-bottom:8px;
   text-transform:uppercase;letter-spacing:.5px;font-weight:500}
-.co-colors{display:flex;gap:8px}
+.co-colors{display:flex;gap:8px;flex-wrap:wrap} /* V1_74: 10色化で折り返しが必要なため追加 */
 .color-btn{width:38px;height:38px;border-radius:50%;border:3px solid transparent;cursor:pointer;
   -webkit-tap-highlight-color:transparent}
 .color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
@@ -389,6 +407,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 .cbw{grid-column:span 2}
 .cbrs{grid-row:span 2}
 @media(pointer:coarse){.cb{height:54px}}
+/* V1_78: PC(マウス操作可能な環境)向けのホバー表示。(hover:hover)かつ(pointer:fine)の
+   環境でのみ適用され、iPad(タッチのみ)では条件を満たさず一切発火しない */
+@media (hover:hover) and (pointer:fine){
+  .tb-btn:hover,.tool-btn:hover,.bt-btn:hover{filter:brightness(1.25);}
+  .color-btn:hover{filter:brightness(1.2);}
+  .tab-item:hover{background:#161c26;}
+  #_pcCtxMenu button:not(:disabled):hover{background:#2a4a70;}
+}
 </style>
 </head>
 <body>
@@ -498,6 +524,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <span id="pageInfo" class="sp-page-info">1/1</span>
     <button id="nextPage" class="sp-page-btn">▶</button>
   </div>
+  <!-- V1_76: Excel(.xlsx/.xls/.csv)表示用オーバーレイ。表示中はcv/ac/ov(canvas)を隠し、
+       renderExcelView()(viewer.js)がタブ・テーブルを構築する -->
+  <div id="excelView">
+    <div id="excelSheetTabs"></div>
+    <div id="excelTableWrap"><table id="excelTable"></table></div>
+  </div>
   <div class="viewmemo" id="viewmemo">
     <div id="markFitRow">
       <div id="markPopup"><span style="font-size:15px">●</span>マーク ✕</div>
@@ -520,7 +552,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_71</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_79</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -663,12 +695,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <div id="colorOverlay">
   <div class="co-sketch-section">
     <div class="co-label">スケッチ色</div>
+    <!-- V1_74: 10色に拡張。白・黒は背景色（白背景/濃紺背景・図面の黒線）と重なり見えなくなるため除外 -->
     <div class="co-colors">
       <button class="color-btn active" data-color="255,0,0" style="background:#f00" title="赤"></button>
       <button class="color-btn" data-color="255,140,0" style="background:#f80" title="橙"></button>
+      <button class="color-btn" data-color="255,215,0" style="background:#ffd700" title="黄"></button>
+      <button class="color-btn" data-color="130,220,0" style="background:#82dc00" title="黄緑"></button>
       <button class="color-btn" data-color="0,200,0" style="background:#0c8" title="緑"></button>
+      <button class="color-btn" data-color="0,200,220" style="background:#00c8dc" title="水色"></button>
       <button class="color-btn" data-color="0,120,255" style="background:#08f" title="青"></button>
+      <button class="color-btn" data-color="140,60,230" style="background:#8c3ce6" title="紫"></button>
       <button class="color-btn" data-color="255,0,180" style="background:#f0b" title="ピンク"></button>
+      <button class="color-btn" data-color="150,90,40" style="background:#965a28" title="茶"></button>
     </div>
   </div>
   <div class="co-sketch-section">
@@ -689,11 +727,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="co-hl-section">
     <div class="co-label">蛍光色</div>
+    <!-- V1_74: 10色に拡張。白・黒は背景色と重なり見えなくなるため除外 -->
     <div class="co-hl-colors">
       <button class="hl-color-btn active" data-color="255,255,0" style="background:#ff0" title="黄"></button>
-      <button class="hl-color-btn" data-color="255,80,160" style="background:#f050a0" title="ピンク"></button>
+      <button class="hl-color-btn" data-color="255,180,60" style="background:#ffb43c" title="橙"></button>
+      <button class="hl-color-btn" data-color="200,255,80" style="background:#c8ff50" title="黄緑"></button>
       <button class="hl-color-btn" data-color="80,255,80" style="background:#50ff50" title="緑"></button>
       <button class="hl-color-btn" data-color="80,210,255" style="background:#50d2ff" title="水色"></button>
+      <button class="hl-color-btn" data-color="110,160,255" style="background:#6ea0ff" title="青"></button>
+      <button class="hl-color-btn" data-color="190,140,255" style="background:#be8cff" title="紫"></button>
+      <button class="hl-color-btn" data-color="255,80,160" style="background:#f050a0" title="ピンク"></button>
+      <button class="hl-color-btn" data-color="255,110,110" style="background:#ff6e6e" title="赤"></button>
+      <button class="hl-color-btn" data-color="220,180,120" style="background:#dcb478" title="茶"></button>
     </div>
   </div>
   <div class="co-hl-section">
@@ -713,13 +758,19 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="co-dim-section">
     <div class="co-label">寸法色</div>
+    <!-- V1_74: 10色に拡張。白(#ffffff)は白背景・図面の黒線側どちらでも見づらくなるため除外し、
+         代わりに黄・黄緑・青・紫・茶を追加した -->
     <div class="co-dim-colors">
       <button class="dim-color-btn active" data-color="#f39c12" style="background:#f39c12" title="橙（既定）"></button>
-      <button class="dim-color-btn" data-color="#00d4ff" style="background:#00d4ff" title="水色"></button>
-      <button class="dim-color-btn" data-color="#ff4444" style="background:#f44" title="赤"></button>
-      <button class="dim-color-btn" data-color="#ffffff" style="background:#fff" title="白"></button>
+      <button class="dim-color-btn" data-color="#ffd700" style="background:#ffd700" title="黄"></button>
+      <button class="dim-color-btn" data-color="#8bc400" style="background:#8bc400" title="黄緑"></button>
       <button class="dim-color-btn" data-color="#2ecc71" style="background:#2ecc71" title="緑"></button>
-      <button class="dim-color-btn" data-color="#ff88ff" style="background:#f8f" title="紫"></button>
+      <button class="dim-color-btn" data-color="#00d4ff" style="background:#00d4ff" title="水色"></button>
+      <button class="dim-color-btn" data-color="#3399ff" style="background:#3399ff" title="青"></button>
+      <button class="dim-color-btn" data-color="#9b59b6" style="background:#9b59b6" title="紫"></button>
+      <button class="dim-color-btn" data-color="#ff88ff" style="background:#f8f" title="ピンク"></button>
+      <button class="dim-color-btn" data-color="#ff4444" style="background:#f44" title="赤"></button>
+      <button class="dim-color-btn" data-color="#a0623c" style="background:#a0623c" title="茶"></button>
     </div>
   </div>
 </div>
@@ -843,21 +894,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=171"></script>
-<script src="viewer.js?v=171"></script>
-<script src="utils.js?v=171"></script>
-<script src="ui.js?v=171"></script>
-<script src="dialog.js?v=171"></script>
-<script src="storage.js?v=171"></script>
-<script src="fonts/NotoSansJP.js?v=171"></script>
-<script src="export.js?v=171"></script>
-<script src="tool.js?v=171"></script>
-<script src="verify.js?v=171"></script>
+<script src="layer.js?v=179"></script>
+<script src="viewer.js?v=179"></script>
+<script src="utils.js?v=179"></script>
+<script src="ui.js?v=179"></script>
+<script src="dialog.js?v=179"></script>
+<script src="storage.js?v=179"></script>
+<script src="fonts/NotoSansJP.js?v=179"></script>
+<script src="export.js?v=179"></script>
+<script src="tool.js?v=179"></script>
+<script src="verify.js?v=179"></script>
+<!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
+     影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
+<script src="pc.js?v=179"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=171"></script>
+<script src="supabase-sync.js?v=179"></script>
 <script>
-const APP_VERSION = 'V1_71';
+const APP_VERSION = 'V1_79';
 
 // =========================================================
 // グローバル状態
@@ -1234,6 +1288,12 @@ function drawOverlay(){
 
 // V0_119: ファイル一意キー（name+size）。同名異サイズを別ファイルとして扱う
 function _fileKey(name,size){return name+'\x00'+size;}
+// V1_76: Excel(.xlsx/.xls/.csv)判定。fileInput分岐・フォルダインデックス・
+// セッション復元・タブバッジ(dialog.js)で共通利用する
+function _isExcelName(name){
+  var n=(name||'').toLowerCase();
+  return n.endsWith('.xlsx')||n.endsWith('.xls')||n.endsWith('.csv');
+}
 
 // ファイル
 const fileInput=document.getElementById('file');
@@ -1296,6 +1356,7 @@ fileInput.addEventListener('change',async e=>{
   currentFileName=f.name;
   const buf=await f.arrayBuffer();
   doc=null;pdfDoc=null;pdfImage=null;pdfMoji=[]; // V1_51
+  excelWb=null;renderExcelView(); // V1_76: 前のタブがExcelだった場合の表示を先に隠す
   document.getElementById('pdfPageCtrl').style.display='none';
   if(f.name.toLowerCase().endsWith('.pdf')){
     // V1_57: PDF分岐だけ、前のタブのhiddenLayers/strokes/dims/imagesを一度も
@@ -1350,6 +1411,23 @@ fileInput.addEventListener('change',async e=>{
     }catch(e151){console.warn('[PDF自動インデックス]',e151);}
     saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();
     document.body.classList.remove('settings-open');
+  } else if(_isExcelName(f.name)){
+    // V1_76: Excel(.xlsx/.xls/.csv)はシンプルな表形式表示＋テキスト読込のみ対応。
+    // 座標系を持たないため、DXF/PDFと異なり手書き・寸法計測(strokes/dims)は対象外とする
+    hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+    currentFileSize=f.size;
+    var _excelOk176=loadExcel(buf);
+    if(_excelOk176){
+      {const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
+      // V1_76: DXF/PDFと同様、開いたファイルは自動でインデックスへ追加する（全シート文字を抽出）
+      try{
+        var _excelTexts176=extractAllExcelTexts(excelWb);
+        _idbSave(f.name,buf,_excelTexts176);
+      }catch(e176){console.warn('[Excel自動インデックス]',e176);}
+      saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();
+      document.body.classList.remove('settings-open');
+    }
   } else {
     try{
       doc=parseDXF(buf);
@@ -1389,7 +1467,7 @@ fileInput.addEventListener('change',async e=>{
   // V1_40: PDFを開いた場合、pdfDoc/pdfImage/pdfPageNumがopenFiles[]に一度も
   // 保存されていなかったため、このタブから他タブへ移動して戻ると必ずPDFが
   // 消えてしまう不具合があった。ここで初回登録時に保存するようにした
-  {var _nf140=openFiles[currentFileIdx];_nf140.strokes=strokes;_nf140.dims=dims;_nf140.images=typeof images!=='undefined'?images:[];_nf140.savedViews=savedViews;_nf140.doc=doc;_nf140.hiddenLayersArr=Array.from(hiddenLayers);_nf140.tx=tx;_nf140.ty=ty;_nf140.scale=scale;_nf140.fitScale=fitScale;_nf140.currentFileName=currentFileName;_nf140.fileSize=currentFileSize;_nf140.pdfDoc=pdfDoc;_nf140.pdfImage=pdfImage;_nf140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
+  {var _nf140=openFiles[currentFileIdx];_nf140.strokes=strokes;_nf140.dims=dims;_nf140.images=typeof images!=='undefined'?images:[];_nf140.savedViews=savedViews;_nf140.doc=doc;_nf140.hiddenLayersArr=Array.from(hiddenLayers);_nf140.tx=tx;_nf140.ty=ty;_nf140.scale=scale;_nf140.fitScale=fitScale;_nf140.currentFileName=currentFileName;_nf140.fileSize=currentFileSize;_nf140.pdfDoc=pdfDoc;_nf140.pdfImage=pdfImage;_nf140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);_nf140.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_nf140.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0);}
   updateFileNavUI();// V0_112
   verify('fileInput.change:done');
   }finally{_isOpeningFileBusy=false;e.target.value='';} // V1_40
@@ -1456,11 +1534,14 @@ function switchToFile(idx){
     var _pn2=1;try{if(typeof pdfPageNum!=='undefined')_pn2=pdfPageNum;}catch(e){}
     _prevF.pdfPageNum=_pn2;
     _prevF.pdfDoc=pdfDoc;_prevF.pdfImage=pdfImage; // V1_40: PDF内容も退避
+    _prevF.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_prevF.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0); // V1_76
     _prevF.hiddenLayersArr=Array.from(hiddenLayers);
   }
   currentFileIdx=idx;
   var f=openFiles[idx];
   doc=f.doc; pdfDoc=f.pdfDoc; pdfImage=f.pdfImage;
+  excelWb=f.excelWb||null; excelSheetIdx=f.excelSheetIdx||0; // V1_76
+  if(typeof renderExcelView==='function') renderExcelView();
   try{ if(typeof pdfPageNum!=='undefined') pdfPageNum=f.pdfPageNum||1; }catch(e){}
   // V1_51: pdfMojiはタブ毎に保持していないため、PDFタブに切り替えた際は
   // 表示中ページの文字を非同期で再抽出する（doc同様の即時反映はできないが、
@@ -1499,7 +1580,7 @@ function switchToFile(idx){
   if(ppc) ppc.style.display=pdfDoc?'':'none';
   if(pdfDoc){var pi=document.getElementById('pageInfo');if(pi)pi.textContent=(f.pdfPageNum||1)+'/'+pdfDoc.numPages;}
   var nd=document.getElementById('noDrawingMsg');
-  if(nd) nd.style.display=(doc||pdfImage)?'none':'';
+  if(nd) nd.style.display=(doc||pdfImage||excelWb)?'none':'';
   [0,1,2,3,4].forEach(function(i){if(typeof updateViewmemoState==='function')updateViewmemoState(i);});
   if(typeof updateFileNavUI==='function') updateFileNavUI(); // V0_107: タブ強調表示を同期
   verify('switchToFile:after');
@@ -2072,15 +2153,17 @@ function openContextPopup(mode,anchorEl){
   const co=document.getElementById('colorOverlay');
   if(co.classList.contains('open')&&co.dataset.mode===mode){co.classList.remove('open');return;}
   co.dataset.mode=mode;
+  // V1_74: 色数(10色化)でポップアップの実際の高さがモードごとに変わるため、
+  // 固定値(旧popW=252,popH=180)ではなく先に表示してoffsetWidth/Heightで実測する
+  co.classList.add('open');
   const rect=anchorEl.getBoundingClientRect();
-  const popW=252,popH=180;
+  const popW=co.offsetWidth||252,popH=co.offsetHeight||180;
   let left=rect.left;
   let top=rect.bottom+6;
   if(left+popW>window.innerWidth) left=window.innerWidth-popW-8;
   if(left<4) left=4;
   if(top+popH>window.innerHeight) top=rect.top-popH-4;
   co.style.top=top+'px';co.style.left=left+'px';
-  co.classList.add('open');
 }
 // V1_45: 色丸ボタン(sketchColorDot/hlColorDot/dimColorDot)は廃止。色・太さの選択
 // ポップアップは、選択中のツールアイコンをもう一度押すことで開く(tool.js側で
@@ -3706,8 +3789,13 @@ function createSubWindow(rectWorld){
                                                 // ドラッグ範囲の高さそのものに一致させる
   var bodyH=H-HEADER_H;                        // 本体(キャンバス)の高さ＝全体からヘッダー分を引いた残り
 
-  // 複数開いた際に重ならないよう少しずつオフセット
-  var offset=subWindows.length*28;
+  // V1_79: 「複数開いた際に重ならないよう少しずつオフセット」する仕組みがあったが、
+  // このoffsetはウィンドウ枠(DOM位置)のみに加算され、中身のマッピング(下のsw.tx/ty)や
+  // メイン画面の範囲表示(_drawSubRangeOverlays)には反映されていなかったため、2個目の
+  // サブ窓だけ「窓の位置」と「中身・範囲表示」が28pxずれて見える不具合の原因になっていた。
+  // 1個目と同じくドラッグした範囲にそのまま重ねて表示することを優先し、offsetは廃止する
+  // （重なりが気になる場合はヘッダーをドラッグして移動できるため実用上の支障はない）
+  var offset=0;
   // V0_153.1: ヘッダー分だけ上にずらしていたのを廃止。ウィンドウ全体(ヘッダー込み)の左上を
   // ドラッグ範囲の左上にそのまま一致させ、「真上」＝ドラッグした場所にちょうど重なるようにする。
   var left=bx+offset, top=by+offset;
@@ -4564,8 +4652,15 @@ function _tapPickText(sx0,sy0){
     }
   }
   if(!best){showGuide('文字が見つかりませんでした。もう一度タップしてください',2200);return;}
+  _commitPickedText(best.text.replace(/\n/g,' ').trim());
+}
+
+// V1_76: 検索欄へのテキスト読込確定処理。従来_tapPickText内にあった処理を切り出し、
+// Excelセルタップ(_excelCellTapped, viewer.js)からも共通で呼べるようにした（挙動は変更なし）
+function _commitPickedText(text){
   var target=_textPickTarget;
-  var text=best.text.replace(/\n/g,' ').trim();
+  text=(text||'').trim();
+  if(!text) return;
   // V1_63: 1回読み込むごとにピックモードを解除していたが、連続して複数の文字を
   // 読み込めるよう、ここではピックモードを解除せず維持する。確認メッセージを
   // 一定時間表示した後、ピックモードが同じ対象のまま継続していればタップ案内に戻す
@@ -4615,7 +4710,13 @@ document.getElementById('searchInput').addEventListener('input',doSearch);
 // DBバージョンを1→2へ引き上げた。既存ユーザーのDB(バージョン1・dxfIndexストアのみ)を
 // 開いた際もonupgradeneededが働き、dxfIndexストアはそのまま・新規に
 // dxfIndexProfilesストアだけが追加される（既存データの移行・削除は発生しない）
-var _IDB_NAME='dxfViewerDB', _IDB_VER=2, _IDB_STORE='dxfIndex', _IDB_PROFILE_STORE='dxfIndexProfiles';
+// V1_75: 「現在のインデックスを登録」でファイル数が多いと失敗する不具合を修正するため、
+// dxfIndexProfileRecordsストアを追加しDBバージョンを2→3へ引き上げた。従来は
+// dxfIndexProfilesストアの1レコードに全ファイル分のbuf(生バイナリ)を配列でまとめて
+// 保存していたため、ファイル数・サイズが増えるほど1回のput()が巨大になり失敗しやすい
+// 構造だった。新方式ではファイル1件＝1レコードとしてdxfIndexProfileRecordsへ分散保存し、
+// dxfIndexProfilesにはname/count/savedAtだけの軽量なメタ情報のみを持たせる
+var _IDB_NAME='dxfViewerDB', _IDB_VER=3, _IDB_STORE='dxfIndex', _IDB_PROFILE_STORE='dxfIndexProfiles', _IDB_PROFILE_RECORDS_STORE='dxfIndexProfileRecords';
 // V1_24: 「フォルダを選択してインデックス作成」実行中に落ちる不具合の修正。
 // 従来は_idbSave()を呼ぶたび（＝フォルダ内のファイル1件ごと）にindexedDB.open()で
 // 新しい接続を作っており、一度も閉じていなかった。数十〜数百件のフォルダを
@@ -4631,6 +4732,10 @@ function _openIdb(cb){
       db.createObjectStore(_IDB_STORE,{keyPath:'name'});
     if(!db.objectStoreNames.contains(_IDB_PROFILE_STORE)) // V1_69: インデックスパターン保存用
       db.createObjectStore(_IDB_PROFILE_STORE,{keyPath:'name'});
+    if(!db.objectStoreNames.contains(_IDB_PROFILE_RECORDS_STORE)){ // V1_75: 登録パターンのファイル1件ごとの分散保存用
+      var _prs=db.createObjectStore(_IDB_PROFILE_RECORDS_STORE,{keyPath:'pk'});
+      _prs.createIndex('byProfile','profile',{unique:false});
+    }
   };
   req.onsuccess=function(e){
     _idbConn=e.target.result;
@@ -4744,23 +4849,61 @@ function _idbClear(){
 }
 // V1_69: インデックスパターン（登録インデックス）機能 ─────────────────────
 // 現在dxfIndexストアに蓄積されている全レコード(name,buf,texts,ts,folder)を、
-// ユーザーが指定した任意の名前でdxfIndexProfilesストアへ丸ごと複製保存する。
+// ユーザーが指定した任意の名前でdxfIndexProfile系ストアへ複製保存する。
 // 実フォルダへの再アクセスは不要（既にDBにあるバイナリ・テキストをそのまま使う）
+// V1_75: 「ファイル数が多いと登録に失敗する」不具合を修正。従来はgetAll()で全ファイルの
+// buf(生バイナリ)を一度にJSメモリへ展開した上で、それを1レコードとしてまとめて
+// put()していたため、ファイル数・サイズが増えるほど1回の書き込みが巨大になり
+// 失敗しやすかった（iOS Safari(WKWebView)のメモリ制限・IndexedDBの単一値サイズに
+// 抵触しやすい）。新方式ではdxfIndexストアをカーソルで1件ずつ読みながら、
+// ファイル1件＝dxfIndexProfileRecordsストアの1レコードとして都度put()し、
+// 巨大な単一オブジェクトを作らないようにした。同名で再登録した場合に古い
+// レコードが残らないよう、書き込み前に同名分をカーソルで削除してから書き直す
 function _idbSaveProfile(name,cb){
-  _idbGetAll(function(records){
-    _openIdb(function(err,db){
-      if(err){cb&&cb(err);return;}
-      try{
-        var tx=db.transaction(_IDB_PROFILE_STORE,'readwrite');
-        tx.objectStore(_IDB_PROFILE_STORE).put({name:name,records:records,savedAt:Date.now()});
-        tx.oncomplete=function(){cb&&cb(null);};
-        tx.onerror=function(e){cb&&cb(e.target.error);};
-      }catch(e){cb&&cb(e);}
-    });
+  _openIdb(function(err,db){
+    if(err){cb&&cb(err);return;}
+    try{
+      var tx=db.transaction([_IDB_STORE,_IDB_PROFILE_STORE,_IDB_PROFILE_RECORDS_STORE],'readwrite');
+      var recStore=tx.objectStore(_IDB_PROFILE_RECORDS_STORE);
+      var metaStore=tx.objectStore(_IDB_PROFILE_STORE);
+      var srcStore=tx.objectStore(_IDB_STORE);
+      var count=0;
+      // ① 同名の登録パターンが既に存在する場合、古い個別レコードを先に削除する
+      //   （今回のフォルダに含まれなくなったファイルが残留するのを防ぐ）
+      var delReq=recStore.index('byProfile').openCursor(IDBKeyRange.only(name));
+      delReq.onsuccess=function(e){
+        var cur=e.target.result;
+        if(cur){cur.delete();cur.continue();}
+        else{ copyRecords(); }
+      };
+      delReq.onerror=function(){ copyRecords(); }; // 削除失敗しても後続の書き込みは試みる
+      // ② dxfIndexストアをカーソルで1件ずつ読み、profile専用の複合キー(pk)を付けて
+      //    dxfIndexProfileRecordsへ都度put()する（全件を配列にまとめない）
+      function copyRecords(){
+        var srcReq=srcStore.openCursor();
+        srcReq.onsuccess=function(e){
+          var cur=e.target.result;
+          if(cur){
+            var r=cur.value;
+            recStore.put({pk:name+' '+r.name,profile:name,name:r.name,buf:r.buf,texts:r.texts,ts:r.ts,folder:r.folder});
+            count++;
+            cur.continue();
+          } else {
+            // ③ 件数・保存日時だけの軽量なメタ情報をdxfIndexProfilesへ保存
+            //    （旧形式でrecords配列を持つ同名レコードがあってもこのputで上書きされ、
+            //    自動的に新形式(軽量)へ移行する）
+            metaStore.put({name:name,count:count,savedAt:Date.now()});
+          }
+        };
+      }
+      tx.oncomplete=function(){cb&&cb(null);};
+      tx.onerror=function(e){cb&&cb(e.target.error);};
+    }catch(e){cb&&cb(e);}
   });
 }
-// 登録済みインデックスパターンの一覧を、名前・件数・保存日時のみの軽量な形で返す
-// （records本体は一覧表示に不要なため、コールバックへ渡す前に捨てる）
+// 登録済みインデックスパターンの一覧を、名前・件数・保存日時のみの軽量な形で返す。
+// V1_75: 新形式(count保持)・旧形式(records配列保持)のどちらのレコードが残っていても
+// 件数を正しく算出できるようにした（旧形式のまま一度も再登録していないデータの後方互換）
 function _idbListProfiles(cb){
   _openIdb(function(err,db){
     if(err){cb([]);return;}
@@ -4771,7 +4914,9 @@ function _idbListProfiles(cb){
       req.onsuccess=function(e){
         var cursor=e.target.result;
         if(cursor){
-          list.push({name:cursor.value.name,count:(cursor.value.records||[]).length,savedAt:cursor.value.savedAt});
+          var v=cursor.value;
+          var cnt=(v.count!=null)?v.count:(v.records||[]).length; // V1_75: 新形式/旧形式どちらにも対応
+          list.push({name:v.name,count:cnt,savedAt:v.savedAt});
           cursor.continue();
         } else {
           list.sort(function(a,b){return (b.savedAt||0)-(a.savedAt||0);}); // 新しい登録ほど上に
@@ -4784,6 +4929,10 @@ function _idbListProfiles(cb){
 }
 // 指定名のインデックスパターンで、現在のdxfIndexストアを置き換える
 // （検索対象を登録内容だけに絞り込むため、clear→putを同一トランザクションで行う）
+// V1_75: 新形式（dxfIndexProfileRecordsにファイル毎の個別レコードがある場合）は
+// カーソルで1件ずつ読みながらdxfIndexへput()し、全件を配列に載せない。
+// 旧形式（dxfIndexProfilesのレコード自体がrecords配列を持つ場合）は後方互換のため
+// 従来通りrecords配列からそのまま復元する
 function _idbLoadProfile(name,cb){
   _openIdb(function(err,db){
     if(err){cb&&cb(err);return;}
@@ -4794,15 +4943,95 @@ function _idbLoadProfile(name,cb){
         var prof=e.target.result;
         if(!prof){cb&&cb(new Error('見つかりません'));return;}
         try{
-          var tx=db.transaction(_IDB_STORE,'readwrite');
-          var store=tx.objectStore(_IDB_STORE);
-          store.clear();
-          (prof.records||[]).forEach(function(r){store.put(r);});
-          tx.oncomplete=function(){cb&&cb(null);};
-          tx.onerror=function(e3){cb&&cb(e3.target.error);};
+          if(prof.records){
+            // 旧形式(後方互換): 一度も再登録されていない古いデータ
+            var tx=db.transaction(_IDB_STORE,'readwrite');
+            var store=tx.objectStore(_IDB_STORE);
+            store.clear();
+            (prof.records||[]).forEach(function(r){store.put(r);});
+            tx.oncomplete=function(){cb&&cb(null);};
+            tx.onerror=function(e3){cb&&cb(e3.target.error);};
+          } else {
+            // V1_75: 新形式。dxfIndexProfileRecordsからカーソルで1件ずつ読み出し、
+            // dxfIndexへ都度put()する（全件を配列にまとめない）
+            var tx2=db.transaction([_IDB_STORE,_IDB_PROFILE_RECORDS_STORE],'readwrite');
+            var dstStore=tx2.objectStore(_IDB_STORE);
+            dstStore.clear();
+            var curReq=tx2.objectStore(_IDB_PROFILE_RECORDS_STORE).index('byProfile').openCursor(IDBKeyRange.only(name));
+            curReq.onsuccess=function(e2){
+              var cur=e2.target.result;
+              if(cur){
+                var v=cur.value;
+                dstStore.put({name:v.name,buf:v.buf,texts:v.texts,ts:v.ts,folder:v.folder});
+                cur.continue();
+              }
+            };
+            tx2.oncomplete=function(){cb&&cb(null);};
+            tx2.onerror=function(e4){cb&&cb(e4.target.error);};
+          }
         }catch(e4){cb&&cb(e4);}
       };
       getReq.onerror=function(e){cb&&cb(e.target.error);};
+    }catch(e){cb&&cb(e);}
+  });
+}
+// V1_77: 複数の登録名をまとめて（結合して）現在のdxfIndexへ反映する。
+// _idbLoadProfile(単数)は1件で置き換えるのに対し、本関数はclear()を最初に1回だけ行い、
+// 選択された全プロファイルのレコードを順に積み上げる。同名ファイルが複数プロファイルに
+// 含まれる場合は、後から処理したプロファイルの内容で上書きされる（keyPath:'name'のため）
+function _idbLoadProfiles(names,cb){
+  if(!names||names.length===0){cb&&cb(new Error('選択されていません'));return;}
+  _openIdb(function(err,db){
+    if(err){cb&&cb(err);return;}
+    try{
+      var txR=db.transaction(_IDB_PROFILE_STORE,'readonly');
+      var profStore=txR.objectStore(_IDB_PROFILE_STORE);
+      var profs=[];
+      var pending=names.length;
+      names.forEach(function(name){
+        var getReq=profStore.get(name);
+        getReq.onsuccess=function(e){
+          if(e.target.result) profs.push(e.target.result);
+          pending--;
+          if(pending===0) proceed();
+        };
+        getReq.onerror=function(){ pending--; if(pending===0) proceed(); };
+      });
+      function proceed(){
+        if(profs.length===0){cb&&cb(new Error('見つかりません'));return;}
+        try{
+          var tx=db.transaction([_IDB_STORE,_IDB_PROFILE_RECORDS_STORE],'readwrite');
+          var dstStore=tx.objectStore(_IDB_STORE);
+          dstStore.clear();
+          var idx=0;
+          function loadNext(){
+            if(idx>=profs.length) return; // 完了検知はtx.oncompleteで行う
+            var prof=profs[idx];idx++;
+            if(prof.records){
+              // 旧形式(後方互換): records配列からそのまま積む
+              (prof.records||[]).forEach(function(r){dstStore.put(r);});
+              loadNext();
+            } else {
+              // 新形式: dxfIndexProfileRecordsからカーソルで1件ずつ読み出し積む
+              var curReq=tx.objectStore(_IDB_PROFILE_RECORDS_STORE).index('byProfile').openCursor(IDBKeyRange.only(prof.name));
+              curReq.onsuccess=function(e2){
+                var cur=e2.target.result;
+                if(cur){
+                  var v=cur.value;
+                  dstStore.put({name:v.name,buf:v.buf,texts:v.texts,ts:v.ts,folder:v.folder});
+                  cur.continue();
+                } else {
+                  loadNext();
+                }
+              };
+              curReq.onerror=function(){ loadNext(); };
+            }
+          }
+          loadNext();
+          tx.oncomplete=function(){cb&&cb(null);};
+          tx.onerror=function(e3){cb&&cb(e3.target.error);};
+        }catch(e4){cb&&cb(e4);}
+      }
     }catch(e){cb&&cb(e);}
   });
 }
@@ -4810,8 +5039,14 @@ function _idbDeleteProfile(name,cb){
   _openIdb(function(err,db){
     if(err){cb&&cb(err);return;}
     try{
-      var tx=db.transaction(_IDB_PROFILE_STORE,'readwrite');
+      var tx=db.transaction([_IDB_PROFILE_STORE,_IDB_PROFILE_RECORDS_STORE],'readwrite');
       tx.objectStore(_IDB_PROFILE_STORE).delete(name);
+      // V1_75: 新形式の個別レコードも併せて削除する（旧形式のみの場合はヒットせず無害）
+      var delReq=tx.objectStore(_IDB_PROFILE_RECORDS_STORE).index('byProfile').openCursor(IDBKeyRange.only(name));
+      delReq.onsuccess=function(e){
+        var cur=e.target.result;
+        if(cur){cur.delete();cur.continue();}
+      };
       tx.oncomplete=function(){cb&&cb(null);};
       tx.onerror=function(e){cb&&cb(e.target.error);};
     }catch(e){cb&&cb(e);}
@@ -4847,7 +5082,7 @@ function _idbGetAllNameTexts(cb){
       var cursor=e.target.result;
       if(cursor){
         var v=cursor.value;
-        out.push({name:v.name,texts:v.texts||[],ts:v.ts||0});
+        out.push({name:v.name,texts:v.texts||[],ts:v.ts||0,folder:v.folder||''}); // V1_75: doAllSearch()をgetAll()から移行するためfolderも追加
         cursor.continue();
       } else {
         cb(out);
@@ -4885,13 +5120,19 @@ function doAllSearch(){
   var cnt=document.getElementById('allSearchCount');
   list.innerHTML='';
   if(!kw){cnt.textContent='';return;}
-  _idbGetAll(function(records){
+  // V1_75: 従来は_idbGetAll()で全ファイルのbuf(生バイナリ)を検索のたびに一括で
+  // メモリへ読み込んでいたが、検索でヒット判定に使うのはname/texts/folderだけで、
+  // bufが実際に必要なのは結果をタップして開く時点のみ。ファイル数が多いフォルダで
+  // 検索するたびに重くなる/失敗しやすくなるのを避けるため、一覧取得は軽量な
+  // _idbGetAllNameTexts()（bufを含まない）に変え、bufはタップ時に_idbGetOne()で
+  // その1件分だけ取得するようにした
+  _idbGetAllNameTexts(function(records){
     if(gen!==_allSearchGen) return; // V0_103: 旧世代コールバックは破棄
     list.innerHTML=''; // 最新世代のみリスト再構築
     var hits=[];
     records.forEach(function(rec){
       var matched=(rec.texts||[]).filter(function(t){return t.toLowerCase().indexOf(kw)>=0;});
-      if(matched.length>0) hits.push({name:rec.name,buf:rec.buf,matched:matched,folder:rec.folder}); // V1_70: folder追加（開いているファイル一覧の表示用）
+      if(matched.length>0) hits.push({name:rec.name,matched:matched,folder:rec.folder});
     });
     cnt.textContent=hits.length+'件（全'+records.length+'図面）';
     if(hits.length===0){
@@ -4907,7 +5148,12 @@ function doAllSearch(){
       var ht=document.createElement('div');ht.className='asr-hit';
       ht.textContent=h.matched.slice(0,4).join(' / ')+(h.matched.length>4?' …':'');
       el.appendChild(fn);el.appendChild(ht);
-      el.addEventListener('click',function(){openDxfFromDb(h.name,h.buf,kw,h.folder);}); // V0_104 / V1_70: folder伝達
+      el.addEventListener('click',function(){ // V1_75: タップ時にその1件分だけbufを取得
+        _idbGetOne(h.name,function(full){
+          if(!full){showGuide('読み込みに失敗しました',2000);return;}
+          openDxfFromDb(h.name,full.buf,kw,h.folder); // V0_104 / V1_70: folder伝達
+        });
+      });
       list.appendChild(el);
     });
   });
@@ -4944,13 +5190,16 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
     // ③ DXF/PDF読込 V1_51: 拡張子で分岐し、PDFはloadPDF()で読み込む（doc=nullのまま、
     // pdfDoc/pdfImage/pdfMojiがrenderPdfPage内で設定される）
     var _isPdf151=name.toLowerCase().endsWith('.pdf');
+    var _isExcel176=_isExcelName(name); // V1_76
+    doc=null; pdfDoc=null; pdfImage=null; pdfMoji=[]; excelWb=null; // V1_51/V1_76: 前の状態が残らないようクリア
     if(_isPdf151){
-      doc=null; pdfDoc=null; pdfImage=null; pdfMoji=[];
       await loadPDF(buf);
+    } else if(_isExcel176){
+      loadExcel(buf);
     } else {
       doc=parseDXF(buf);
-      pdfDoc=null; pdfImage=null; pdfMoji=[]; // V1_51: 前のPDF状態が残らないようクリア
     }
+    if(typeof renderExcelView==='function') renderExcelView(); // V1_76: excelWbの有無に応じて表示を同期
     currentFileSize=buf.byteLength;
 
     // 検索キーワードマーク設定（V0_104、V1_51: PDF(pdfMoji)にも対応）
@@ -4974,6 +5223,7 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
       openFiles[_xi].doc=doc; // パース結果のみ更新
       // V1_51: PDF再読込時のpdfDoc/pdfImage/pdfPageNumも反映
       openFiles[_xi].pdfDoc=pdfDoc;openFiles[_xi].pdfImage=pdfImage;openFiles[_xi].pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);
+      openFiles[_xi].excelWb=excelWb;openFiles[_xi].excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0); // V1_76
       if(folder) openFiles[_xi].folder=folder; // V1_70: 分かっている時だけ上書き（既存値を空で消さない）
       currentFileIdx=_xi;
       var _ef=openFiles[_xi];
@@ -5019,7 +5269,7 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
       openFiles.push({name:name,fileKey:_fk,folder:folder||''}); // V1_70: folderは開いているファイル一覧の表示用
       currentFileIdx=openFiles.length-1;
       // V0_140: 新タブ登録時にstrokes/dims/images/savedViewsの参照を設定
-      {var _nf140b=openFiles[currentFileIdx];_nf140b.strokes=strokes;_nf140b.dims=dims;_nf140b.images=typeof images!=='undefined'?images:[];_nf140b.savedViews=savedViews;_nf140b.doc=doc;_nf140b.hiddenLayersArr=Array.from(hiddenLayers);_nf140b.pdfDoc=pdfDoc;_nf140b.pdfImage=pdfImage;_nf140b.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);} // V1_51: PDFタブ情報も登録
+      {var _nf140b=openFiles[currentFileIdx];_nf140b.strokes=strokes;_nf140b.dims=dims;_nf140b.images=typeof images!=='undefined'?images:[];_nf140b.savedViews=savedViews;_nf140b.doc=doc;_nf140b.hiddenLayersArr=Array.from(hiddenLayers);_nf140b.pdfDoc=pdfDoc;_nf140b.pdfImage=pdfImage;_nf140b.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);_nf140b.excelWb=excelWb;_nf140b.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0);} // V1_51/V1_76: PDF/Excelタブ情報も登録
     }
 
     currentFileName=name;
@@ -5043,7 +5293,7 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
 
     document.getElementById('allSearchOverlay').classList.remove('open');
     document.body.classList.remove('settings-open');
-    var _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display=(doc||pdfImage)?'none':'';
+    var _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display=(doc||pdfImage||excelWb)?'none':'';
     // マークポップアップ（V0_104）
     var _mp=document.getElementById('markPopup');if(_mp){if(_searchMarks.length>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
   }catch(err){alert('図面を開けません: '+err.message);}finally{_isOpeningFileBusy=false;} // V1_40
@@ -5234,12 +5484,13 @@ document.getElementById('folderInput').addEventListener('change', function(e){
   var progEl = document.getElementById(_folderIndexSource==='openFile'?'openFolderProgress':'folderProgress');
   var allFiles = Array.from(e.target.files);
   // V1_51: PDFも対象に追加し、文字を抽出してインデックスできるようにする
+  // V1_76: Excel(.xlsx/.xls/.csv)も対象に追加
   var files = allFiles.filter(function(f){
     var n=f.name.toLowerCase();
-    return n.endsWith('.dxf')||n.endsWith('.pdf');
+    return n.endsWith('.dxf')||n.endsWith('.pdf')||_isExcelName(n);
   });
   if(files.length === 0){
-    progEl.textContent = 'DXF・PDFファイルが見つかりません';
+    progEl.textContent = 'DXF・PDF・Excelファイルが見つかりません';
     return;
   }
   // V1_33: webkitRelativePathの先頭セグメント＝選択したフォルダ名を取得
@@ -5298,6 +5549,11 @@ function processFolderFiles(files, progEl, folderName){
           // コピー(slice(0))を渡してbufを無傷のまま保持する
           var _pdoc151=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
           texts=await extractAllPdfTexts(_pdoc151);
+        } else if(_isExcelName(f.name)){
+          // V1_76: Excelは全シートのセル文字列をtextsに追加するだけでよい（座標情報は不要）
+          if(typeof XLSX==='undefined') throw new Error('Excel読み込み機能が読み込まれていません');
+          var _wb176=XLSX.read(buf,{type:'array'});
+          texts=extractAllExcelTexts(_wb176);
         } else {
           var d = parseDXF(buf);
           if(d && d.moji){

@@ -27,6 +27,7 @@ var DIM_TEXT_MAX_PX=30;  // autoモード: 最大スクリーンpx
 var inputMode='pen'; // 'pen' | 'freehand'  入力モード
 // hiddenLayers → layer.js
 var pdfDoc=null,pdfPageNum=1;
+var excelWb=null,excelSheetIdx=0; // V1_76: Excel(.xlsx/.xls/.csv)表示用
 var pdfImage=null;
 // V1_65: PDFの各ページに書いたstrokes/dimsが全ページに同じ様に表示されてしまう不具合の修正用。
 // stroke/dim作成時にこの値をpageプロパティとして付与し、描画・消しゴム等でこの値と一致するものだけを対象にする。
@@ -771,6 +772,106 @@ async function extractAllPdfTexts(pdfDocObj){
     }
   }catch(e){ console.warn('[PDF全ページ文字抽出]',e); }
   return texts;
+}
+
+// =========================================================
+// V1_76: Excel(.xlsx/.xls/.csv)表示
+// シンプルな表形式のみ対応（セル色・結合・罫線・書式は再現しない）。
+// PDF/DXFと同様、canvas(cv/ac/ov)は非表示にしてHTMLテーブルへ切り替える。
+// =========================================================
+function loadExcel(buf){
+  if(typeof XLSX==='undefined'){alert('Excel読み込み機能が読み込まれていません');return false;}
+  try{
+    excelWb=XLSX.read(buf,{type:'array'});
+  }catch(e){
+    alert('Excelファイルの読み込みに失敗しました: '+(e&&e.message||e));
+    excelWb=null;renderExcelView();
+    return false;
+  }
+  excelSheetIdx=0;
+  renderExcelView();
+  return true;
+}
+
+// フォルダインデックス・全図面検索用途。全シートのセル文字列一覧（重複含む）を返す
+function extractAllExcelTexts(wb){
+  var texts=[];
+  try{
+    wb.SheetNames.forEach(function(name){
+      var ws=wb.Sheets[name];
+      if(!ws) return;
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+      rows.forEach(function(row){
+        row.forEach(function(cell){
+          var t=(cell===null||cell===undefined)?'':String(cell).trim();
+          if(t) texts.push(t);
+        });
+      });
+    });
+  }catch(e){ console.warn('[Excel文字抽出]',e); }
+  return texts;
+}
+
+// 現在のexcelWb/excelSheetIdxをもとに #excelView 内のシートタブ・テーブルを再構築する。
+// excelWbがnullの場合は#excelViewを隠しcanvasを元に戻すだけの役割も兼ねる
+// （PDF/DXF側に戻る際は excelWb=null にしてから本関数を呼ぶだけでよい）
+function renderExcelView(){
+  var view=document.getElementById('excelView');
+  if(!view) return;
+  var cv=document.getElementById('cv'),ac=document.getElementById('ac'),ov=document.getElementById('ov');
+  if(!excelWb){
+    view.style.display='none';
+    if(cv)cv.style.display='';if(ac)ac.style.display='';if(ov)ov.style.display='';
+    return;
+  }
+  view.style.display='flex';
+  if(cv)cv.style.display='none';if(ac)ac.style.display='none';if(ov)ov.style.display='none';
+  var tabsEl=document.getElementById('excelSheetTabs');
+  var table=document.getElementById('excelTable');
+  if(!tabsEl||!table) return;
+  if(excelSheetIdx<0||excelSheetIdx>=excelWb.SheetNames.length) excelSheetIdx=0;
+  tabsEl.innerHTML='';
+  if(excelWb.SheetNames.length>1){
+    tabsEl.style.display='';
+    excelWb.SheetNames.forEach(function(name,i){
+      var b=document.createElement('button');
+      b.type='button';
+      b.className='excel-sheet-tab'+(i===excelSheetIdx?' active':'');
+      b.textContent=name;
+      b.addEventListener('click',function(){
+        excelSheetIdx=i;renderExcelView();
+        if(typeof scheduleSave==='function')scheduleSave();
+      });
+      tabsEl.appendChild(b);
+    });
+  } else {
+    tabsEl.style.display='none';
+  }
+  var ws=excelWb.Sheets[excelWb.SheetNames[excelSheetIdx]];
+  var rows=ws?XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false}):[];
+  table.innerHTML='';
+  rows.forEach(function(row){
+    var tr=document.createElement('tr');
+    row.forEach(function(cell){
+      var td=document.createElement('td');
+      td.textContent=(cell===null||cell===undefined)?'':String(cell);
+      td.addEventListener('click',function(){ if(typeof _excelCellTapped==='function') _excelCellTapped(td.textContent); });
+      tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+}
+
+// Excelセルタップ時の処理。テキスト読込ピックモード中は共通ヘルパー(_commitPickedText)へ渡す。
+// ピックモードでない時はセル内容をガイド表示するのみ（画面検索と異なり座標ジャンプは行わない）
+function _excelCellTapped(text){
+  text=(text||'').trim();
+  if(!text) return;
+  if(typeof _textPickTarget!=='undefined'&&_textPickTarget){
+    if(typeof _commitPickedText==='function') _commitPickedText(text);
+  } else if(typeof showGuide==='function'){
+    showGuide('セル: '+text,2000);
+  }
 }
 
 function buildPDF(jpegB64,pw,ph){

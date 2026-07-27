@@ -122,6 +122,7 @@ function doSave(){
           tx:f.tx||0,ty:f.ty||0,scale:f.scale||1,fitScale:f.fitScale||1,
           fileSize:f.fileSize||0,scaleDenom:sd,
           isPDF:!!(f.pdfDoc||f.pdfImage),
+          isExcel:!!f.excelWb, excelSheetIdx:f.excelSheetIdx||0, // V1_76
           pdfPageNum:f.pdfPageNum||1 // V0_135: PDFページ番号保存
         };
       });
@@ -216,6 +217,34 @@ async function tryRestore(){
             }catch(e2){console.warn('[PDFタブ復元]',e2);}
             continue;
           }
+          // V1_76: Excel(.xlsx/.xls/.csv)タブの復元。excelWb自体は保存していないため、
+          // 保存済みのバイナリ(buf)からXLSX.read()で再構築する（PDFのpdfjsLib.getDocument()と同じ方針）
+          if(_mf.isExcel){
+            try{
+              if(typeof XLSX==='undefined') continue;
+              var _wbR176=XLSX.read(_buf2.slice(0),{type:'array'});
+              var _sv4=(_mf.savedViews||[]).slice();
+              while(_sv4.length<5)_sv4.push(null);
+              var _fstX={
+                name:_mf.currentFileName||_mf.name,
+                currentFileName:_mf.currentFileName||_mf.name,
+                fileKey:_mf.fileKey||_fname,
+                doc:null,pdfDoc:null,pdfImage:null,pdfPageNum:1,
+                excelWb:_wbR176,excelSheetIdx:_mf.excelSheetIdx||0,
+                strokes:_mf.strokes||[],
+                dims:_mf.dims||[],
+                images:[],
+                savedViews:_sv4,
+                hiddenLayersArr:_mf.hiddenLayersArr||[],
+                tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
+                fileSize:_mf.fileSize||0
+              };
+              if(_i===_md.currentFileIdx) _activeLocal=_restored.length;
+              _restored.push(_fstX);
+              _rbufs.push(_buf2);
+            }catch(e2){console.warn('[Excelタブ復元]',e2);}
+            continue;
+          }
           try{
             var _pdoc=parseDXF(_buf2);
             var _sv=(_mf.savedViews||[]).slice();
@@ -249,6 +278,8 @@ async function tryRestore(){
           // V1_55: PDFタブも復元対象になったため、_af.pdfDoc/_af.pdfImageを
           // そのまま採用する（従来はDXF専用の前提でpdfDoc/pdfImageを常にnullにしていた）
           doc=_af.doc||null; pdfDoc=_af.pdfDoc||null; pdfImage=_af.pdfImage||null;
+          excelWb=_af.excelWb||null; excelSheetIdx=_af.excelSheetIdx||0; // V1_76
+          if(typeof renderExcelView==='function') renderExcelView();
           try{if(typeof pdfPageNum!=='undefined')pdfPageNum=_af.pdfPageNum||1;}catch(e){}
           // V0_140: deep copy廃止 → 参照エイリアス（openFiles[]を唯一の本体とする）
           strokes=_af.strokes;
@@ -342,6 +373,8 @@ async function tryRestore(){
         currentFileSize=_restoreBuf.byteLength;
         if(_sfName.toLowerCase().endsWith('.pdf')){
           await loadPDF(_restoreBuf);
+        } else if(typeof _isExcelName==='function'&&_isExcelName(_sfName)){ // V1_76
+          loadExcel(_restoreBuf);
         } else {
           doc=parseDXF(_restoreBuf);detectScale();
         }
@@ -410,7 +443,7 @@ async function tryRestore(){
       currentFileIdx=0;
       if(typeof openFilesBufs!=='undefined'&&_restoreBuf) openFilesBufs[0]=_restoreBuf; // V0_112
       // V0_140: saveCurrentFileState廃止 → strokes/dims/images/savedViewsを参照として設定
-      {var _singleF=openFiles[0];_singleF.strokes=strokes;_singleF.dims=dims;_singleF.images=typeof images!=='undefined'?images:[];_singleF.savedViews=savedViews;_singleF.doc=doc;_singleF.hiddenLayersArr=Array.from(hiddenLayers);_singleF.tx=tx;_singleF.ty=ty;_singleF.scale=scale;_singleF.fitScale=fitScale;_singleF.currentFileName=currentFileName;_singleF.fileSize=currentFileSize;}
+      {var _singleF=openFiles[0];_singleF.strokes=strokes;_singleF.dims=dims;_singleF.images=typeof images!=='undefined'?images:[];_singleF.savedViews=savedViews;_singleF.doc=doc;_singleF.hiddenLayersArr=Array.from(hiddenLayers);_singleF.tx=tx;_singleF.ty=ty;_singleF.scale=scale;_singleF.fitScale=fitScale;_singleF.currentFileName=currentFileName;_singleF.fileSize=currentFileSize;_singleF.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_singleF.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0);}
       if(typeof updateFileNavUI==='function') updateFileNavUI();
     }
   }catch(e){}

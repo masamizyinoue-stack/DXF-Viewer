@@ -118,7 +118,10 @@ function _showIndexProfileNameDialog(anchorEl, onConfirm){
 
 // =========================================================
 // V1_69: 登録済みインデックスパターンの一覧表示・切替・削除
-// 依存関数: _idbListProfiles/_idbLoadProfile/_idbDeleteProfile/_idbCountByFolder/
+// V1_77: チェックボックスで複数選択できるようにし、選択した複数パターンを
+//        まとめて（結合して）現在のインデックスへ読み込めるようにした
+//        （従来は1件タップで即座にそのパターンだけに置き換わる単一選択だった）
+// 依存関数: _idbListProfiles/_idbLoadProfiles/_idbDeleteProfile/_idbCountByFolder/
 //           _buildIndexSummaryText/doOpenFileSearch (index.html), showGuide (ui.js)
 // =========================================================
 function _showIndexProfileListMenu(anchorEl){
@@ -130,12 +133,40 @@ function _showIndexProfileListMenu(anchorEl){
   var r=anchorEl.getBoundingClientRect();
   menu.style.top=(r.bottom+6)+'px';
   menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-336))+'px';
-  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">登録インデックス</div>'
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">登録インデックス（複数選択可）</div>'
     +'<div id="_idxListBody" style="color:#889;font-size:13px;text-align:center;padding:8px 0;">読み込み中…</div>'
+    +'<button id="_idxListApply" disabled style="background:#1a7a3a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;opacity:.5;">選択したものを読込</button>'
     +'<button id="_idxListCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">閉じる</button>';
   document.body.appendChild(menu);
   function closeMenu(){if(document.getElementById('_idxListMenu'))menu.remove();}
   document.getElementById('_idxListCnl').onclick=closeMenu;
+
+  var selected=new Set(); // V1_77: チェック済みの登録名を保持（re-render後も維持する）
+  var applyBtn=document.getElementById('_idxListApply');
+  function updateApplyBtn(){
+    var n=selected.size;
+    applyBtn.disabled=(n===0);
+    applyBtn.style.opacity=(n===0)?'.5':'1';
+    applyBtn.textContent=(n===0)?'選択したものを読込':('選択した'+n+'件を読込');
+  }
+  applyBtn.onclick=function(){
+    if(selected.size===0) return;
+    var names=Array.from(selected);
+    closeMenu();
+    showGuide(names.length+'件のインデックスを読み込んでいます…',0);
+    _idbLoadProfiles(names,function(err){
+      if(err){showGuide('読込に失敗しました',2000);return;}
+      var oprog=document.getElementById('openFolderProgress');
+      var fprog=document.getElementById('folderProgress');
+      _idbCountByFolder(function(counts){
+        var txt=_buildIndexSummaryText(counts);
+        if(oprog)oprog.textContent=txt;
+        if(fprog)fprog.textContent=txt;
+      });
+      if(typeof doOpenFileSearch==='function')doOpenFileSearch();
+      showGuide(names.length+'件のインデックスを読み込みました',2000);
+    });
+  };
 
   function render(list){
     var body=document.getElementById('_idxListBody');
@@ -150,26 +181,23 @@ function _showIndexProfileListMenu(anchorEl){
     list.forEach(function(p){
       var row=document.createElement('div');
       row.style.cssText='display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid #2a3d55;';
+      var cb=document.createElement('input');
+      cb.type='checkbox';
+      cb.style.cssText='width:20px;height:20px;flex-shrink:0;cursor:pointer;';
+      cb.checked=selected.has(p.name);
+      cb.addEventListener('change',function(){
+        if(cb.checked) selected.add(p.name); else selected.delete(p.name);
+        updateApplyBtn();
+      });
       var info=document.createElement('div');
       info.style.cssText='flex:1;min-width:0;cursor:pointer;';
       var dateStr=p.savedAt?new Date(p.savedAt).toLocaleDateString('ja-JP'):'';
       info.innerHTML='<div style="color:#eee;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+p.name+'</div>'
         +'<div style="color:#889;font-size:11px;">'+p.count+'件'+(dateStr?'・'+dateStr:'')+'</div>';
+      // V1_77: 行タップでもチェックのon/offを切り替えられるようにする（チェックボックス自体は小さいため）
       info.onclick=function(){
-        closeMenu();
-        showGuide('「'+p.name+'」に切り替えています…',0);
-        _idbLoadProfile(p.name,function(err){
-          if(err){showGuide('切り替えに失敗しました',2000);return;}
-          var oprog=document.getElementById('openFolderProgress');
-          var fprog=document.getElementById('folderProgress');
-          _idbCountByFolder(function(counts){
-            var txt=_buildIndexSummaryText(counts);
-            if(oprog)oprog.textContent=txt;
-            if(fprog)fprog.textContent=txt;
-          });
-          if(typeof doOpenFileSearch==='function')doOpenFileSearch();
-          showGuide('「'+p.name+'」に切り替えました',2000);
-        });
+        cb.checked=!cb.checked;
+        cb.dispatchEvent(new Event('change'));
       };
       var delBtn=document.createElement('button');
       delBtn.textContent='×';
@@ -178,13 +206,15 @@ function _showIndexProfileListMenu(anchorEl){
       delBtn.onclick=function(ev){
         ev.stopPropagation();
         if(!confirm('「'+p.name+'」を削除しますか？')) return;
-        _idbDeleteProfile(p.name,function(){ _idbListProfiles(render); });
+        selected.delete(p.name);
+        _idbDeleteProfile(p.name,function(){ _idbListProfiles(render); updateApplyBtn(); });
       };
-      row.appendChild(info);row.appendChild(delBtn);
+      row.appendChild(cb);row.appendChild(info);row.appendChild(delBtn);
       body.appendChild(row);
     });
   }
 
+  updateApplyBtn();
   if(typeof _idbListProfiles==='function') _idbListProfiles(render);
   setTimeout(function(){document.addEventListener('click',function _dc(ev){
     if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
@@ -230,10 +260,12 @@ function _showOpenFilesListMenu(anchorEl){
       var isActive=(idx===currentFileIdx);
       var isRecent1=(idx===_ranks71.recent1), isRecent2=(idx===_ranks71.recent2);
       row.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:8px;border-bottom:1px solid #2a3d55;cursor:pointer;'+(isActive?'background:rgba(255,85,85,.15);':'');
-      var isPdf=(f.currentFileName||f.name||'').toLowerCase().endsWith('.pdf');
+      var _nameLower76=(f.currentFileName||f.name||'').toLowerCase();
+      var isPdf=_nameLower76.endsWith('.pdf');
+      var isExcel76=(typeof _isExcelName==='function')&&_isExcelName(_nameLower76); // V1_76
       var badge=document.createElement('span');
-      badge.textContent=isPdf?'PDF':'DXF';
-      badge.style.cssText='font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;flex-shrink:0;background:'+(isPdf?'#8e44ad':'#1a7a3a')+';color:#fff;';
+      badge.textContent=isPdf?'PDF':(isExcel76?'XLS':'DXF');
+      badge.style.cssText='font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;flex-shrink:0;background:'+(isPdf?'#8e44ad':(isExcel76?'#217346':'#1a7a3a'))+';color:#fff;';
       var info=document.createElement('div');
       info.style.cssText='flex:1;min-width:0;';
       var timeStr=f._lastActiveTs?'表示済み':'未表示';
