@@ -53,6 +53,28 @@ var needDraw=false,needOverlay=false,needAnnotation=false;
 var _scEndPts=[],_scMidPts=[],_scCenPts=[]; // スナップキャッシュ（Xソート済）
 var perfMode=false; // 軽量モード（大容量DXF自動切替）
 var PERF_THRESHOLD=800; // この要素数を超えたら軽量モード
+// V1_102: PC操作時(マウスホイールズーム・マウスドラッグパン)のカクつき対策。
+// 大容量DXF(線分・円弧・文字が数万点規模)では、PCブラウザのウィンドウがiPadより
+// 大きい分、同じ縮尺でも画面に映る要素数が多くなり、毎フレームの描画負荷が
+// iPadより重くなっていた（iPadは画面が小さく映る要素数が少ないため軽い）。
+// 操作中(_interacting=true)の間だけ、文字(TEXT)と小さい円/円弧(ボルト穴など、
+// 画面上でSMALL_ARC_SKIP_PX px未満にしか映らないもの)の描画を省略し、
+// 操作が止まって既定時間(INTERACTION_IDLE_MS)経過した時点で1回だけ全要素を
+// 精密描画し直す。対象はPC操作(ホイール・マウスドラッグ)のみで、タッチ操作
+// (iPad)には適用しない（iPadは既に体感良好なため、触れて悪化させるリスクを避ける）
+var _interacting=false;
+var _interactionIdleTimer=null;
+var INTERACTION_IDLE_MS=150; // 操作停止とみなすまでの無操作時間(ms)
+var SMALL_ARC_SKIP_PX=4; // 操作中、この画面上半径(px)未満の円/円弧の描画を省略
+function _beginInteraction(){
+  _interacting=true;
+  if(_interactionIdleTimer) clearTimeout(_interactionIdleTimer);
+  _interactionIdleTimer=setTimeout(function(){
+    _interacting=false;
+    _interactionIdleTimer=null;
+    scheduleDraw(); // 操作停止後、省略していた文字・小さい円弧を精密描画で復元
+  },INTERACTION_IDLE_MS);
+}
 // =========================================================
 // ファイル名表示
 // =========================================================
@@ -92,12 +114,19 @@ function hsvToRgb(h,s,v){
 // =========================================================
 // DXF パーサ
 // =========================================================
+// V1_106: 文字コード自動判定（UTF-8として妥当ならUTF-8、そうでなければShift-JISとみなす）。
+// 元々DXF読込専用だったdecodeDXF()内のロジックを切り出し、CSV読込(loadExcel)からも
+// 共通で使えるようにした。日本語Windows環境で作成されたCSVはShift-JIS(CP932)であることが
+// 多く、UTF-8前提で読むと文字化けするため、DXFと同じ判定方式をCSVにも適用する
+function _decodeTextAuto(buf){
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch(e){}
+  return new TextDecoder('shift_jis').decode(buf);
+}
 function decodeDXF(buf){
   const head=new Uint8Array(buf,0,Math.min(20,buf.byteLength));
   if(head[0]===65&&head[1]===117&&head[2]===116)
     throw new Error('バイナリDXF形式は非対応です。ASCII DXFで保存してください。');
-  try{return new TextDecoder('utf-8',{fatal:true}).decode(buf);}catch(e){}
-  return new TextDecoder('shift_jis').decode(buf);
+  return _decodeTextAuto(buf);
 }
 
 function parseDXF(buf){
@@ -649,10 +678,13 @@ function draw(){
     }
   }
   // Arcs（ビューポートカリング: 外接矩形で判定）
+  // V1_102: 操作中(_interacting)は、画面上でSMALL_ARC_SKIP_PX px未満にしか
+  // 映らない小さい円/円弧(ボルト穴など)の描画を省略し、操作停止後に復元する
   for(const e of doc.enko){
     if(hiddenLayers.has(e.layer)) continue;
     const scx=e.cx*scale+tx,scy=-e.cy*scale+ty,sr2=e.r*scale;
     if(scx+sr2<-mg||scx-sr2>W+mg||scy+sr2<-mg||scy-sr2>H+mg) continue;
+    if(_interacting&&sr2<SMALL_ARC_SKIP_PX) continue;
     ctx.beginPath();
     ctx.strokeStyle=bwMode?'#000000':rgbCss(e.color,darkBg);
     ctx.lineWidth=Math.max(0.8,e.lw*scale*1.4);
@@ -661,7 +693,8 @@ function draw(){
   }
   ctx.setLineDash([]);
   // Points（ビューポートカリング）
-  for(const e of doc.ten){
+  // V1_102: 操作中は点要素の描画も省略し、操作停止後に復元する
+  if(!_interacting) for(const e of doc.ten){
     if(hiddenLayers.has(e.layer)) continue;
     const sxt=e.x*scale+tx,syt=-e.y*scale+ty;
     if(sxt<-mg||sxt>W+mg||syt<-mg||syt>H+mg) continue;
@@ -669,7 +702,10 @@ function draw(){
     ctx.fillStyle=bwMode?'#000000':rgbCss(e.color,darkBg);ctx.fill();
   }
   // Text（ビューポートカリング）
-  for(const e of doc.moji){
+  // V1_102: 操作中(_interacting)は文字描画(ctx.fillText・フォント切替)を省略し、
+  // 操作停止後に復元する。文字は1要素あたりの描画コストが高く、かつ高速な
+  // ズーム・パン中はどのみち読み取れないため、省略による視覚的な影響は小さい
+  if(!_interacting) for(const e of doc.moji){
     if(hiddenLayers.has(e.layer)) continue;
     const sxm=e.x*scale+tx,sym=-e.y*scale+ty,fsm=Math.max(6,e.h*scale);
     if(sxm<-200||sxm>W+200||sym<-fsm*2-20||sym>H+200) continue;
@@ -971,10 +1007,18 @@ async function extractAllPdfTexts(pdfDocObj){
 // シンプルな表形式のみ対応（セル色・結合・罫線・書式は再現しない）。
 // PDF/DXFと同様、canvas(cv/ac/ov)は非表示にしてHTMLテーブルへ切り替える。
 // =========================================================
-function loadExcel(buf){
+// V1_106: isCsv=trueの場合、buf(生バイト)をXLSXへそのまま渡さず、先に文字コードを
+// 自動判定(_decodeTextAuto)してから文字列として渡す。.xlsx/.xlsはバイナリ形式で
+// エンコーディングの概念が無いため従来通りtype:'array'のまま扱う（CSVのみプレーン
+// テキストで文字コードを持つため、Shift-JIS等のCSVがUTF-8前提で文字化けする不具合への対応）
+function loadExcel(buf,isCsv){
   if(typeof XLSX==='undefined'){alert('Excel読み込み機能が読み込まれていません');return false;}
   try{
-    excelWb=XLSX.read(buf,{type:'array'});
+    if(isCsv){
+      excelWb=XLSX.read(_decodeTextAuto(buf),{type:'string'});
+    } else {
+      excelWb=XLSX.read(buf,{type:'array'});
+    }
   }catch(e){
     alert('Excelファイルの読み込みに失敗しました: '+(e&&e.message||e));
     excelWb=null;renderExcelView();

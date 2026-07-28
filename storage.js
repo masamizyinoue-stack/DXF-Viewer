@@ -225,7 +225,11 @@ async function tryRestore(){
           if(_mf.isExcel){
             try{
               if(typeof XLSX==='undefined') continue;
-              var _wbR176=XLSX.read(_buf2.slice(0),{type:'array'});
+              // V1_106: CSVは文字コード自動判定(UTF-8→Shift-JIS)してから文字列として渡す
+              var _isCsv176=(_mf.currentFileName||_mf.name||'').toLowerCase().endsWith('.csv');
+              var _wbR176=_isCsv176
+                ?XLSX.read(_decodeTextAuto(_buf2.slice(0)),{type:'string'})
+                :XLSX.read(_buf2.slice(0),{type:'array'});
               var _sv4=(_mf.savedViews||[]).slice();
               while(_sv4.length<5)_sv4.push(null);
               var _fstX={
@@ -377,7 +381,7 @@ async function tryRestore(){
         if(_sfName.toLowerCase().endsWith('.pdf')){
           await loadPDF(_restoreBuf);
         } else if(typeof _isExcelName==='function'&&_isExcelName(_sfName)){ // V1_76
-          loadExcel(_restoreBuf);
+          loadExcel(_restoreBuf,_sfName.toLowerCase().endsWith('.csv')); // V1_106: CSVは文字コード自動判定させる
         } else {
           doc=parseDXF(_restoreBuf);detectScale();
         }

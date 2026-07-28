@@ -234,21 +234,25 @@ function _showOpenFilesListMenu(anchorEl){
   if(existing){existing.remove();return;}
   var menu=document.createElement('div');
   menu.id='_tabListMenu';
-  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:340px;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  // V1_104: ファイル数が多いとリストが伸び、末尾の「選択したタブを閉じる」ボタンが
+  // スクロールしないと見えなかった。メニュー全体をスクロールさせるのではなく、
+  // 一覧部分(listWrap)だけを内部スクロールさせるレイアウトに変更し、タイトル・並び順・
+  // 全て選択・閉じるボタンは常に画面内に固定表示されるようにした
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;min-width:240px;max-width:340px;max-height:70vh;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.7);';
   var r=anchorEl.getBoundingClientRect();
   menu.style.top=(r.bottom+6)+'px';
   menu.style.right=(window.innerWidth-r.right)+'px';
   function closeMenu(){if(document.getElementById('_tabListMenu'))menu.remove();}
 
   var title=document.createElement('div');
-  title.style.cssText='color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;';
+  title.style.cssText='color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;flex-shrink:0;';
   title.textContent='開いているファイル（'+openFiles.length+'件）';
   menu.appendChild(title);
 
   // V1_80: 並び順選択（設定パネルの「タブの並び順」と同じ4択・同じ状態を共有する）
   var sortRow=document.createElement('div');
-  sortRow.style.cssText='display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 6px;justify-content:center;';
-  var _sortOptions=[['name','名前順'],['opened','開いた順'],['access','アクセス順'],['manual','任意']];
+  sortRow.style.cssText='display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 6px;justify-content:center;flex-shrink:0;';
+  var _sortOptions=[['name','名前順'],['opened','開いた順'],['access','アクセス順'],['manual','任意'],['type','種類順']]; // V1_104: 種類順(DXF/PDF/エクセル)を追加
   var _sortBtns={};
   _sortOptions.forEach(function(opt){
     var b=document.createElement('button');
@@ -273,23 +277,61 @@ function _showOpenFilesListMenu(anchorEl){
   }
   menu.appendChild(sortRow);
 
+  // V1_104: 「全て選択」チェックボックス。ファイル数が多い時に1件ずつタップせずに
+  // まとめて選択・解除できるようにする
+  var selectAllRow=document.createElement('label');
+  selectAllRow.style.cssText='display:flex;align-items:center;gap:6px;padding:2px 4px 4px;cursor:pointer;font-size:12px;color:#aac8e8;flex-shrink:0;';
+  var selectAllCb=document.createElement('input');
+  selectAllCb.type='checkbox';
+  selectAllCb.style.cssText='width:18px;height:18px;cursor:pointer;flex-shrink:0;';
+  var selectAllLabel=document.createElement('span');
+  selectAllLabel.textContent='全て選択';
+  selectAllRow.appendChild(selectAllCb);
+  selectAllRow.appendChild(selectAllLabel);
+  menu.appendChild(selectAllRow);
+
+  // V1_104: 一覧部分だけを内部スクロールさせるためのラッパー。listWrapにflex:1と
+  // overflow-y:autoを持たせ、タイトル・並び順・全て選択・閉じるボタンはmenu(flex column)
+  // 側に固定表示されたまま残る
+  var listWrap=document.createElement('div');
+  listWrap.style.cssText='flex:1;min-height:0;overflow-y:auto;';
+  menu.appendChild(listWrap);
+
   var listBody=document.createElement('div');
   listBody.style.cssText='display:flex;flex-direction:column;gap:2px;';
-  menu.appendChild(listBody);
+  listWrap.appendChild(listBody);
 
   var closeSelBtn=document.createElement('button');
   closeSelBtn.type='button';
   closeSelBtn.disabled=true;
-  closeSelBtn.style.cssText='background:#8B0000;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;opacity:.5;margin-top:4px;';
+  closeSelBtn.style.cssText='background:#8B0000;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;opacity:.5;margin-top:4px;flex-shrink:0;';
   closeSelBtn.textContent='選択したタブを閉じる';
   menu.appendChild(closeSelBtn);
 
   var selected=new Set(); // 選択中のfileKey（インデックスは閉じるたびにずれるためfileKeyで管理する）
+  // V1_104: 「全て選択」チェックボックスの状態(全選択/一部選択/未選択)を、実際のselected
+  // の中身に合わせて同期する。個別チェックボックスの変更・全体再描画のたびに呼ぶ
+  function updateSelectAllCb(){
+    var keyed=openFiles.filter(function(f){return !!f.fileKey;});
+    var allSelected=keyed.length>0&&keyed.every(function(f){return selected.has(f.fileKey);});
+    selectAllCb.checked=allSelected;
+    selectAllCb.indeterminate=!allSelected&&selected.size>0;
+  }
+  selectAllCb.addEventListener('change',function(){
+    if(selectAllCb.checked){
+      openFiles.forEach(function(f){ if(f.fileKey) selected.add(f.fileKey); });
+    } else {
+      selected.clear();
+    }
+    updateCloseSelBtn();
+    renderList();
+  });
   function updateCloseSelBtn(){
     var n=selected.size;
     closeSelBtn.disabled=(n===0);
     closeSelBtn.style.opacity=(n===0)?'.5':'1';
     closeSelBtn.textContent=(n===0)?'選択したタブを閉じる':('選択した'+n+'件を閉じる');
+    updateSelectAllCb();
   }
   closeSelBtn.onclick=function(){
     if(selected.size===0) return;

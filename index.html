@@ -338,10 +338,20 @@ body.settings-open #settingsPanel{transform:translateX(0)}
    横並びに変更（タブが多い時に見失わないための対策の一つ）。ボタンはtabBarRowの
    外側に固定表示するため、タブと一緒に横スクロールして見えなくなることがない */
 #tabBarRow{display:flex;align-items:stretch;flex-shrink:0}
-#tabBar{display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:#0d1117;border-bottom:1px solid #2a3040;min-height:0;max-height:40px;flex-shrink:0;flex:1;min-width:0}
+#tabBar{display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:#0d1117;border-bottom:1px solid #2a3040;min-height:0;max-height:40px;flex-shrink:0;flex:1;min-width:0;scrollbar-width:none} /* V1_103: PCでタブが収まりきらない時にネイティブの横スクロールバーが40pxの枠内に表示され、タブ名の文字と重なって見づらかったため、.topbar(コマンドバー)と同じ方式でスクロールバー自体を非表示にした（スクロール操作自体はドラッグ/トラックパッド/タブ一覧ボタンで引き続き可能） */
+#tabBar::-webkit-scrollbar{display:none}
 #tabBar:empty{max-height:0;border-bottom:none}
 #tabListBtn{display:none;width:36px;min-width:36px;height:40px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;border-left:1px solid #2a3040;color:#b0bec5;font-size:16px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 #tabListBtn:active{background:rgba(255,255,255,.12)}
+/* V1_105: PC操作時、タブがウィンドウ幅に収まらずスクロールが必要な場合の左右移動ボタン。
+   V1_103でネイティブの横スクロールバーを非表示にしたため、ホイールの無いマウスの
+   ユーザーにも分かりやすい操作手段として、タブが実際に収まりきらない時だけ
+   （_updateTabScrollBtns()がJSで判定）表示する。タブ一覧ボタンと同じ配色・高さで統一 */
+.tab-scroll-btn{display:none;width:24px;min-width:24px;height:40px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;color:#b0bec5;font-size:15px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.tab-scroll-btn:active{background:rgba(255,255,255,.12)}
+.tab-scroll-btn.at-edge{opacity:.35;cursor:default}
+#tabScrollLeftBtn{border-right:1px solid #2a3040}
+#tabScrollRightBtn{border-left:1px solid #2a3040}
 .tab-item{display:flex;align-items:center;padding:0 6px 0 12px;min-width:80px;max-width:180px;height:40px;background:#0d1117;border-right:1px solid #2a3040;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;gap:4px;box-sizing:border-box}
 /* V1_70: アクティブタブの強調を強化（背景をより明るく・下線を太く）、ファイル名は赤太字に。
    直前まで表示していたタブは黄色、その1つ前は青色にして、タブが多くても直近の
@@ -505,7 +515,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 </button>
 </div>
 <div id="tabBarRow">
+  <button id="tabScrollLeftBtn" class="tab-scroll-btn" title="左へスクロール">‹</button>
   <div id="tabBar"></div>
+  <button id="tabScrollRightBtn" class="tab-scroll-btn" title="右へスクロール">›</button>
   <button id="tabListBtn" title="開いているファイル一覧">☰</button>
 </div>
 <div class="stage" id="stage">
@@ -561,7 +573,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_101</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_106</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -623,6 +635,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
         <input type="radio" name="tabSortMode" id="tabSortManual" value="manual" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
         <span>任意（ドラッグで並び替え）<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">タブを長押ししてつかむと、動かして好きな順番に並び替えられる</small></span>
+      </label>
+      <!-- V1_104: ファイル形式(DXF/PDF/エクセル)ごとにまとめる並び順を追加 -->
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
+        <input type="radio" name="tabSortMode" id="tabSortType" value="type" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+        <span>ファイル形式順<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">DXF→PDF→エクセルの順にまとまり、同じ種類の中は名前順で並ぶ</small></span>
       </label>
     </div>
   </div>
@@ -903,24 +920,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=1101"></script>
-<script src="viewer.js?v=1101"></script>
-<script src="utils.js?v=1101"></script>
-<script src="ui.js?v=1101"></script>
-<script src="dialog.js?v=1101"></script>
-<script src="storage.js?v=1101"></script>
-<script src="fonts/NotoSansJP.js?v=1101"></script>
-<script src="export.js?v=1101"></script>
-<script src="tool.js?v=1101"></script>
-<script src="verify.js?v=1101"></script>
+<script src="layer.js?v=1106"></script>
+<script src="viewer.js?v=1106"></script>
+<script src="utils.js?v=1106"></script>
+<script src="ui.js?v=1106"></script>
+<script src="dialog.js?v=1106"></script>
+<script src="storage.js?v=1106"></script>
+<script src="fonts/NotoSansJP.js?v=1106"></script>
+<script src="export.js?v=1106"></script>
+<script src="tool.js?v=1106"></script>
+<script src="verify.js?v=1106"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=1101"></script>
+<script src="pc.js?v=1106"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=1101"></script>
+<script src="supabase-sync.js?v=1106"></script>
 <script>
-const APP_VERSION = 'V1_101';
+const APP_VERSION = 'V1_106';
 
 // =========================================================
 // グローバル状態
@@ -1330,6 +1347,14 @@ function _isExcelName(name){
   var n=(name||'').toLowerCase();
   return n.endsWith('.xlsx')||n.endsWith('.xls')||n.endsWith('.csv');
 }
+// V1_104: タブの「種類順」ソート・タブ一覧パネルのバッジ表示で共通利用するファイル種類の
+// 判定。並び順は DXF→PDF→XLS(Excel/CSV) の順（鉄骨図面のDXFを最優先で手前にまとめる）
+function _fileTypeSortKey(f){
+  var n=((f&&(f.currentFileName||f.name))||'').toLowerCase();
+  if(n.endsWith('.pdf')) return 1;
+  if(_isExcelName(n)) return 2;
+  return 0; // DXF（既定）
+}
 
 // ファイル
 const fileInput=document.getElementById('file');
@@ -1453,7 +1478,7 @@ fileInput.addEventListener('change',async e=>{
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     currentFileSize=f.size;
-    var _excelOk176=loadExcel(buf);
+    var _excelOk176=loadExcel(buf,f.name.toLowerCase().endsWith('.csv')); // V1_106: CSVは文字コード自動判定させる
     if(_excelOk176){
       {const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
       // V1_94: 単独で開いたExcelを検索して開くのインデックスへ自動追加する処理は、
@@ -1730,6 +1755,14 @@ function _computeTabOrder(){
     });
   }else if(_tabSortMode==='manual'){
     order=_buildManualOrder();
+  }else if(_tabSortMode==='type'){
+    // V1_104: ファイル形式順（DXF→PDF→XLS）。同じ種類同士は名前順(自然順)で並べる
+    order.sort(function(a,b){
+      var ta=_fileTypeSortKey(openFiles[a]), tb=_fileTypeSortKey(openFiles[b]);
+      if(ta!==tb) return ta-tb;
+      var na=openFiles[a].currentFileName||'', nb=openFiles[b].currentFileName||'';
+      return na.localeCompare(nb,undefined,{numeric:true,sensitivity:'base'});
+    });
   }else if(_tabSortMode!=='opened'){
     order.sort(function(a,b){
       var na=openFiles[a].currentFileName||'', nb=openFiles[b].currentFileName||'';
@@ -1783,7 +1816,36 @@ function updateFileNavUI(){
   if(_activeItemEl&&typeof _activeItemEl.scrollIntoView==='function'){
     try{_activeItemEl.scrollIntoView({inline:'nearest',block:'nearest'});}catch(e){}
   }
+  if(typeof _updateTabScrollBtns==='function') _updateTabScrollBtns(); // V1_105
 }
+
+// V1_105: PCでタブがウィンドウ幅に収まらない場合の左右スクロールボタン。
+// V1_103でネイティブの横スクロールバーを非表示にしたため、ホイールの無いマウスの
+// ユーザーにも分かりやすい代替手段として追加した（ホイール・トラックパッドでの
+// スクロールや「開いているファイル一覧」ボタンは従来通り利用可能で、これらを
+// 置き換えるものではない）。タブが画面幅に収まっている間はボタン自体を非表示にする
+function _updateTabScrollBtns(){
+  var bar=document.getElementById('tabBar');
+  var lb=document.getElementById('tabScrollLeftBtn'), rb=document.getElementById('tabScrollRightBtn');
+  if(!bar||!lb||!rb) return;
+  var canScroll=bar.scrollWidth>bar.clientWidth+1; // +1: 端数丸めの誤判定防止
+  lb.style.display=canScroll?'flex':'none';
+  rb.style.display=canScroll?'flex':'none';
+  if(!canScroll) return;
+  // 端に達している側は押せないことが分かるよう薄く表示する（Chromeのタブスクロールと同様）
+  lb.classList.toggle('at-edge',bar.scrollLeft<=0);
+  rb.classList.toggle('at-edge',bar.scrollLeft>=bar.scrollWidth-bar.clientWidth-1);
+}
+(function(){
+  var bar=document.getElementById('tabBar');
+  var lb=document.getElementById('tabScrollLeftBtn'), rb=document.getElementById('tabScrollRightBtn');
+  if(!bar||!lb||!rb) return;
+  var _tabScrollStep=160; // 1クリックあたりの移動量(px)。タブ1〜2個分相当
+  lb.addEventListener('click',function(){ bar.scrollBy({left:-_tabScrollStep,behavior:'smooth'}); });
+  rb.addEventListener('click',function(){ bar.scrollBy({left:_tabScrollStep,behavior:'smooth'}); });
+  bar.addEventListener('scroll',_updateTabScrollBtns);
+  window.addEventListener('resize',_updateTabScrollBtns);
+})();
 
 function closeTab(idx){
   var fname=openFiles[idx]?openFiles[idx].currentFileName||'このファイル':'このファイル';
@@ -2018,10 +2080,12 @@ document.querySelectorAll('input[name="tabSortMode"]').forEach(function(r){
 function updateTabSortModeUI(){
   var rn=document.getElementById('tabSortName'),ro=document.getElementById('tabSortOpened');
   var ra=document.getElementById('tabSortAccess'),rm=document.getElementById('tabSortManual'); // V1_71
+  var rt=document.getElementById('tabSortType'); // V1_104
   if(rn)rn.checked=(_tabSortMode==='name');
   if(ro)ro.checked=(_tabSortMode==='opened');
   if(ra)ra.checked=(_tabSortMode==='access');
   if(rm)rm.checked=(_tabSortMode==='manual');
+  if(rt)rt.checked=(_tabSortMode==='type');
 }
 updateTabSortModeUI();
 // V1_70: 開いているファイル一覧ボタン
@@ -5427,7 +5491,7 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
     if(_isPdf151){
       await loadPDF(buf,page); // V1_88: 検索で一致したページがあればそのページを開く
     } else if(_isExcel176){
-      loadExcel(buf); // 内部でexcelSheetIdx=0にリセットされ1回描画される
+      loadExcel(buf,name.toLowerCase().endsWith('.csv')); // 内部でexcelSheetIdx=0にリセットされ1回描画される。V1_106: CSVは文字コード自動判定させる
       // V1_88: 検索で一致したシートがあれば切り替える（この後のrenderExcelView()で反映）
       if(sheet!=null&&sheet>=0&&excelWb&&sheet<excelWb.SheetNames.length) excelSheetIdx=sheet;
     } else {
@@ -5830,7 +5894,11 @@ function processFolderFiles(files, progEl, folderName){
         } else if(_isExcelName(f.name)){
           // V1_76: Excelは全シートのセル文字列をtextsに追加するだけでよい（座標情報は不要）
           if(typeof XLSX==='undefined') throw new Error('Excel読み込み機能が読み込まれていません');
-          var _wb176=XLSX.read(buf,{type:'array'});
+          // V1_106: CSVは文字コード自動判定(UTF-8→Shift-JIS)してから文字列として渡す
+          // （生バイトのままtype:'array'で渡すとShift-JIS等のCSVの検索用抽出文字列が文字化けする）
+          var _wb176=f.name.toLowerCase().endsWith('.csv')
+            ?XLSX.read(_decodeTextAuto(buf),{type:'string'})
+            :XLSX.read(buf,{type:'array'});
           texts=extractAllExcelTexts(_wb176);
         } else {
           var d = parseDXF(buf);

@@ -242,7 +242,10 @@ function handlePointerMove(sx,sy,isPenInput){
     if(sketching){sketchPts.push({x:wx,y:wy});scheduleOverlay();}return;
   }
   // パン
-  if(panning){tx+=sx-lastMX;ty+=sy-lastMY;scheduleDraw();}
+  // V1_102: このパン分岐はタッチ(iPad)側では別途直接tx/tyを操作しており経由しないため、
+  // 実質的にPCのマウスドラッグ時のみを通る。大容量DXFでのPC操作時のカクつき対策として、
+  // ドラッグパン中は簡略描画モード(_interacting)を有効にし、操作停止後に精密描画へ戻す
+  if(panning){_beginInteraction();tx+=sx-lastMX;ty+=sy-lastMY;scheduleDraw();}
   if(selectedImage&&dragImageStart){
     const[nwx,nwy]=s2w(sx,sy);const[owx,owy]=s2w(dragImageStart.sx,dragImageStart.sy);
     selectedImage.wx=dragImageStart.iwx+(nwx-owx);selectedImage.wy=dragImageStart.iwy+(nwy-owy);
@@ -393,6 +396,9 @@ ov.addEventListener('wheel',e=>{
   else if(e.deltaMode===2) _wd*=800; // DOM_DELTA_PAGE→pixel相当(概算)
   _wd=Math.max(-800,Math.min(800,_wd)); // 極端な単発ジャンプの安全策
   const _wf=Math.pow(1.15,-_wd/100);
+  // V1_102: 大容量DXFでのPC操作時のカクつき対策。ホイールズーム中は簡略描画モード
+  // (_interacting)を有効にし、操作停止後に精密描画へ戻す
+  _beginInteraction();
   zoomAt(p.x,p.y,_wf);scheduleDraw();
 },{passive:false});
 
