@@ -11,10 +11,46 @@
 //     2本指タップ(iPadOSの右クリック相当ジェスチャー)で発火しうるが、これは新規追加の
 //     挙動であり、既存のタッチ/Apple Pencilのdraw/pan/pinchロジック(tool.js)には
 //     一切影響しない。
+//   ・mousedown/mousemove/mouseup（中央ボタン、V1_86追加）: マウスの中央ボタン
+//     (e.button===1、ホイール押し込み)はiPadのタッチ/Apple Pencilでは発生し得ない。
+//     tool.js側の既存mousedownはe.button!==0で左クリック以外を即returnしており、
+//     ここで追加するリスナーはtool.js側の処理と競合しない（tool.js側は素通りするだけ）。
+//   ・#file/#folderInputのaccept属性削除（V1_89/V1_90）: イベントリスナーではなく
+//     DOM属性の変更だが、判定にwindow.matchMedia('(hover:hover) and (pointer:fine)')
+//     というPC専用の判定条件（V1_78のホバーCSSと同じ判定式）を使うため、
+//     iPad(タッチのみ)では条件を満たさず一切実行されない。iPad側のaccept属性
+//     (.dxf,application/octet-stream。iOSのFilesアプリで正しくDXFを選択できるよう
+//     V1_08/V1_09で調整した経緯があるため変更しない)には一切手を加えない。
 // 依存関数・変数: undo, redo, fit, scheduleDraw, history, redoStack (index.html)
 //               showGuide (ui.js)
+//               getPos, tx, ty (tool.js/viewer.js)
 (function(){
   'use strict';
+
+  // =========================================================
+  // V1_89: 「ファイルを開く」のOSファイル選択ダイアログが、既定で「カスタムファイル」
+  // フィルタ(拡張子が.dxfのみ)になり、PDF/Excelを選ぶ際に手動でフィルタを
+  // 「すべてのファイル」へ切り替える一手間が必要という指摘への対応。
+  // V1_90: 「フォルダを選択してインデックス作成」でも同様にPDF/Excelが見えにくい・
+  // わかりにくいとの指摘があったため、folderInputにも同じ対応を追加した。
+  // PC(マウス操作可能な環境、(hover:hover)and(pointer:fine))でのみ#file/#folderInputの
+  // accept属性を外し、ダイアログの既定フィルタが最初から「すべてのファイル」になる
+  // ようにする。iPadのFilesアプリ/写真アプリの選択シートは、accept属性の値によって
+  // 表示内容や挙動が変わる既知の制約(V1_08/V1_09のコメント参照)があるため、
+  // この変更はiPadには一切適用しない
+  // =========================================================
+  try{
+    if(window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+      var _fileInputV189=document.getElementById('file');
+      if(_fileInputV189) _fileInputV189.removeAttribute('accept');
+      // V1_90: 「フォルダを選択してインデックス作成」(folderInput)も同様に、PDF/Excelが
+      // 見えにくい・選びにくいとの指摘のためaccept属性(.dxf)を外す。folderInput自体は
+      // 実際のファイル絞り込みをJS側(change イベント内、拡張子で.dxf/.pdf/Excelを判定)で
+      // 行っており、accept属性の有無はここでの処理結果には影響しない
+      var _folderInputV190=document.getElementById('folderInput');
+      if(_folderInputV190) _folderInputV190.removeAttribute('accept');
+    }
+  }catch(e){}
 
   // =========================================================
   // Ctrl+Z / Ctrl+Y（Cmd+Z / Cmd+Shift+Z にも対応）
@@ -101,5 +137,42 @@
       });
     },10);
   }
+
+  // =========================================================
+  // V1_86: マウスの中央ボタン(ホイール押し込み)を押しながらドラッグでスクロール(パン)。
+  // 慣性(勢いで動き続ける効果)は付けない — ボタンを離した位置でぴたっと止まる。
+  // 描画キャンバス(#ov)上のみで有効。左クリック(既存のtool.js側mousedown/mousemove/
+  // mouseup)や右クリックメニューとは独立した、新規追加のイベントリスナーのみで完結する。
+  // =========================================================
+  var _pcMidPanning = false, _pcMidLastX = 0, _pcMidLastY = 0;
+
+  document.addEventListener('mousedown', function(e){
+    if(e.button !== 1) return;
+    var ov = document.getElementById('ov');
+    if(!ov || !ov.contains(e.target)) return;
+    e.preventDefault(); // ブラウザ既定の中央ボタン自動スクロールアイコンを抑止
+    if(typeof getPos !== 'function') return;
+    var p = getPos(e);
+    _pcMidPanning = true;
+    _pcMidLastX = p.x; _pcMidLastY = p.y;
+  });
+
+  document.addEventListener('mousemove', function(e){
+    if(!_pcMidPanning) return;
+    if(typeof getPos !== 'function') return;
+    var p = getPos(e);
+    // V0_79等の既存パン処理(tool.js)と同じ「移動量をそのまま加算するだけ」の式。
+    // 減速・継続処理を一切行わないため、慣性は付かない
+    tx += p.x - _pcMidLastX;
+    ty += p.y - _pcMidLastY;
+    _pcMidLastX = p.x; _pcMidLastY = p.y;
+    if(typeof scheduleDraw === 'function') scheduleDraw();
+  });
+
+  document.addEventListener('mouseup', function(e){
+    if(e.button === 1) _pcMidPanning = false;
+  });
+  // ウィンドウ外でボタンを離した場合や、フォーカスが外れた場合もパン状態を残さない
+  window.addEventListener('blur', function(){ _pcMidPanning = false; });
 
 })();

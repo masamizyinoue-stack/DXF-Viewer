@@ -82,6 +82,8 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 #excelTable{border-collapse:collapse;font-size:13px;color:#111}
 #excelTable td{border:1px solid #ccc;padding:4px 8px;white-space:nowrap;cursor:pointer}
 #excelTable td:active{background:#ffe9a8}
+/* V1_88: 「検索してファイルを開く」で一致したセルをDXF/PDFの黄色マークと同様に強調表示 */
+#excelTable td.cell-highlight{background:#fff3b0;box-shadow:inset 0 0 0 2px #e6b800}
 #cv,#ov{position:absolute;top:0;left:0;width:100%;height:100%}
 #ac{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none} /* V0_82: Annotation専用Canvas */
 #ov{pointer-events:all;cursor:crosshair;touch-action:none}
@@ -131,10 +133,11 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
   color:var(--accent);cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
   -webkit-tap-highlight-color:transparent;white-space:nowrap}
 #ipxBtn:active{background:rgba(255,255,255,.12)}
-/* V1_61: PDFページ送り。設定パネル内(.sp-section)からメイン画面右上のフローティング
+/* V1_61: PDFページ送り。設定パネル内(.sp-section)からメイン画面のフローティング
    パネルへ移動した（旧位置がハンバーガーメニューの中で見つけにくいとの指摘のため）。
-   #ipxBtn(左上)と対称の右上に配置し、.viewmemo(top:100px)より上に置くことで重ならない */
-#pdfPageCtrl{position:absolute;top:10px;right:10px;z-index:100;
+   V1_84: ユーザー依頼により右上から左上へ変更。#ipxBtnも左上(top:10px;left:10px)だが、
+   #ipxBtnはPDFでは使えない計測ツールの操作中のみ表示されるため実際に重なることはない */
+#pdfPageCtrl{position:absolute;top:10px;left:10px;z-index:100;
   display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;
   background:rgba(10,14,20,.88);border:1.5px solid var(--accent);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -285,8 +288,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V0_108: markPopup を全体ボタン左へ移動 */
 #markFitRow{grid-column:1/-1;display:flex;gap:4px;align-items:stretch;}
 #markFitRow #fitBtn{flex:1;}
-#markPopup{display:none;min-height:48px;padding:4px 10px;font-size:12px;border:1.5px solid rgba(255,215,0,.75);border-radius:8px;background:rgba(10,14,20,.88);color:#ffd700;cursor:pointer;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 14px rgba(0,0,0,.5);user-select:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;gap:4px;white-space:nowrap;flex-shrink:0;}
+#markPopup{display:none;min-height:48px;padding:4px 10px;font-size:12px;border:1.5px solid rgba(255,215,0,.75);border-radius:8px;background:rgba(10,14,20,.88);color:#ffd700;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 14px rgba(0,0,0,.5);user-select:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;gap:4px;white-space:nowrap;flex-shrink:0;}
 #markPopup.visible{display:flex;}
+/* V1_91: 「次へ」ボタン・件数表示・✕(マーク解除)。markPopup自体はもうクリック対象では
+   なく、内部の各要素にそれぞれ役割を持たせる */
+#markCountLabel{font-size:11px;color:#ffe487;}
+#markNextBtn{display:none;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid rgba(255,215,0,.6);background:rgba(255,215,0,.12);color:#ffd700;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#markNextBtn:active{background:rgba(255,215,0,.28);}
+#markClearX{cursor:pointer;padding:2px 4px;}
 .asr-fname{font-size:13px;font-weight:600;color:#7cb8f5}
 .asr-hit{font-size:12px;color:#d4e3f7;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #allSearchClearBtn{align-self:flex-end;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid var(--text-dim,#6b7f99);background:transparent;color:var(--text-dim,#6b7f99);cursor:pointer}
@@ -532,7 +541,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="viewmemo" id="viewmemo">
     <div id="markFitRow">
-      <div id="markPopup"><span style="font-size:15px">●</span>マーク ✕</div>
+      <div id="markPopup"><span style="font-size:15px">●</span>マーク<span id="markCountLabel"></span><button id="markNextBtn" type="button">次へ</button><span id="markClearX">✕</span></div>
       <button class="fit-btn" id="fitBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><polyline points="8 3 3 3 3 8"/><polyline points="16 3 21 3 21 8"/><polyline points="21 16 21 21 16 21"/><polyline points="3 16 3 21 8 21"/></svg>全体</button>
     </div>
     <button class="mem-btn" data-vi="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="0"></div><!-- V0_160: 保存元ファイル名表示 -->
@@ -552,7 +561,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_82</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_93</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -894,24 +903,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=182"></script>
-<script src="viewer.js?v=182"></script>
-<script src="utils.js?v=182"></script>
-<script src="ui.js?v=182"></script>
-<script src="dialog.js?v=182"></script>
-<script src="storage.js?v=182"></script>
-<script src="fonts/NotoSansJP.js?v=182"></script>
-<script src="export.js?v=182"></script>
-<script src="tool.js?v=182"></script>
-<script src="verify.js?v=182"></script>
+<script src="layer.js?v=193"></script>
+<script src="viewer.js?v=193"></script>
+<script src="utils.js?v=193"></script>
+<script src="ui.js?v=193"></script>
+<script src="dialog.js?v=193"></script>
+<script src="storage.js?v=193"></script>
+<script src="fonts/NotoSansJP.js?v=193"></script>
+<script src="export.js?v=193"></script>
+<script src="tool.js?v=193"></script>
+<script src="verify.js?v=193"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=182"></script>
+<script src="pc.js?v=193"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=182"></script>
+<script src="supabase-sync.js?v=193"></script>
 <script>
-const APP_VERSION = 'V1_82';
+const APP_VERSION = 'V1_93';
 
 // =========================================================
 // グローバル状態
@@ -928,6 +937,15 @@ var dims=[];
 var currentFileSize=0;   // V0_103: ファイルサイズ(自動保存ID用)
 var _searchMarks=[];       // V0_104: フォルダ検索マーク
 var _markKeyword=null;     // V0_104
+// V1_91: 「次へ」ナビゲーション用の状態。
+// PDF: _markNavList=[{page,x,y,h}, ...] 全ページ分の一致位置（キーワード設定時に事前計算）
+// Excel: _excelMatchCounts=[シート0の件数, シート1の件数, ...] （キーワード設定時に事前計算）
+// DXF: 追加の状態は不要（_searchMarks自体が既に全件のリストのため、そのまま巡回する）
+// _markNavIdx/_excelMatchIdxはそれぞれ「現在何番目を指しているか」(0-based)。-1は未移動
+var _markNavList=null;
+var _markNavIdx=-1;
+var _excelMatchCounts=null;
+var _excelMatchIdx=-1;
 var strokes=[];
 let images=[];
 var savedViews=[null,null,null,null,null]; // V0_76: 5スロットに拡張
@@ -1368,7 +1386,7 @@ fileInput.addEventListener('change',async e=>{
     // （四方の余白が異常に広い）不具合の原因になっていた
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     // V0_131/V1_51: ファイル切替時にマーク自動クリア（従来DXF側にしか無かった処理をPDFにも適用）
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     await loadPDF(buf);{const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
     // V1_55: PDF分岐だけcurrentFileSizeが一度も設定されておらず、前に開いていた
     // 別ファイルのサイズが残ったままになる不具合があった（DXF分岐にはV0_103で
@@ -1415,7 +1433,7 @@ fileInput.addEventListener('change',async e=>{
     // V1_76: Excel(.xlsx/.xls/.csv)はシンプルな表形式表示＋テキスト読込のみ対応。
     // 座標系を持たないため、DXF/PDFと異なり手書き・寸法計測(strokes/dims)は対象外とする
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     currentFileSize=f.size;
     var _excelOk176=loadExcel(buf);
     if(_excelOk176){
@@ -1434,7 +1452,7 @@ fileInput.addEventListener('change',async e=>{
       currentFileSize=f.size; // V0_103
       hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_160: savedViewsはファイル横断のグローバル項目のためここではリセットしない
       // V0_131: ファイル切替時にマーク自動クリア
-      _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+      _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
       // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
       // ※SAVE_KEY復元は廃止（異ファイル間でデータが混入するバグを修正）
       {var _fkR=_fileKey(f.name,f.size);
@@ -1525,7 +1543,7 @@ function switchToFile(idx){
   if(idx<0||idx>=openFiles.length) return;
   verify('switchToFile:before',{from:currentFileIdx,to:idx});
   // V0_131: タブ切替時にマーク自動クリア
-  _searchMarks=[];_markKeyword=null;_searchHighlight=null;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');})();
+  _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
   resetToolStates(); // V0_139: タブ切替時に計測ツール状態をリセット
   // V0_140: ビュー状態のみ同期（strokes/dimsは参照エイリアスで既に同期済み）
   if(currentFileIdx>=0&&currentFileIdx<openFiles.length){
@@ -4102,9 +4120,15 @@ function _swAttachInput(sw){
       var tf=fingers[0];
       var sxf=tf.clientX-r.left,syf=tf.clientY-r.top;
       isPen=false;mouseDown=true;lastMX=sxf;lastMY=syf;
-      // V1_46/V1_47: 手書きモード+計測ツール（DIM/LP/LL・水平鉛直・斜め）選択中は
-      // 指でも計測できるようにする。指に隠れないよう指位置より少し上をカーソル位置として扱う
-      if(inputMode==='freehand'&&_fingerMeasureActive()){
+      // V1_83: 画面検索/検索して開くパネルが開いている間(_textPickTarget有効時)は、
+      // サブ窓内でも手書き描画・消しゴム・指計測より文字タップのテキスト読込ピックを
+      // 優先する（メイン画面tool.jsと同様の扱い）
+      if(typeof _textPickTarget!=='undefined'&&_textPickTarget&&inputMode==='freehand'
+          &&(_fingerMeasureActive()||currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser')){
+        if(sketching){sketching=false;sketchPts=[];}
+        panning=true;
+        _tapStartTime=Date.now();_tapStartX=sxf;_tapStartY=syf;
+      } else if(inputMode==='freehand'&&_fingerMeasureActive()){
         panning=false;
         var fyf=syf-FINGER_CURSOR_OFFSET_Y;
         withCtx(function(){ _fingerMeasureDown(sxf,fyf); });
@@ -4554,6 +4578,13 @@ function _normalizeForSearch(s){
   try{ return (s||'').normalize('NFKC').toLowerCase(); }catch(e){ return (s||'').toLowerCase(); }
 }
 
+// V1_88: フォルダインデックスのtexts[]は、DXFは従来通り文字列のまま、PDF/Excelは
+// どのページ/シートに一致したかへジャンプできるよう{text,page}/{text,sheet}形式に
+// なった。両方の形をまとめて文字列として扱うためのヘルパー
+function _idxTextOf(t){
+  return (t&&typeof t==='object')?(t.text||''):(t||'');
+}
+
 function buildSearchIndex(){
   _searchIdx=[];
   // V1_51: DXFのdoc.mojiが無い場合はPDFから抽出したpdfMojiを使う
@@ -4609,6 +4640,119 @@ function jumpToSearchResult(item){
     scheduleOverlay();
     if(cnt>=6){clearInterval(iv);_searchHighlight=item;scheduleOverlay();var _mp2=document.getElementById('markPopup');if(_mp2)_mp2.classList.add('visible');} // V0_131
   },400);
+}
+
+// ─ V1_91: 検索してファイルを開く/全図面検索で複数箇所に一致した場合の「次へ」移動 ──────
+
+// markPopup内の件数表示・「次へ」ボタンの表示可否を更新する。
+// idxが負の場合は「まだ次へで移動していない」状態として件数のみ表示する
+function _updateMarkCountLabel(idx,total){
+  var lbl=document.getElementById('markCountLabel');
+  var btn=document.getElementById('markNextBtn');
+  if(lbl) lbl.textContent=total>0?(' '+(idx>=0?(idx+1)+'/':'')+total+'件'):'';
+  if(btn) btn.style.display=total>1?'':'none'; // 一致が1件以下なら「次へ」は無意味なので隠す
+}
+
+// DXF/PDF共通。現在のpdfMoji(またはdoc.moji)から_markKeywordに一致する要素を
+// 再計算して_searchMarksへ反映する。openDxfFromDb初回オープン時と、
+// _markGoNext()でPDFのページを切り替えた直後の両方から呼ばれる共通処理
+function _rebuildSearchMarksForCurrentPage(){
+  _searchMarks=[];
+  if(!_markKeyword) return;
+  var kl=_normalizeForSearch(_markKeyword);
+  var mojiSrc=(doc&&doc.moji)?doc.moji:((typeof pdfMoji!=='undefined'&&pdfMoji)?pdfMoji:[]);
+  mojiSrc.forEach(function(m){if(m.text&&_normalizeForSearch(m.text).indexOf(kl)>=0)_searchMarks.push(m);});
+}
+
+// V1_91: PDF全ページ分の一致位置(ワールド座標付き)を事前に集計する。「次へ」で
+// 他ページへジャンプする際に、位置情報を都度計算し直さずに済むようにするため。
+// pdfMoji(現在ページのみ保持)と違い、全ページ分を保持するためPDFのページ数が多いと
+// 多少時間がかかる可能性があるが、鉄骨図面PDFは通常数ページ程度のため実用上問題ない
+async function _pdfBuildFullMatchList(keyword){
+  var list=[];
+  if(!pdfDoc||!keyword) return list;
+  var kl=_normalizeForSearch(keyword);
+  try{
+    for(var i=1;i<=pdfDoc.numPages;i++){
+      var page=await pdfDoc.getPage(i);
+      var vp=page.getViewport({scale:PDF_BASE_SCALE});
+      var items=await _pdfPageTextItems(page,vp);
+      items.forEach(function(m){
+        if(m.text&&_normalizeForSearch(m.text).indexOf(kl)>=0) list.push({page:i,x:m.x,y:m.y,h:m.h});
+      });
+    }
+  }catch(e){ console.warn('[PDF次へ用一致リスト作成]',e); }
+  return list;
+}
+
+// V1_91: Excel全シート分の一致件数を事前に集計する（位置は保持しない。ジャンプ時は
+// 対象シートへ切り替えた後、その時点で_applyExcelSearchHighlight()が付与する
+// td.cell-highlightのDOM順（＝この集計と同じ行・セル走査順）の何番目かで特定する）
+function _excelBuildMatchCounts(keyword){
+  var counts=[];
+  if(!excelWb||!keyword) return counts;
+  var kl=_normalizeForSearch(keyword);
+  try{
+    excelWb.SheetNames.forEach(function(name){
+      var ws=excelWb.Sheets[name];
+      var rows=ws?XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false}):[];
+      var c=0;
+      rows.forEach(function(row){
+        row.forEach(function(cell){
+          var t=(cell===null||cell===undefined)?'':String(cell).trim();
+          if(t&&_normalizeForSearch(t).indexOf(kl)>=0) c++;
+        });
+      });
+      counts.push(c);
+    });
+  }catch(e){ console.warn('[Excel次へ用件数集計]',e); }
+  return counts;
+}
+
+// 「次へ」ボタン押下時のメイン処理。DXF/PDF/Excelでそれぞれ次の一致箇所へ移動する
+async function _markGoNext(){
+  if(pdfDoc){
+    // PDF: 全ページ分の一致リスト(_markNavList)を巡回。ページが変わる場合は
+    // そのページへ切り替えてから、画像描画完了(renderPdfPage内)を待ってジャンプする
+    if(!_markNavList||_markNavList.length===0) return;
+    _markNavIdx=(_markNavIdx+1)%_markNavList.length;
+    var m=_markNavList[_markNavIdx];
+    if(m.page!==pdfPageNum){
+      await renderPdfPage(m.page);
+      _rebuildSearchMarksForCurrentPage();
+      var _pi=document.getElementById('pageInfo');
+      if(_pi) _pi.textContent=pdfPageNum+'/'+pdfDoc.numPages;
+    }
+    jumpToSearchResult(m);
+    _updateMarkCountLabel(_markNavIdx,_markNavList.length);
+  } else if(excelWb){
+    // Excel: シートごとの件数(_excelMatchCounts)から、全シート通しでの現在位置(_excelMatchIdx)が
+    // どのシートの何番目にあたるかを求め、必要ならシートを切り替えてからスクロールする
+    if(!_excelMatchCounts||_excelMatchCounts.length===0) return;
+    var total=_excelMatchCounts.reduce(function(a,b){return a+b;},0);
+    if(total===0) return;
+    _excelMatchIdx=(_excelMatchIdx+1)%total;
+    var remain=_excelMatchIdx,sheetIdx=0;
+    for(var i=0;i<_excelMatchCounts.length;i++){
+      if(remain<_excelMatchCounts[i]){ sheetIdx=i; break; }
+      remain-=_excelMatchCounts[i];
+    }
+    if(sheetIdx!==excelSheetIdx){
+      excelSheetIdx=sheetIdx;
+      renderExcelView(); // 内部で_applyExcelSearchHighlight(false)によりこのシートのハイライトも再構築される
+      if(typeof scheduleSave==='function') scheduleSave();
+    }
+    var tds=document.getElementById('excelTable').querySelectorAll('td.cell-highlight');
+    if(tds[remain]) tds[remain].scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
+    _updateMarkCountLabel(_excelMatchIdx,total);
+  } else {
+    // DXF: doc.mojiは常に全件読み込まれているため、_searchMarks自体が既に
+    // 全一致リストになっている。単純に巡回するだけでよい
+    if(!_searchMarks||_searchMarks.length===0) return;
+    _markNavIdx=(_markNavIdx+1)%_searchMarks.length;
+    jumpToSearchResult(_searchMarks[_markNavIdx]);
+    _updateMarkCountLabel(_markNavIdx,_searchMarks.length);
+  }
 }
 
 // V1_27: 「テキスト読込」機能。画面検索/全図面検索のどちらかのボタンを押すと
@@ -5152,8 +5296,15 @@ function doAllSearch(){
     list.innerHTML=''; // 最新世代のみリスト再構築
     var hits=[];
     records.forEach(function(rec){
-      var matched=(rec.texts||[]).filter(function(t){return _normalizeForSearch(t).indexOf(kw)>=0;});
-      if(matched.length>0) hits.push({name:rec.name,matched:matched,folder:rec.folder});
+      var matched=(rec.texts||[]).filter(function(t){return _normalizeForSearch(_idxTextOf(t)).indexOf(kw)>=0;});
+      if(matched.length>0){
+        // V1_88: 最初に一致した要素からページ(PDF)・シート(Excel)番号を取り出し、
+        // ファイルを開く際にその場所へジャンプできるようにする
+        var _first=matched[0];
+        var _pg=(_first&&typeof _first==='object'&&_first.page)?_first.page:undefined;
+        var _sh=(_first&&typeof _first==='object'&&_first.sheet!==undefined)?_first.sheet:undefined;
+        hits.push({name:rec.name,matched:matched,folder:rec.folder,page:_pg,sheet:_sh});
+      }
     });
     cnt.textContent=hits.length+'件（全'+records.length+'図面）';
     if(hits.length===0){
@@ -5167,12 +5318,12 @@ function doAllSearch(){
       var el=document.createElement('div');el.className='asr-item';
       var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=h.name;
       var ht=document.createElement('div');ht.className='asr-hit';
-      ht.textContent=h.matched.slice(0,4).join(' / ')+(h.matched.length>4?' …':'');
+      ht.textContent=h.matched.slice(0,4).map(_idxTextOf).join(' / ')+(h.matched.length>4?' …':'');
       el.appendChild(fn);el.appendChild(ht);
       el.addEventListener('click',function(){ // V1_75: タップ時にその1件分だけbufを取得
         _idbGetOne(h.name,function(full){
           if(!full){showGuide('読み込みに失敗しました',2000);return;}
-          openDxfFromDb(h.name,full.buf,kw,h.folder); // V0_104 / V1_70: folder伝達
+          openDxfFromDb(h.name,full.buf,kw,h.folder,h.page,h.sheet); // V0_104 / V1_70: folder伝達 / V1_88: page・sheet伝達
         });
       });
       list.appendChild(el);
@@ -5183,7 +5334,7 @@ function doAllSearch(){
 // ・F-1: 新規タブ時にIDB(dxfViewerDxfviewDB)からstrokes/dimsを復元
 // ・F-2: 既存タブ時はstrokes/dims/images/savedViewsを上書きせず保持
 // ・F-3: findIndexをfileKeyベースに変更（同名異サイズ問題を修正）
-async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追加（開いているファイル一覧での表示用、任意）
+async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: folder引数追加（開いているファイル一覧での表示用、任意） / V1_88: page(PDF)・sheet(Excel)引数追加（検索一致箇所への直接ジャンプ用、任意）
   // V1_40: fileInput側と同じ「ファイルを開いている最中はタブ切替・新規オープンを
   // ブロックする」フラグ。検索結果を連続タップした場合や、読込中にタブを
   // 切替えた場合に、非同期処理完了時に別タブのdoc/strokes/dimsを誤って
@@ -5214,9 +5365,11 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
     var _isExcel176=_isExcelName(name); // V1_76
     doc=null; pdfDoc=null; pdfImage=null; pdfMoji=[]; excelWb=null; // V1_51/V1_76: 前の状態が残らないようクリア
     if(_isPdf151){
-      await loadPDF(buf);
+      await loadPDF(buf,page); // V1_88: 検索で一致したページがあればそのページを開く
     } else if(_isExcel176){
-      loadExcel(buf);
+      loadExcel(buf); // 内部でexcelSheetIdx=0にリセットされ1回描画される
+      // V1_88: 検索で一致したシートがあれば切り替える（この後のrenderExcelView()で反映）
+      if(sheet!=null&&sheet>=0&&excelWb&&sheet<excelWb.SheetNames.length) excelSheetIdx=sheet;
     } else {
       doc=parseDXF(buf);
     }
@@ -5225,12 +5378,25 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
 
     // 検索キーワードマーク設定（V0_104、V1_51: PDF(pdfMoji)にも対応）
     _searchHighlight=null;
-    _searchMarks=[];_markKeyword=keyword||null;
+    _markKeyword=keyword||null;
+    _rebuildSearchMarksForCurrentPage(); // V1_91: 従来ここに直書きしていた集計処理を共通関数化
+    // V1_91: 「次へ」ナビゲーション用の状態をリセットしてから、キーワードがあれば
+    // 全ページ(PDF)・全シート(Excel)分の一致情報を事前に計算しておく
+    _markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;
     if(keyword){
-      var _kl=_normalizeForSearch(keyword);
-      var _mojiSrc151=(doc&&doc.moji)?doc.moji:((typeof pdfMoji!=='undefined'&&pdfMoji)?pdfMoji:[]);
-      _mojiSrc151.forEach(function(m){if(m.text&&_normalizeForSearch(m.text).indexOf(_kl)>=0)_searchMarks.push(m);});
+      if(_isPdf151){
+        _markNavList=await _pdfBuildFullMatchList(keyword);
+      } else if(_isExcel176){
+        _excelMatchCounts=_excelBuildMatchCounts(keyword);
+      }
     }
+    var _totalForLabel=_isPdf151?(_markNavList?_markNavList.length:0)
+      :(_isExcel176?(_excelMatchCounts?_excelMatchCounts.reduce(function(a,b){return a+b;},0):0)
+      :_searchMarks.length);
+    _updateMarkCountLabel(-1,_totalForLabel);
+    // V1_88: Excelは座標系を持たないためcanvas上のマークではなく、一致セルをハイライトし
+    // 最初の一致箇所までスクロールする（キーワード無しの場合は内部で解除のみ行われる）
+    if(_isExcel176&&typeof _applyExcelSearchHighlight==='function') _applyExcelSearchHighlight(true);
 
     // ④ fileKey生成
     var _fk=_fileKey(name,buf.byteLength);
@@ -5315,8 +5481,11 @@ async function openDxfFromDb(name,buf,keyword,folder){ // V1_70: folder引数追
     document.getElementById('allSearchOverlay').classList.remove('open');
     document.body.classList.remove('settings-open');
     var _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display=(doc||pdfImage||excelWb)?'none':'';
-    // マークポップアップ（V0_104）
-    var _mp=document.getElementById('markPopup');if(_mp){if(_searchMarks.length>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
+    // マークポップアップ（V0_104 / V1_92: Excelは_searchMarksを使わないため、
+    // PDF全ページ・Excel全シート分を含む_totalForLabelで判定するよう修正。
+    // 修正前はExcelの場合_searchMarks.length===0のままとなり、セルはハイライトされ
+    // 件数も計算済みなのにポップアップ本体(.visible)が表示されない不具合があった）
+    var _mp=document.getElementById('markPopup');if(_mp){if(_totalForLabel>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
   }catch(err){alert('図面を開けません: '+err.message);}finally{_isOpeningFileBusy=false;} // V1_40
 }
 // V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索(V0_100〜)と同じ
@@ -5368,8 +5537,15 @@ function doOpenFileSearch(){
     records.forEach(function(r){
       if(!kw){filtered.push({name:r.name,matched:[]});return;}
       var nameHit=_normalizeForSearch(r.name).indexOf(kw)>=0;
-      var textHits=(r.texts||[]).filter(function(t){return _normalizeForSearch(t).indexOf(kw)>=0;});
-      if(nameHit||textHits.length>0) filtered.push({name:r.name,matched:textHits});
+      var textHits=(r.texts||[]).filter(function(t){return _normalizeForSearch(_idxTextOf(t)).indexOf(kw)>=0;});
+      if(nameHit||textHits.length>0){
+        // V1_88: 最初に一致した要素からページ(PDF)・シート(Excel)番号を取り出し、
+        // ファイルを開く際にその場所へジャンプできるようにする
+        var _first=textHits[0];
+        var _pg=(_first&&typeof _first==='object'&&_first.page)?_first.page:undefined;
+        var _sh=(_first&&typeof _first==='object'&&_first.sheet!==undefined)?_first.sheet:undefined;
+        filtered.push({name:r.name,matched:textHits,page:_pg,sheet:_sh});
+      }
     });
     filtered.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});}); // V0_157と同じ自然順
     cnt.textContent=filtered.length+'件（全'+records.length+'件）';
@@ -5386,7 +5562,7 @@ function doOpenFileSearch(){
       el.appendChild(fn);
       if(item.matched&&item.matched.length>0){
         var ht=document.createElement('div');ht.className='asr-hit';
-        ht.textContent=item.matched.slice(0,4).join(' / ')+(item.matched.length>4?' …':'');
+        ht.textContent=item.matched.slice(0,4).map(_idxTextOf).join(' / ')+(item.matched.length>4?' …':'');
         el.appendChild(ht);
       }
       el.addEventListener('click',function(){
@@ -5397,7 +5573,7 @@ function doOpenFileSearch(){
           _openFileOpening=false;
           if(!rec){showGuide('「'+item.name+'」を読み込めませんでした',2500);fn.textContent=item.name;return;}
           closeOpenFilePanel();
-          openDxfFromDb(rec.name,rec.buf,kw||null,rec.folder); // V1_25: キーワードがあれば図面内マークも表示 / V1_70: folder伝達
+          openDxfFromDb(rec.name,rec.buf,kw||null,rec.folder,item.page,item.sheet); // V1_25: キーワードがあれば図面内マークも表示 / V1_70: folder伝達 / V1_88: page・sheet伝達
         });
       });
       list.appendChild(el);
@@ -5461,12 +5637,23 @@ document.getElementById('asrInputClearBtn').addEventListener('click',function(){
   document.getElementById('allSearchResultList').innerHTML='';
   document.getElementById('allSearchCount').textContent='';
 });
-// V0_104: マークポップアップ押下でマーク全解除
-document.getElementById('markPopup').addEventListener('click',function(){
+// V0_104: マークポップアップの✕押下でマーク全解除
+// V1_91: 従来はmarkPopup全体がクリックでマーク解除だったが、「次へ」ボタンを
+// 内部に追加したため、✕(#markClearX)のみで解除するよう変更した
+document.getElementById('markClearX').addEventListener('click',function(e){
+  e.stopPropagation();
   _searchMarks=[];_markKeyword=null;
   _searchHighlight=null; // V0_131: 画面検索マークもクリア
-  this.classList.remove('visible');
+  _markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1; // V1_91
+  document.getElementById('markPopup').classList.remove('visible');
+  _updateMarkCountLabel(-1,0);
   scheduleOverlay();
+  if(typeof _applyExcelSearchHighlight==='function') _applyExcelSearchHighlight(false); // V1_91: Excelのハイライトも解除
+});
+// V1_91: 「次へ」ボタンで次の一致箇所へ移動
+document.getElementById('markNextBtn').addEventListener('click',function(e){
+  e.stopPropagation();
+  _markGoNext();
 });
 
 // V0_101: フォルダ一括インデックス ──────────────────────────────────

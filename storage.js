@@ -191,11 +191,14 @@ async function tryRestore(){
               var _pnR=_mf.pdfPageNum||1;
               var _pdocR=await pdfjsLib.getDocument({data:_buf2.slice(0)}).promise; // V1_52同様、bufをdetachさせないようコピーを渡す
               var _pageR=await _pdocR.getPage(_pnR);
-              var _vpR=_pageR.getViewport({scale:3});
+              // V1_85: 基準解像度を固定3からPDF_BASE_SCALE(既定4)へ。メイン画面のrenderPdfPage()と
+              // 同じ基準に揃える（このタブはアクティブになった時にswitchToFile側で改めて
+              // 表示範囲に応じた高解像度化の対象になる）
+              var _vpR=_pageR.getViewport({scale:(typeof PDF_BASE_SCALE!=='undefined'?PDF_BASE_SCALE:4)});
               var _offR=document.createElement('canvas');
               _offR.width=_vpR.width;_offR.height=_vpR.height;
               await _pageR.render({canvasContext:_offR.getContext('2d'),viewport:_vpR}).promise;
-              var _pdfImgR={img:_offR,wx:0,wy:_vpR.height/3,ww:_vpR.width/3,wh:_vpR.height/3};
+              var _pdfImgR={img:_offR,wx:0,wy:_vpR.height/_vpR.scale,ww:_vpR.width/_vpR.scale,wh:_vpR.height/_vpR.scale};
               var _sv3=(_mf.savedViews||[]).slice();
               while(_sv3.length<5)_sv3.push(null);
               var _fstP={

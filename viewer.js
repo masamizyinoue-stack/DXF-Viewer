@@ -34,6 +34,19 @@ var pdfImage=null;
 // PDF未表示時（DXF表示中含む）は常に1を返し、既存データ（pageプロパティ無し=1扱い）と互換を保つ
 function _curPage(){return (typeof pdfDoc!=='undefined'&&pdfDoc)?pdfPageNum:1;}
 var pdfMoji=[]; // V1_51: 現在表示中のPDFページから抽出した文字（画面検索・テキスト読込用）
+// V1_85: PDF表示解像度をズーム倍率に応じて上げつつ、再レンダリングは表示範囲のみに絞る仕組み。
+// pdfImageは「ページ全体」のことも「表示範囲だけの高解像度タイル」のこともあるため、
+// 現在の実解像度・実際に覆っている範囲は都度pdfImage自体から逆算する(_pdfImgCurrentScale/Rect)。
+// ページ全体の生サイズ(回転込み・scale=1相当)はpdfDoc/pdfPageNumから毎回取得するため、
+// タブ切替やセッション復元で別ファイルのpdfImageに入れ替わってもズレたキャッシュを持たない
+var PDF_BASE_SCALE=4; // 基準解像度(旧: 3固定)。V1_85でもう少しだけ引き上げ
+var PDF_MAX_RENDER_SCALE=12; // 再レンダリング時の解像度倍率の上限
+var PDF_MAX_TILE_PIXELS=50000000; // タイル1枚あたりの画素数上限（メモリ対策。既存の全ページ描画実績を下回らない範囲で設定）
+var PDF_ZOOM_MARGIN=0.3; // 再レンダリング範囲に持たせる余白(範囲サイズに対する比率)
+var PDF_RERENDER_UP_RATIO=1.25; // 現在解像度のこの倍率以上が必要になったら再レンダリング
+var PDF_RERENDER_DEBOUNCE_MS=220; // ズーム/パン操作が落ち着いてから再レンダリングするまでの待機時間(ms)
+var _pdfRerenderTimer=null;
+var _pdfRerenderBusy=false;
 var rafId=null;
 var needDraw=false,needOverlay=false,needAnnotation=false;
 // ─ パフォーマンス最適化 ─
@@ -589,6 +602,10 @@ function draw(){
   if(pdfImage){
     const[sx,sy]=w2s(pdfImage.wx,pdfImage.wy);
     ctx.drawImage(pdfImage.img,sx,sy,pdfImage.ww*scale,pdfImage.wh*scale);
+    // V1_85: 現在の表示(このdraw()がメイン画面/サブ窓のどちらであっても)を踏まえて、
+    // ズーム倍率に対して解像度が不足していないか・表示範囲が現在のタイル内に収まっているかを
+    // デバウンス付きで確認する。実際の再レンダリングは操作が落ち着いてから1回だけ行われる
+    if(typeof _pdfScheduleResRefresh==='function') _pdfScheduleResRefresh();
   }
   if(!doc){ctx.restore();return;}
   const mg=60; // ビューポート余白px
@@ -712,7 +729,10 @@ function showInfo(){
 // =========================================================
 // PDF表示
 // =========================================================
-async function loadPDF(buf){
+// V1_88: 第2引数startPageに1以上のページ番号を渡すと、そのページを開いた状態にする。
+// 「検索してファイルを開く」で図面内の文字が見つかったページへ直接ジャンプするために追加。
+// 省略時・範囲外の値の場合は従来通り1ページ目を開く（fileInput等の通常オープンは無指定のまま）
+async function loadPDF(buf,startPage){
   if(typeof pdfjsLib==='undefined'){alert('PDF.jsが読み込まれていません');return;}
   // V1_52: pdf.jsはWorkerへdata(ArrayBuffer)をTransferable(ゼロコピー転送)で渡すため、
   // getDocument()呼び出し後は呼び出し元が保持している元のbuf(ArrayBuffer)が
@@ -721,19 +741,22 @@ async function loadPDF(buf){
   // いるため、コピー(slice(0))を渡してdetachの影響が元のbufに及ばないようにする
   pdfDoc=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
   document.getElementById('pdfPageCtrl').style.display='';
-  document.getElementById('pageInfo').textContent=`1/${pdfDoc.numPages}`;
-  pdfPageNum=1;
-  await renderPdfPage(1);
+  pdfPageNum=(startPage&&startPage>=1&&startPage<=pdfDoc.numPages)?Math.floor(startPage):1;
+  document.getElementById('pageInfo').textContent=`${pdfPageNum}/${pdfDoc.numPages}`;
+  await renderPdfPage(pdfPageNum);
 }
 
 async function renderPdfPage(n){
   if(!pdfDoc) return;
+  // V1_85: ページ切替時は、進行中の高解像度再レンダリングのタイマーを破棄する
+  // (古いページ/ファイルに対する再レンダリングが後から実行されるのを防ぐ)
+  if(_pdfRerenderTimer){clearTimeout(_pdfRerenderTimer);_pdfRerenderTimer=null;}
   const page=await pdfDoc.getPage(n);
-  const vp=page.getViewport({scale:3});
+  const vp=page.getViewport({scale:PDF_BASE_SCALE});
   const offscreen=document.createElement('canvas');
   offscreen.width=vp.width;offscreen.height=vp.height;
   await page.render({canvasContext:offscreen.getContext('2d'),viewport:vp}).promise;
-  pdfImage={img:offscreen,wx:0,wy:vp.height/3,ww:vp.width/3,wh:vp.height/3};
+  pdfImage={img:offscreen,wx:0,wy:vp.height/PDF_BASE_SCALE,ww:vp.width/PDF_BASE_SCALE,wh:vp.height/PDF_BASE_SCALE};
   // V1_51: 画面検索・テキスト読込用に、このページのテキストをワールド座標付きで抽出する。
   // PDFのテキスト位置(getTextContent)はPDFページのデフォルトのポイント単位(scale=1相当)で
   // 得られ、pdfImageのワールド座標(wx=0,wy=vp.height/3=ページ高さ)と同じ単位・原点
@@ -755,35 +778,189 @@ async function renderPdfPage(n){
 // V1_81: 第2引数viewportに、実際にpdfImageを描画したgetViewport()の戻り値を渡すことで、
 // ページに/Rotateが付いていても画像とテキスト位置の対応が取れるようにした。
 // 呼び出し元がviewportを渡さない場合（フォルダインデックス作成・タブ復元時の再抽出など、
-// 文字列のみ必要で位置は使わない箇所）は、renderPdfPage()と同じscale:3で自前生成する
+// 文字列のみ必要で位置は使わない箇所）は、renderPdfPage()と同じ基準解像度で自前生成する
+// V1_85: 固定のscale:3で割っていた箇所を、実際に使われたviewport自身のscale(vp.scale)で
+// 割るように修正。ズーム倍率に応じた解像度可変レンダリング(_pdfRenderVisibleTile)により、
+// 渡されるviewportのscaleがPDF_BASE_SCALE以外の値になる場合があるため
+// V1_87: PDFによっては、1文字ずつ個別のTj命令で描画されている（Excel等からのPDF出力で
+// 太字セルなどによく見られる）ため、pdf.js自身が同じ単語として結合してくれず、
+// 「C1」が「C」と「1」の2つの要素に分かれてしまい、テキスト読込で1回のタップで
+// 「C1」とまとめて読み込めない不具合があった。取得した文字要素を並び順に走査し、
+// 高さ(フォントサイズ)がほぼ同じ・同じ行（垂直方向のずれが小さい）・すき間がほぼ無い
+// （前の文字の右端と次の文字の左端がほぼ接している）場合にひとつの単語として結合する。
+// 間に空白のみの要素(スペース)があれば単語の区切りとして結合しない（従来通り除去）
 async function _pdfPageTextItems(page,viewport){
   try{
     var tc=await page.getTextContent();
-    var vp=viewport||page.getViewport({scale:3});
-    var arr=[];
+    var vp=viewport||page.getViewport({scale:PDF_BASE_SCALE});
+    var s=vp.scale||PDF_BASE_SCALE;
+    var raw=[];
     tc.items.forEach(function(it){
-      var t=(it.str||'').trim();
-      if(!t) return;
-      // V1_81: viewport.transform(scale:3・回転込み)とitem.transform(回転前の生座標)を
+      var rawText=it.str||'';
+      var t=rawText.trim();
+      // V1_81: viewport.transform(回転込み)とitem.transform(回転前の生座標)を
       // 合成し、実際にcanvasへ描画された位置（vpと同じピクセル空間）を求める。
-      // その後 /3 でscale:3を打ち消し、Y軸をワールド座標(左下原点・Y上向き)に合わせて反転する
+      // その後 /s でviewportのscaleを打ち消し、Y軸をワールド座標(左下原点・Y上向き)に合わせて反転する
       var tr=pdfjsLib.Util.transform(vp.transform,it.transform);
-      var hRaw=Math.hypot(tr[2],tr[3])||Math.hypot(tr[0],tr[1])||30; // フォント高さの目安(vp空間)
-      var h=hRaw/3;
-      arr.push({text:t,x:tr[4]/3,y:(vp.height-tr[5])/3,h:h,angle:0,widthFactor:1});
+      var hRawDevice=Math.hypot(tr[2],tr[3])||Math.hypot(tr[0],tr[1]);
+      var h=hRawDevice?hRawDevice/s:10; // フォールバックは元々のワールド単位換算値(10)のまま
+      // V1_87: 文字の幅(it.width)も高さと同じ比率でデバイス座標系に変換し、
+      // 前の文字の右端と次の文字の左端のすき間(gap)を判定できるようにする
+      var rawFontSize=Math.hypot(it.transform[2],it.transform[3])||Math.hypot(it.transform[0],it.transform[1])||h||1;
+      var w=(it.width||0)*(h/rawFontSize);
+      if(!t){ raw.push(null); return; } // 空白のみの要素は単語の区切りを示す目印として残す
+      raw.push({text:t,x:tr[4]/s,y:(vp.height-tr[5])/s,h:h,w:w});
     });
+    var arr=[];
+    var cur=null;
+    function flush(){
+      if(cur) arr.push({text:cur.text,x:cur.x,y:cur.y,h:cur.h,angle:0,widthFactor:1});
+      cur=null;
+    }
+    raw.forEach(function(it){
+      if(!it){ flush(); return; } // 空白要素＝単語の区切り。現在の単語を確定して次へ
+      if(cur){
+        var maxH=Math.max(cur.h,it.h), minH=Math.min(cur.h,it.h);
+        var sameH=minH>0&&(maxH/minH)<1.2; // フォントサイズがほぼ同じ(20%以内の差)
+        var sameRow=Math.abs(it.y-cur.y)<maxH*0.35; // 縦方向のずれが小さい＝同じ行
+        var gap=it.x-cur.endX; // 前の文字の右端から次の文字の左端までのすき間
+        var closeGap=gap>-maxH*0.6&&gap<maxH*0.6; // すき間がほぼ無い(重なりも軽微な隙間も許容)
+        if(sameH&&sameRow&&closeGap){
+          cur.text+=it.text;
+          cur.endX=it.x+it.w;
+          if(it.h>cur.h) cur.h=it.h;
+          return;
+        }
+        flush();
+      }
+      cur={text:it.text,x:it.x,y:it.y,h:it.h,endX:it.x+it.w};
+    });
+    flush();
     return arr;
   }catch(e){ console.warn('[PDF文字抽出]',e); return []; }
 }
 
-// V1_51: フォルダインデックス用途。PDF全ページの文字列一覧（位置情報は不要）を返す
+// ─ V1_85: PDFの解像度をズーム倍率に応じて上げ、再レンダリングは表示範囲のみに絞る ─────
+
+// 現在のpdfImageが実際に描画されている解像度(画像px/世界単位)をpdfImage自体から逆算する
+function _pdfImgCurrentScale(){
+  if(!pdfImage||!pdfImage.img||!pdfImage.ww) return 0;
+  return pdfImage.img.width/pdfImage.ww;
+}
+// 現在のpdfImageが覆っている世界座標の範囲をpdfImage自体から逆算する
+function _pdfImgCurrentRect(){
+  if(!pdfImage) return null;
+  return {x0:pdfImage.wx,y0:pdfImage.wy-pdfImage.wh,x1:pdfImage.wx+pdfImage.ww,y1:pdfImage.wy};
+}
+
+// メイン画面＋開いている全サブ窓(PDFは同一ファイルを別倍率で表示するだけ)の表示範囲(世界座標)を
+// 1つの矩形にまとめ、必要な再レンダリング解像度とあわせて返す。表示中の範囲が無ければnull
+function _pdfNeededRectAndScale(pageRawW,pageRawH){
+  if(!cv) return null;
+  var dpr=window.devicePixelRatio||1;
+  var views=[{txv:tx,tyv:ty,scalev:scale,cw:cv.width/dpr,ch:cv.height/dpr}];
+  if(typeof subWindows!=='undefined'&&subWindows){
+    subWindows.forEach(function(sw){
+      if(sw&&sw.scale&&sw.W&&sw.H) views.push({txv:sw.tx,tyv:sw.ty,scalev:sw.scale,cw:sw.W,ch:sw.H});
+    });
+  }
+  var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity,maxScale=0;
+  views.forEach(function(v){
+    if(!v.scalev||!v.cw||!v.ch) return;
+    var wx0=(0-v.txv)/v.scalev, wx1=(v.cw-v.txv)/v.scalev;
+    var wyA=-(0-v.tyv)/v.scalev, wyB=-(v.ch-v.tyv)/v.scalev;
+    x0=Math.min(x0,wx0,wx1); x1=Math.max(x1,wx0,wx1);
+    y0=Math.min(y0,wyA,wyB); y1=Math.max(y1,wyA,wyB);
+    if(v.scalev>maxScale) maxScale=v.scalev;
+  });
+  if(!isFinite(x0)||maxScale<=0) return null;
+  x0=Math.max(0,x0); y0=Math.max(0,y0);
+  x1=Math.min(pageRawW,x1); y1=Math.min(pageRawH,y1);
+  if(x1<=x0||y1<=y0) return null;
+  // 余白を追加してから再度ページ範囲へクリップ（少しのパンでは再レンダリングせずに済むように）
+  var mw=(x1-x0)*PDF_ZOOM_MARGIN, mh=(y1-y0)*PDF_ZOOM_MARGIN;
+  x0=Math.max(0,x0-mw); x1=Math.min(pageRawW,x1+mw);
+  y0=Math.max(0,y0-mh); y1=Math.min(pageRawH,y1+mh);
+  // dpr込みで実際に必要な解像度を求め、少し余裕(1.15倍)を持たせて上限内に収める
+  var targetScale=Math.min(PDF_MAX_RENDER_SCALE,Math.max(PDF_BASE_SCALE,maxScale*dpr*1.15));
+  // タイルの画素数が上限を超える場合は解像度を落として収める(範囲が広い時の暴走防止)
+  var tileW=(x1-x0)*targetScale, tileH=(y1-y0)*targetScale;
+  if(tileW*tileH>PDF_MAX_TILE_PIXELS){
+    var shrink=Math.sqrt(PDF_MAX_TILE_PIXELS/(tileW*tileH));
+    targetScale=Math.max(PDF_BASE_SCALE,targetScale*shrink);
+  }
+  return {rect:{x0:x0,y0:y0,x1:x1,y1:y1},targetScale:targetScale};
+}
+
+// 現在のpdfImage(解像度・範囲)に対して、必要な範囲・解像度(needed)が不足しているか判定する
+function _pdfNeedsRerender(needed,curScale,curRect){
+  if(!curRect||!curScale) return true;
+  var covers=needed.rect.x0>=curRect.x0-0.5 && needed.rect.x1<=curRect.x1+0.5
+           && needed.rect.y0>=curRect.y0-0.5 && needed.rect.y1<=curRect.y1+0.5;
+  if(!covers) return true; // 表示範囲が現在のタイル外に出た(パン等)
+  if(needed.targetScale>curScale*PDF_RERENDER_UP_RATIO) return true; // 解像度不足(ズームイン等)
+  return false;
+}
+
+// 指定した世界座標範囲(rect)だけを、指定した解像度(targetScale)で再レンダリングし、pdfImageを
+// 差し替える。pdf.jsのtransformオプションでページ全体のレンダリングを平行移動し、必要な範囲の
+// ピクセルだけが小さいcanvasに収まるようにする（ページ全体を高解像度で作り直すことを避けるため）
+async function _pdfRenderVisibleTile(page,rect,targetScale,curPdfDoc,curPageNum,pageRawH){
+  var s=Math.min(PDF_MAX_RENDER_SCALE,Math.max(PDF_BASE_SCALE,targetScale));
+  var fullVp=page.getViewport({scale:s});
+  // 端数ピクセルのまま平行移動すると、再レンダリングの度に内容がサブピクセル単位で
+  // わずかに揺れて見えることがあるため、デバイスピクセル境界に丸めてから使う
+  var px0=Math.round(rect.x0*s), px1=Math.round(rect.x1*s);
+  var py0=Math.round((pageRawH-rect.y1)*s), py1=Math.round((pageRawH-rect.y0)*s);
+  var cw=Math.max(1,px1-px0), ch=Math.max(1,py1-py0);
+  var tileCanvas=document.createElement('canvas');
+  tileCanvas.width=cw; tileCanvas.height=ch;
+  await page.render({canvasContext:tileCanvas.getContext('2d'),viewport:fullVp,transform:[1,0,0,1,-px0,-py0]}).promise;
+  // レンダリング完了時点でタブ切替・ページ送りが起きていたら、古い結果は反映しない
+  if(pdfDoc!==curPdfDoc||pdfPageNum!==curPageNum) return;
+  pdfImage={img:tileCanvas,wx:rect.x0,wy:rect.y1,ww:rect.x1-rect.x0,wh:rect.y1-rect.y0};
+  scheduleDraw();
+}
+
+// 現在の表示範囲・ズーム倍率を確認し、必要なら表示範囲だけを高解像度で再レンダリングする
+async function _pdfCheckAndRefresh(){
+  if(!pdfDoc||_pdfRerenderBusy) return;
+  var curPdfDoc=pdfDoc, curPageNum=pdfPageNum, page;
+  try{ page=await curPdfDoc.getPage(curPageNum); }catch(e){ return; }
+  if(pdfDoc!==curPdfDoc||pdfPageNum!==curPageNum) return; // 待っている間にタブ/ページが変わっていたら中止
+  var rawVp=page.getViewport({scale:1});
+  var needed=_pdfNeededRectAndScale(rawVp.width,rawVp.height);
+  if(!needed) return;
+  if(!_pdfNeedsRerender(needed,_pdfImgCurrentScale(),_pdfImgCurrentRect())) return;
+  _pdfRerenderBusy=true;
+  try{
+    await _pdfRenderVisibleTile(page,needed.rect,needed.targetScale,curPdfDoc,curPageNum,rawVp.height);
+  }catch(e){ console.warn('[PDF高解像度再レンダリング]',e); }
+  finally{ _pdfRerenderBusy=false; }
+}
+
+// V1_85: draw()から毎フレーム呼ばれるが、実際のチェック・再レンダリングはズーム/パン操作が
+// 落ち着いてから(PDF_RERENDER_DEBOUNCE_MS後)にまとめて1回だけ行うようデバウンスする
+function _pdfScheduleResRefresh(){
+  if(!pdfDoc) return;
+  if(_pdfRerenderTimer) clearTimeout(_pdfRerenderTimer);
+  _pdfRerenderTimer=setTimeout(function(){
+    _pdfRerenderTimer=null;
+    _pdfCheckAndRefresh();
+  },PDF_RERENDER_DEBOUNCE_MS);
+}
+
+// V1_51: フォルダインデックス用途。PDF全ページの文字列一覧を返す
+// V1_88: 「検索してファイルを開く」で一致した文字がどのページにあるかへジャンプできるよう、
+// 各文字列にページ番号(page)も付与した{text,page}形式で返すようにした（従来はtextのみの配列）。
+// 呼び出し側(doAllSearch/doOpenFileSearch)は_idxTextOf()でtext部分だけ取り出して比較する
 async function extractAllPdfTexts(pdfDocObj){
   var texts=[];
   try{
     for(var i=1;i<=pdfDocObj.numPages;i++){
       var page=await pdfDocObj.getPage(i);
       var items=await _pdfPageTextItems(page);
-      items.forEach(function(m){texts.push(m.text);});
+      items.forEach(function(m){texts.push({text:m.text,page:i});});
     }
   }catch(e){ console.warn('[PDF全ページ文字抽出]',e); }
   return texts;
@@ -809,17 +986,19 @@ function loadExcel(buf){
 }
 
 // フォルダインデックス・全図面検索用途。全シートのセル文字列一覧（重複含む）を返す
+// V1_88: 「検索してファイルを開く」で一致した文字がどのシートにあるかへ切り替えられるよう、
+// 各文字列にシート番号(sheet)も付与した{text,sheet}形式で返すようにした（従来はtextのみの配列）
 function extractAllExcelTexts(wb){
   var texts=[];
   try{
-    wb.SheetNames.forEach(function(name){
+    wb.SheetNames.forEach(function(name,si){
       var ws=wb.Sheets[name];
       if(!ws) return;
       var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
       rows.forEach(function(row){
         row.forEach(function(cell){
           var t=(cell===null||cell===undefined)?'':String(cell).trim();
-          if(t) texts.push(t);
+          if(t) texts.push({text:t,sheet:si});
         });
       });
     });
@@ -875,6 +1054,36 @@ function renderExcelView(){
     });
     table.appendChild(tr);
   });
+  // V1_88: DXF/PDFの黄色マークと同様に、検索キーワード(_markKeyword)に一致するセルを
+  // ハイライトする。シートタブ切替のたびにここが再実行されるため、切り替えた先の
+  // シートに一致セルがあれば自動的に反映される（スクロールは行わない。初回オープン時の
+  // スクロールはopenDxfFromDb側から_applyExcelSearchHighlight(true)を明示的に呼ぶ）
+  if(typeof _applyExcelSearchHighlight==='function') _applyExcelSearchHighlight(false);
+}
+
+// V1_88: 検索してファイルを開く/全図面検索で開いたExcelの、キーワード(_markKeyword)に
+// 一致するセルをDXF/PDFの黄色マークと同様にハイライト表示する。呼ばれるたびに、まず
+// 既存のハイライトをすべて解除してから、_markKeywordが設定されていれば再度付与し直す
+// （キーワードが無ければ解除だけで終わる＝ファイルを直接開いた時は自動的にクリアされる）
+function _applyExcelSearchHighlight(scrollToFirst){
+  var table=document.getElementById('excelTable');
+  if(!table) return;
+  var prev=table.querySelectorAll('td.cell-highlight');
+  prev.forEach(function(td){td.classList.remove('cell-highlight');});
+  if(typeof _markKeyword==='undefined'||!_markKeyword) return;
+  var kw=(typeof _normalizeForSearch==='function')?_normalizeForSearch(_markKeyword):_markKeyword;
+  if(!kw) return;
+  var first=null;
+  table.querySelectorAll('td').forEach(function(td){
+    var t=(typeof _normalizeForSearch==='function')?_normalizeForSearch(td.textContent):td.textContent;
+    if(t.indexOf(kw)>=0){
+      td.classList.add('cell-highlight');
+      if(!first) first=td;
+    }
+  });
+  if(scrollToFirst&&first&&typeof first.scrollIntoView==='function'){
+    first.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
+  }
 }
 
 // Excelセルタップ時の処理。テキスト読込ピックモード中は共通ヘルパー(_commitPickedText)へ渡す。
