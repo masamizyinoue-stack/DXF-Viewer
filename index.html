@@ -561,7 +561,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_93</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_101</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -903,24 +903,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=193"></script>
-<script src="viewer.js?v=193"></script>
-<script src="utils.js?v=193"></script>
-<script src="ui.js?v=193"></script>
-<script src="dialog.js?v=193"></script>
-<script src="storage.js?v=193"></script>
-<script src="fonts/NotoSansJP.js?v=193"></script>
-<script src="export.js?v=193"></script>
-<script src="tool.js?v=193"></script>
-<script src="verify.js?v=193"></script>
+<script src="layer.js?v=1101"></script>
+<script src="viewer.js?v=1101"></script>
+<script src="utils.js?v=1101"></script>
+<script src="ui.js?v=1101"></script>
+<script src="dialog.js?v=1101"></script>
+<script src="storage.js?v=1101"></script>
+<script src="fonts/NotoSansJP.js?v=1101"></script>
+<script src="export.js?v=1101"></script>
+<script src="tool.js?v=1101"></script>
+<script src="verify.js?v=1101"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=193"></script>
+<script src="pc.js?v=1101"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=193"></script>
+<script src="supabase-sync.js?v=1101"></script>
 <script>
-const APP_VERSION = 'V1_93';
+const APP_VERSION = 'V1_101';
 
 // =========================================================
 // グローバル状態
@@ -968,6 +968,24 @@ var mouseDown=false,lastMX=0,lastMY=0,panning=false;
 var pinchDist=null,pinchMid=null;
 // V1_18: ダブルタップ全体表示用（パン中の単純タップのみ対象。詳細はtool.js touchend参照）
 var _tapStartTime=0,_tapStartX=0,_tapStartY=0,_lastTapTime=0,_lastTapX=0,_lastTapY=0;
+// V1_99/V1_100: ピンチズーム後の誤操作対策として、2本指→1本指へ移行してから
+// 既定時間(0.3秒→0.8秒に延長)以内に全指が離れた場合は確定しない、という
+// 時間ベースの猶予を導入したが、実機でなお誤操作の報告が続いた。
+// V1_101: 時間で区切る方式をやめ、以下2つの判定を組み合わせたセッション全体
+// フラグ方式に置き換えた。
+// (1) 本数ベース: このタッチセッション中に一度でも2本指以上になったら
+//     _gestureSessionActive=trueにし、猶予時間に関係なく、全指が画面から
+//     完全に離れて新しいタッチセッションが始まるまで、書き込み・計測の確定を
+//     一切行わない（時間切れによる誤確定を根本的に防ぐ）。
+// (2) 移動距離ベース: 1本指パン中の指がタッチ開始位置から一定距離
+//     (GESTURE_MOVE_THRESHOLD_PX)以上動いた場合も_gestureSessionActiveを
+//     trueにする。実機では2本指ジェスチャーの本数変化イベントの発火順序が
+//     ずれることがあり、(1)の本数判定だけでは検知しきれない場合の保険となる
+// （詳細はtool.js touchmove/touchend・index.html _swAttachInput内touchmove/
+// touchend参照）
+var _gestureSessionActive=false;
+var GESTURE_MOVE_THRESHOLD_PX=18;
+var _panAnchorX=null,_panAnchorY=null;
 // ERASER_RADIUS_PX → tool.js
 
 // showGuide / hideGuide → ui.js
@@ -1422,11 +1440,11 @@ fileInput.addEventListener('change',async e=>{
     // DXF分岐(1322行目付近)・openDxfFromDb()には元々あった仕上げのscheduleDraw()が
     // PDF分岐だけ欠けていたため、ここで追加する
     scheduleDraw();
-    // V1_51: 単独で開いたPDFも、DXFと同様に自動でインデックスへ追加する（全ページの文字を抽出）
-    try{
-      var _pdfTexts151=await extractAllPdfTexts(pdfDoc);
-      _idbSave(f.name,buf,_pdfTexts151);
-    }catch(e151){console.warn('[PDF自動インデックス]',e151);}
+    // V1_94: 単独で開いたPDFを検索して開くのインデックスへ自動追加する処理は、
+    // 「個別に開いたファイル」が勝手にインデックス完了扱いになりわかりにくいとの
+    // 指摘を受けて廃止した。インデックスに含めたい場合は「フォルダを選択して
+    // インデックス作成」から明示的に行う（V1_51で追加した自動インデックスの削除。
+    // 画面検索(buildSearchIndex/_searchIdx相当)には影響しない）
     saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();
     document.body.classList.remove('settings-open');
   } else if(_isExcelName(f.name)){
@@ -1438,11 +1456,10 @@ fileInput.addEventListener('change',async e=>{
     var _excelOk176=loadExcel(buf);
     if(_excelOk176){
       {const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
-      // V1_76: DXF/PDFと同様、開いたファイルは自動でインデックスへ追加する（全シート文字を抽出）
-      try{
-        var _excelTexts176=extractAllExcelTexts(excelWb);
-        _idbSave(f.name,buf,_excelTexts176);
-      }catch(e176){console.warn('[Excel自動インデックス]',e176);}
+      // V1_94: 単独で開いたExcelを検索して開くのインデックスへ自動追加する処理は、
+      // 「個別に開いたファイル」が勝手にインデックス完了扱いになりわかりにくいとの
+      // 指摘を受けて廃止した（V1_76で追加した自動インデックスの削除。インデックスに
+      // 含めたい場合は「フォルダを選択してインデックス作成」から明示的に行う）
       saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();
       document.body.classList.remove('settings-open');
     }
@@ -1473,7 +1490,12 @@ fileInput.addEventListener('change',async e=>{
           if(_sbA){if(_sbA.strokes&&_sbA.strokes.length>0)strokes=_sbA.strokes;if(_sbA.dims&&_sbA.dims.length>0)dims=_sbA.dims;}
         }catch(e){}
       }
-      buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();scheduleDraw();showInfo();buildSearchIndex();_idbSave(f.name,buf,_searchIdx.map(function(m){return m.text;}));{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}
+      // V1_94: 単独で開いたDXFを検索して開くのインデックスへ自動追加する処理(旧:
+      // buildSearchIndex()直後の_idbSave呼び出し)は、「個別に開いたファイル」が
+      // 勝手にインデックス完了扱いになりわかりにくいとの指摘を受けて廃止した。
+      // インデックスに含めたい場合は「フォルダを選択してインデックス作成」から
+      // 明示的に行う（buildSearchIndex自体は画面検索(_searchIdx)用に維持する）
+      buildSnapCache();checkPerfMode();buildLayerModal();detectScale();fit();scheduleDraw();showInfo();buildSearchIndex();{const _nd=document.getElementById('noDrawingMsg');if(_nd)_nd.style.display='none';}
       saveFile(buf,_fileKey(f.name,f.size));scheduleSave();updateFileNameDisplay();// V0_113: openFiles[]登録後に保存されるようdoSave→scheduleSave
       document.body.classList.remove('settings-open');
     }catch(err){alert('ファイルを開けません: '+err.message);}
@@ -4110,7 +4132,23 @@ function _swAttachInput(sw){
       }
     } else if(fingers.length>=2){
       if(sketching){sketching=false;sketchPts=[];}
+      // V1_98: メイン画面(tool.js)のV1_97と同じ修正をサブ窓にも適用。指Aが単独で
+      // 触れた直後(fingers.length===1のtouchstartが1回発火した後)に指Bが加わって
+      // 2本指ピンチが成立するケースでは、その一瞬の間に手書きモード+計測ツール
+      // (DIM/LP/LL)選択中だと既にhandleDown()が呼ばれpenDown=trueのまま「候補位置
+      // 確定待ち」になってしまう。ピンチ中は指計測のhandleMoveが呼ばれないため
+      // 候補位置は古いまま残り、ピンチ終了時にその古い位置で計測点が確定してしまう
+      // (サブ窓は離れた2点の片方を拡大して選ぶ用途のため、特にこの不具合の影響を
+      // 受けやすかった)。sketchingと同様に、2本指が揃った時点でDIM/LP/LLの
+      // penDownを強制的に解除する
+      if(window.DIM) window.DIM.penDown=false;
+      if(window.LP) window.LP.penDown=false;
+      if(window.LL) window.LL.penDown=false;
       mouseDown=false;panning=false;
+      // V1_101: メイン画面(tool.js)と同じく、2本指が揃った時点でセッション全体
+      // フラグを立てる。全指が完全に離れて新しいタッチセッションが始まるまで
+      // 書き込み・計測の確定を一切行わない（詳細はtouchendのremaining.length===0側参照）
+      _gestureSessionActive=true;
       var t0=fingers[0],t1=fingers[1];
       var x0=t0.clientX-r.left,y0=t0.clientY-r.top,x1=t1.clientX-r.left,y1=t1.clientY-r.top;
       pinchDist=Math.hypot(x1-x0,y1-y0);
@@ -4127,6 +4165,7 @@ function _swAttachInput(sw){
           &&(_fingerMeasureActive()||currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser')){
         if(sketching){sketching=false;sketchPts=[];}
         panning=true;
+        _panAnchorX=null;_panAnchorY=null; // V1_101: 移動距離判定の起点をパン開始のたびにリセット
         _tapStartTime=Date.now();_tapStartX=sxf;_tapStartY=syf;
       } else if(inputMode==='freehand'&&_fingerMeasureActive()){
         panning=false;
@@ -4139,6 +4178,7 @@ function _swAttachInput(sw){
       } else {
         if(sketching){sketching=false;sketchPts=[];}
         panning=true;
+        _panAnchorX=null;_panAnchorY=null; // V1_101: 移動距離判定の起点をパン開始のたびにリセット
         // V1_42: 「テキスト読込」ピック中にサブ窓内で単純タップした場合を
         // 検出できるよう、メイン画面(tool.js)と同様にタップ起点を記録する
         _tapStartTime=Date.now();_tapStartX=sxf;_tapStartY=syf;
@@ -4200,6 +4240,13 @@ function _swAttachInput(sw){
       var tf2=fingers[0];
       var sxf2=tf2.clientX-r.left,syf2=tf2.clientY-r.top;
       withCtx(function(){ tx+=sxf2-lastMX; ty+=syf2-lastMY; });
+      // V1_101: メイン画面(tool.js)と同じ移動距離判定。パン中の指がパン開始位置
+      // から一定距離(GESTURE_MOVE_THRESHOLD_PX)以上動いたら_gestureSessionActive
+      // を立てる（本数ベースの判定だけでは検知できない場合の保険）
+      if(_panAnchorX===null){_panAnchorX=sxf2;_panAnchorY=syf2;}
+      else if(Math.hypot(sxf2-_panAnchorX,syf2-_panAnchorY)>GESTURE_MOVE_THRESHOLD_PX){
+        _gestureSessionActive=true;
+      }
       lastMX=sxf2;lastMY=syf2;
       sw._userNavigated=true;
       scheduleDraw();
@@ -4237,10 +4284,13 @@ function _swAttachInput(sw){
     if(remaining.length===0){
       // V1_46/V1_47: 手書きモードで指計測中（DIM/LP/LL・水平鉛直・斜め）だった場合は
       // 指を離した位置で確定
-      if(!isPen&&inputMode==='freehand'&&_fingerMeasureActive()){
+      // V1_101: メイン画面(tool.js)と同じく、時間ベースの猶予(V1_99/V1_100)を
+      // やめ、_gestureSessionActive(このタッチセッション中に一度でも2本指以上・
+      // または一定距離以上のパン移動があったか)で判定するようにした
+      if(!_gestureSessionActive&&!isPen&&inputMode==='freehand'&&_fingerMeasureActive()){
         withCtx(function(){ _fingerMeasureUp(lastMX,lastMY); });
       }
-      if(!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
+      if(!_gestureSessionActive&&!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
         withCtx(function(){ handlePointerUp(lastMX,lastMY,false); });
       }
       // V1_42: 「テキスト読込」ピック中は、サブ窓内での単純タップ（ドラッグ量が
@@ -4254,6 +4304,8 @@ function _swAttachInput(sw){
         }
       }
       _tapStartTime=0;
+      _gestureSessionActive=false; // V1_101: このタッチセッションの判定はここで使い切り、次回に持ち越さない
+      _panAnchorX=null;_panAnchorY=null;
       if(!isPen){panning=false;mouseDown=false;}
       pinchDist=null;pinchMid=null;return;
     }
@@ -4262,19 +4314,19 @@ function _swAttachInput(sw){
       var t=remFing[0];
       var sx=t.clientX-r.left,sy=t.clientY-r.top;
       mouseDown=true;lastMX=sx;lastMY=sy;
-      // V1_46/V1_47: 手書きモード+計測ツール（DIM/LP/LL・水平鉛直・斜め）なら指計測を
-      // 再開（カーソルは指の少し上）
-      if(inputMode==='freehand'&&_fingerMeasureActive()){
-        panning=false;
-        var fy=sy-FINGER_CURSOR_OFFSET_Y;
-        withCtx(function(){ _fingerMeasureDown(sx,fy); });
-        lastMX=sx;lastMY=fy;
-      } else if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl')){
-        panning=false;
-        withCtx(function(){ handlePointerDown(sx,sy,false); });
-      } else {
-        panning=true;
-      }
+      // V1_98: メイン画面(tool.js)のV1_96と同じ修正をサブ窓にも適用。ピンチズーム
+      // 終了時、2本の指がぴったり同時に離れることは少なく、片方がわずかに早く
+      // 離れて一瞬「2本指→1本指」の状態を経由することがよくある。従来はこの瞬間を
+      // 「指を持ち替えて手書き描画・計測を続けたい」意図とみなし、残った指の位置で
+      // スケッチ再開・計測ツールの指計測再開を自動的に行っていたが、実際にはズーム
+      // 終了時の誤操作の原因になっていたため、この自動再開を廃止し、ピンチ終了直後は
+      // 常にパン継続として扱うよう変更した
+      panning=true;
+      // V1_101: tool.js側と同じく、2本指を経由した時点でtouchstart側の
+      // _gestureSessionActive=trueが既に立っているため、時間経過に関わらず
+      // 全タッチ終了まで確定は抑止される。ここでは移動距離判定
+      // (GESTURE_MOVE_THRESHOLD_PX)の起点をリセットするのみでよい
+      _panAnchorX=null;_panAnchorY=null;
     }
   },{passive:false});
 }
@@ -4777,7 +4829,13 @@ function _setTextPickMode(target){
   // ようやく拾える不具合があった。ピックモードに入る瞬間に設定パネルを閉じることで
   // 1回のタップで文字を読み込めるようにした
   if(target) document.body.classList.remove('settings-open');
-  if(target) showGuide('図面上の文字をタップしてください（もう一度ボタンを押すと中止）',0);
+  // V1_95: 「（もう一度ボタンを押すと中止）」は、ボタンを押してピックモードを
+  // 手動でトグルできたV1_62以前の文言。画面検索(screen)・検索して開く(openFile)は
+  // V1_62でボタン自体を廃止しパネルの開閉と連動する自動モードになっているため、
+  // 「もう一度ボタンを押す」操作自体が存在せず文言が実態と合っていなかった。
+  // 全図面検索(all)のみallTextPickBtnによる手動トグルが今も残っているため、
+  // その場合に限りこの案内を表示する
+  if(target) showGuide('図面上の文字をタップしてください'+(target==='all'?'（もう一度ボタンを押すと中止）':''),0);
   else hideGuide();
   var b1=document.getElementById('screenTextPickBtn');
   var b2=document.getElementById('allTextPickBtn');
@@ -4841,7 +4899,9 @@ function _commitPickedText(text){
   }
   showGuide('「'+text+'」を検索欄に入力しました',2200);
   setTimeout(function(){
-    if(_textPickTarget===target) showGuide('図面上の文字をタップしてください（もう一度ボタンを押すと中止）',0);
+    // V1_95: _setTextPickMode側と同様、'all'(全図面検索)以外はボタンによる
+    // 手動トグルが存在しないため「（もう一度ボタンを押すと中止）」を表示しない
+    if(_textPickTarget===target) showGuide('図面上の文字をタップしてください'+(target==='all'?'（もう一度ボタンを押すと中止）':''),0);
   },2200);
 }
 // V1_62: 画面検索・検索開くはパネルを開くと自動でピックモードになる(V1_58)ため
@@ -5503,6 +5563,16 @@ function openOpenFilePanel(){
     });
   }
   doOpenFileSearch();
+  // V1_95: 「検索して開く」を開いた時点で、書き込み(ペン/蛍光)・消しゴム・計測ツール
+  // (直径/半径/線と点/2線間/水平鉛直/斜め)のいずれを使用中・操作途中だったとしても
+  // 一旦キャンセルし、以後のクリック/タップはテキスト読込を最優先させる。
+  // mousedown/touchstart側は元々_textPickTarget有効時にDIM/LP/LL等へ処理を渡さない
+  // 作りだったが、計測ツールが1点目まで選択済み(phase>0)の状態はそのまま残ってしまい、
+  // パネルを閉じた後に中断していた計測が再開してしまう・hoverプレビューが更新され
+  // 続けるなど「操作がキャンセルされていない」ように見える問題があった。
+  // resetToolStates()(V0_139〜)を呼ぶことで、DIM/LP/LL/SWのactive状態を解除し、
+  // 計測ツール選択中だった場合はペンツールに戻す（ファイル切替時と同じ扱いに統一）
+  resetToolStates();
   // V1_58: 検索開くを開いたら、テキスト読込ボタンを押さなくても最初から
   // 図面タップでの文字読込ピックモードに入るようにする（キーボード入力も
   // 従来通り有効）
