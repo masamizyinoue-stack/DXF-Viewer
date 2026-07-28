@@ -380,12 +380,12 @@ function _showOpenFilesListMenu(anchorEl){
         updateCloseSelBtn();
       });
 
-      var _nameLower76=(f.currentFileName||f.name||'').toLowerCase();
-      var isPdf=_nameLower76.endsWith('.pdf');
-      var isExcel76=(typeof _isExcelName==='function')&&_isExcelName(_nameLower76); // V1_76
+      // V1_109: バッジのラベル・色は_fileTypeInfo()（index.html）に一元化。
+      // タブバー側と同じ配色（DXF=青/PDF=紫/XLS=緑）になるようにするため
+      var _typeInfo109=(typeof _fileTypeInfo==='function')?_fileTypeInfo(f.currentFileName||f.name):{label:'DXF',color:'#1565c0'};
       var badge=document.createElement('span');
-      badge.textContent=isPdf?'PDF':(isExcel76?'XLS':'DXF');
-      badge.style.cssText='font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;flex-shrink:0;background:'+(isPdf?'#8e44ad':(isExcel76?'#217346':'#1a7a3a'))+';color:#fff;';
+      badge.textContent=_typeInfo109.label;
+      badge.style.cssText='font-size:10px;font-weight:700;padding:2px 5px;border-radius:4px;flex-shrink:0;background:'+_typeInfo109.color+';color:#fff;';
       var info=document.createElement('div');
       info.style.cssText='flex:1;min-width:0;';
       var timeStr=f._lastActiveTs?'表示済み':'未表示';

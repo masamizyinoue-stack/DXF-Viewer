@@ -338,25 +338,33 @@ body.settings-open #settingsPanel{transform:translateX(0)}
    横並びに変更（タブが多い時に見失わないための対策の一つ）。ボタンはtabBarRowの
    外側に固定表示するため、タブと一緒に横スクロールして見えなくなることがない */
 #tabBarRow{display:flex;align-items:stretch;flex-shrink:0}
-#tabBar{display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:#0d1117;border-bottom:1px solid #2a3040;min-height:0;max-height:40px;flex-shrink:0;flex:1;min-width:0;scrollbar-width:none} /* V1_103: PCでタブが収まりきらない時にネイティブの横スクロールバーが40pxの枠内に表示され、タブ名の文字と重なって見づらかったため、.topbar(コマンドバー)と同じ方式でスクロールバー自体を非表示にした（スクロール操作自体はドラッグ/トラックパッド/タブ一覧ボタンで引き続き可能） */
+#tabBar{display:flex;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;background:#0d1117;border-bottom:1px solid #2a3040;min-height:0;max-height:44px;flex-shrink:0;flex:1;min-width:0;scrollbar-width:none} /* V1_103: PCでタブが収まりきらない時にネイティブの横スクロールバーが40pxの枠内に表示され、タブ名の文字と重なって見づらかったため、.topbar(コマンドバー)と同じ方式でスクロールバー自体を非表示にした（スクロール操作自体はドラッグ/トラックパッド/タブ一覧ボタンで引き続き可能） / V1_109: タブを種類バッジ+ファイル名の2段表示にしたことに伴い40px→44pxに拡張 */
 #tabBar::-webkit-scrollbar{display:none}
 #tabBar:empty{max-height:0;border-bottom:none}
-#tabListBtn{display:none;width:36px;min-width:36px;height:40px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;border-left:1px solid #2a3040;color:#b0bec5;font-size:16px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+#tabListBtn{display:none;width:36px;min-width:36px;height:44px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;border-left:1px solid #2a3040;color:#b0bec5;font-size:16px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 #tabListBtn:active{background:rgba(255,255,255,.12)}
 /* V1_105: PC操作時、タブがウィンドウ幅に収まらずスクロールが必要な場合の左右移動ボタン。
    V1_103でネイティブの横スクロールバーを非表示にしたため、ホイールの無いマウスの
    ユーザーにも分かりやすい操作手段として、タブが実際に収まりきらない時だけ
    （_updateTabScrollBtns()がJSで判定）表示する。タブ一覧ボタンと同じ配色・高さで統一 */
-.tab-scroll-btn{display:none;width:24px;min-width:24px;height:40px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;color:#b0bec5;font-size:15px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+.tab-scroll-btn{display:none;width:24px;min-width:24px;height:44px;align-items:center;justify-content:center;background:#0d1117;border:none;border-bottom:1px solid #2a3040;color:#b0bec5;font-size:15px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
 .tab-scroll-btn:active{background:rgba(255,255,255,.12)}
 .tab-scroll-btn.at-edge{opacity:.35;cursor:default}
 #tabScrollLeftBtn{border-right:1px solid #2a3040}
 #tabScrollRightBtn{border-left:1px solid #2a3040}
-.tab-item{display:flex;align-items:center;padding:0 6px 0 12px;min-width:80px;max-width:180px;height:40px;background:#0d1117;border-right:1px solid #2a3040;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;gap:4px;box-sizing:border-box}
+/* V1_109: タブを2段表示に変更（上段=ファイル種類バッジ、下段=ファイル名+閉じるボタン）。
+   従来の横1列(align-items:center)から縦積み(flex-direction:column)に変更し、
+   閉じるボタンのタップ領域(24px)を保ったまま種類バッジ分の高さを追加したため
+   40px→44pxに拡張した */
+.tab-item{display:flex;flex-direction:column;align-items:stretch;justify-content:center;padding:3px 6px 3px 8px;min-width:80px;max-width:180px;height:44px;background:#0d1117;border-right:1px solid #2a3040;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;gap:2px;box-sizing:border-box}
 /* V1_70: アクティブタブの強調を強化（背景をより明るく・下線を太く）、ファイル名は赤太字に。
    直前まで表示していたタブは黄色、その1つ前は青色にして、タブが多くても直近の
    行き来を目で追えるようにする */
 .tab-item.active{background:#223451;border-bottom:3px solid var(--accent,#00d4ff)}
+/* V1_109: 上段のファイル種類バッジ（DXF/PDF/XLS）。色は_fileTypeInfo()と対応 */
+.tab-type-badge{font-size:9px;font-weight:700;line-height:1.2;padding:1px 4px;border-radius:3px;color:#fff;align-self:flex-start;flex-shrink:0}
+/* V1_109: 下段（ファイル名+閉じるボタン）の横並び行 */
+.tab-name-row{display:flex;align-items:center;gap:2px;min-width:0}
 .tab-name{font-size:12px;color:#b0bec5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 .tab-item.active .tab-name{color:#ff5555;font-weight:700}
 .tab-name.tab-recent-1{color:#ffd60a}
@@ -565,7 +573,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div id="snap-hint"></div>
   <!-- V1_48: 水平/鉛直・斜めのP1/P2、線と点の点選択中のみ表示するボタン。
        押すと線を2本選び、その交点(延長含む)を確定点として使う -->
-  <button id="ipxBtn" style="display:none">2線間の交点</button>
+  <button id="ipxBtn" style="display:none">2線の交点取得</button>
 </div>
 
 <div id="settingsOverlay"></div>
@@ -573,7 +581,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_106</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_109</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -920,24 +928,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=1106"></script>
-<script src="viewer.js?v=1106"></script>
-<script src="utils.js?v=1106"></script>
-<script src="ui.js?v=1106"></script>
-<script src="dialog.js?v=1106"></script>
-<script src="storage.js?v=1106"></script>
-<script src="fonts/NotoSansJP.js?v=1106"></script>
-<script src="export.js?v=1106"></script>
-<script src="tool.js?v=1106"></script>
-<script src="verify.js?v=1106"></script>
+<script src="layer.js?v=1109"></script>
+<script src="viewer.js?v=1109"></script>
+<script src="utils.js?v=1109"></script>
+<script src="ui.js?v=1109"></script>
+<script src="dialog.js?v=1109"></script>
+<script src="storage.js?v=1109"></script>
+<script src="fonts/NotoSansJP.js?v=1109"></script>
+<script src="export.js?v=1109"></script>
+<script src="tool.js?v=1109"></script>
+<script src="verify.js?v=1109"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=1106"></script>
+<script src="pc.js?v=1109"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=1106"></script>
+<script src="supabase-sync.js?v=1109"></script>
 <script>
-const APP_VERSION = 'V1_106';
+const APP_VERSION = 'V1_109';
 
 // =========================================================
 // グローバル状態
@@ -1354,6 +1362,17 @@ function _fileTypeSortKey(f){
   if(n.endsWith('.pdf')) return 1;
   if(_isExcelName(n)) return 2;
   return 0; // DXF（既定）
+}
+// V1_109: ファイル種類ごとのバッジ表示（ラベル・背景色）を一元管理する。
+// タブ一覧パネル(dialog.js)とメイン画面のタブバー(updateFileNavUI)の両方でこの関数を
+// 使うことで、同じファイルがパネルとタブバーで違う色に見えることが無いようにする。
+// DXFとXLSが似た緑色で見分けづらいという指摘を受け、青(DXF)/紫(PDF)/緑(XLS)の
+// はっきり異なる色に割り当てた
+function _fileTypeInfo(name){
+  var n=(name||'').toLowerCase();
+  if(n.endsWith('.pdf')) return {label:'PDF',color:'#8e44ad'};
+  if(_isExcelName(n)) return {label:'XLS',color:'#217346'};
+  return {label:'DXF',color:'#1565c0'};
 }
 
 // ファイル
@@ -1795,6 +1814,14 @@ function updateFileNavUI(){
       var item=document.createElement('div');
       item.className='tab-item'+(idx===currentFileIdx?' active':'');
       item.dataset.filekey=openFiles[idx].fileKey||('idx'+idx); // V1_71: ドラッグ並び替え識別用
+      // V1_109: 上段にファイル種類バッジ(DXF/PDF/XLS)、下段にファイル名+閉じるボタンの2段表示
+      var typeInfo109=(typeof _fileTypeInfo==='function')?_fileTypeInfo(openFiles[idx].currentFileName):{label:'DXF',color:'#1565c0'};
+      var typeBadge=document.createElement('span');
+      typeBadge.className='tab-type-badge';
+      typeBadge.textContent=typeInfo109.label;
+      typeBadge.style.background=typeInfo109.color;
+      var nameRow=document.createElement('div');
+      nameRow.className='tab-name-row';
       var name=document.createElement('span');
       name.className='tab-name'+(idx===_recent1?' tab-recent-1':idx===_recent2?' tab-recent-2':'');
       name.textContent=openFiles[idx].currentFileName||'---';
@@ -1803,8 +1830,10 @@ function updateFileNavUI(){
       close.className='tab-close';
       close.textContent='✕';
       close.addEventListener('click',function(e){e.stopPropagation();if(_isOpeningFileBusy)return;closeTab(idx);}); // V1_40: 読込中は操作不可
-      item.appendChild(name);
-      item.appendChild(close);
+      nameRow.appendChild(name);
+      nameRow.appendChild(close);
+      item.appendChild(typeBadge);
+      item.appendChild(nameRow);
       item.addEventListener('pointerdown',function(e){_tabItemPointerDown(e,item,item.dataset.filekey);}); // V1_71: 長押しドラッグ並び替え
       item.addEventListener('click',function(){if(_isOpeningFileBusy)return;if(_tabDragJustHappened)return;if(idx!==currentFileIdx) switchToFile(idx);}); // V1_40: 読込中は操作不可 / V1_71: ドラッグ直後のクリックは無視
       bar.appendChild(item);
@@ -3691,7 +3720,7 @@ function _ipxUpdateButtonUI(){
     btn.textContent=(IPX.step===0?'✕ 交点計測を中止（1本目を選択中）':'✕ 交点計測を中止（2本目を選択中）');
     btn.style.display='block';
   } else if(_ipxIsPointPhasePending()){
-    btn.textContent='2線間の交点';
+    btn.textContent='2線の交点取得';
     btn.style.display='block';
   } else {
     btn.style.display='none';

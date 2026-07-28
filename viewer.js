@@ -1053,6 +1053,12 @@ function extractAllExcelTexts(wb){
 // 現在のexcelWb/excelSheetIdxをもとに #excelView 内のシートタブ・テーブルを再構築する。
 // excelWbがnullの場合は#excelViewを隠しcanvasを元に戻すだけの役割も兼ねる
 // （PDF/DXF側に戻る際は excelWb=null にしてから本関数を呼ぶだけでよい）
+// V1_107: Excel/CSV表示中は#viewmemo内の記憶・表示ボタン(mem-btn/show-btn/vm-file)を隠す。
+// markFitRow（マーク送り・全体ボタン）はExcel/CSV表示中も使うため対象外。
+function _updateViewmemoForExcel(isExcel){
+  var els=document.querySelectorAll('#viewmemo .mem-btn, #viewmemo .show-btn, #viewmemo .vm-file');
+  els.forEach(function(el){ el.style.display=isExcel?'none':''; });
+}
 function renderExcelView(){
   var view=document.getElementById('excelView');
   if(!view) return;
@@ -1060,10 +1066,12 @@ function renderExcelView(){
   if(!excelWb){
     view.style.display='none';
     if(cv)cv.style.display='';if(ac)ac.style.display='';if(ov)ov.style.display='';
+    _updateViewmemoForExcel(false);
     return;
   }
   view.style.display='flex';
   if(cv)cv.style.display='none';if(ac)ac.style.display='none';if(ov)ov.style.display='none';
+  _updateViewmemoForExcel(true);
   var tabsEl=document.getElementById('excelSheetTabs');
   var table=document.getElementById('excelTable');
   if(!tabsEl||!table) return;
