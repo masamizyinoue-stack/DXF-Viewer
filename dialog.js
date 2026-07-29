@@ -96,12 +96,33 @@ function _showIndexProfileNameDialog(anchorEl, onConfirm){
   menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-236))+'px';
   menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">インデックスの登録名</div>'
     +'<input type="text" id="_idxNameInput" placeholder="例：現場A" maxlength="30" autocomplete="off" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;font-size:16px;background:#0a0c10;color:#eee;border:1px solid #2a3040">'
+    +'<div id="_idxNameExisting" style="display:flex;flex-wrap:wrap;gap:4px;"></div>'
     +'<button id="_idxNameGo" style="background:#1a7a3a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;">登録</button>'
     +'<button id="_idxNameCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
   document.body.appendChild(menu);
   function closeMenu(){if(document.getElementById('_idxNameMenu'))menu.remove();}
   var inp=document.getElementById('_idxNameInput');
   inp.focus();
+  // V1_112: 既存の登録名をタップで選択→上書き対象として入力欄に反映できるようにする
+  // （名前を正確に覚えて打ち直さなくても、既存の登録を選んで上書き保存しやすくする）
+  if(typeof _idbListProfiles==='function'){
+    _idbListProfiles(function(list){
+      var box=document.getElementById('_idxNameExisting');
+      if(!box||!list||!list.length) return;
+      var label=document.createElement('div');
+      label.style.cssText='width:100%;color:#7a95b5;font-size:10px;';
+      label.textContent='既存（タップで上書き選択）:';
+      box.appendChild(label);
+      list.forEach(function(p){
+        var chip=document.createElement('button');
+        chip.type='button';
+        chip.textContent=p.name;
+        chip.style.cssText='background:#0a0c10;color:#9ec3ea;border:1px solid #2a3040;border-radius:12px;padding:4px 10px;font-size:11px;cursor:pointer;';
+        chip.addEventListener('click',function(){ inp.value=p.name; inp.focus(); });
+        box.appendChild(chip);
+      });
+    });
+  }
   function doConfirm(){
     var name=inp.value.trim();
     if(!name){showGuide('名前を入力してください',2000);return;}

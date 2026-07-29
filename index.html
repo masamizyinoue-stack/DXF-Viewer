@@ -64,6 +64,8 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
   background:transparent;color:var(--text);font-size:20px;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:1px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .tb-btn:active{background:rgba(255,255,255,.1)}
+/* V1_115: ソート/固定行列ボタンが「タップ待ち」状態の間、押下中であることを示す */
+.tb-btn.active{background:rgba(0,212,255,0.22)}
 #settingsBtn{border-color:var(--accent);color:var(--accent);font-size:22px}
 .tb-sep{width:1px;height:26px;background:var(--border);margin:0 3px;flex-shrink:0}
 .tb-tool-btn{width:44px;height:52px;border-radius:9px;flex-shrink:0;border:1.5px solid rgba(70,90,120,0.5);background:transparent;color:var(--text);font-size:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -78,12 +80,84 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 #excelSheetTabs{display:flex;gap:4px;padding:6px 8px;background:#e8e8e8;border-bottom:1px solid #bbb;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
 .excel-sheet-tab{padding:6px 12px;border-radius:6px;border:1px solid #bbb;background:#fff;color:#333;font-size:13px;white-space:nowrap;cursor:pointer;flex-shrink:0}
 .excel-sheet-tab.active{background:#217346;color:#fff;border-color:#217346}
-#excelTableWrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
-#excelTable{border-collapse:collapse;font-size:13px;color:#111}
-#excelTable td{border:1px solid #ccc;padding:4px 8px;white-space:nowrap;cursor:pointer}
-#excelTable td:active{background:#ffe9a8}
+/* V1_114: 検索バー。シートタブの直下・表の直上に常設する。V1_113までの見出し行
+   数値ステッパーは廃止し、表側の行番号セルをタップして指定する方式に変更した */
+#excelFilterBar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;row-gap:6px;padding:6px 8px;background:#f3f4f6;border-bottom:1px solid #ccc;flex-shrink:0}
+#excelFilterInput{flex:1;min-width:80px;font-size:13px;padding:6px 8px;border:1px solid #bbb;border-radius:6px;background:#fff;color:#111}
+/* V1_122: シート下の検索欄用テキスト読込ボタン。ピック中は.pickingで黄色表示にする
+   (allTextPickBtn等と同じ配色) */
+#excelFilterTextPickBtn{font-size:13px;padding:6px 10px;border:1px solid #16a085;border-radius:6px;background:#fff;color:#16a085;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+#excelFilterTextPickBtn.picking{border-color:#ffd700;background:rgba(255,215,0,.15);color:#b8860b}
+#excelFilterNextBtn{font-size:13px;padding:6px 10px;border:1px solid #1565c0;border-radius:6px;background:#1565c0;color:#fff;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+#excelFilterClearBtn{font-size:13px;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;color:#555;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent}
+#excelFilterCount{font-size:12px;color:#666;flex-shrink:0;white-space:nowrap}
+/* V1_115: 行の固定表示に加えて列の固定表示にも対応するため、4分割(上左/上右/下左/下右)の
+   テーブル構成に変更した。sticky系の不具合(V1_113〜V1_114で確認済み)を避けるため、
+   各パネルは物理的に別のtable要素とし、スクロールはJSで同期する
+   (#excelBottomRightWrapが唯一ユーザー操作でスクロールする領域。そのscrollTop/scrollLeftを
+   #excelBottomLeftWrap/#excelTopRightWrapへ反映する)。常時、行番号列(左1列)と列アルファベット行
+   (上1行)は固定表示専用領域(上左)に含まれ、ユーザーが「固定行・列」ボタンで指定した行/列は
+   さらにその固定領域へ追加される */
+#excelTableWrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+/* V1_125: 検索パネル(画面検索/検索して開く/全図面検索)がExcel/CSV表示中に開いている間、
+   テーブル領域をパネル幅ぶん右から縮める。allSearchPanel/openFilePanelの340px/88vwを
+   基準にする(searchPanelは320px/85vwとやや狭いが、大きい方に合わせても縮め過ぎで
+   実害はなく、逆に不足して隠れるよりは安全なため統一した) */
+#excelTableWrap.excel-search-shrink{margin-right:min(340px,88vw)}
+#excelTopWrap{flex-shrink:0;display:flex;overflow:hidden}
+#excelTopLeftWrap{flex-shrink:0;overflow:hidden}
+#excelTopRightWrap{flex:1;overflow:hidden;min-width:0}
+#excelBottomWrap{flex:1;display:flex;overflow:hidden;min-height:0}
+#excelBottomLeftWrap{flex-shrink:0;overflow:hidden}
+#excelBottomRightWrap{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;min-width:0}
+#excelTopLeftTable,#excelTopRightTable,#excelBottomLeftTable,#excelBottomRightTable{border-collapse:collapse;font-size:13px;color:#111}
+/* V1_122: 行番号セル(font-size:11px)とデータセル(13px継承)は文字サイズが異なるため、
+   line-heightを明示しない場合はブラウザの既定値(フォントサイズに比例)により行の高さが
+   微妙に食い違い、行番号・列アルファベットと実セルがズレて見える不具合の根本原因になって
+   いた。line-heightのpx固定指定だけでは、ソートアイコン(svg)・列幅ドラッグハンドル・
+   ソート行の太罫線(2px)など、行によって微妙に異なる内容量の影響を排除しきれず、
+   固定行(フリーズ)使用時に再発する事例が繰り返された。
+   V1_124: そこで「実測して後から高さを合わせる」JS方式(_excelSyncRowHeights)を廃止し、
+   全パネル共通の td に明示的な固定height(box-sizing:border-boxとoverflow:hiddenの
+   組み合わせで、内容がどうであれこの高さに強制的に収まる)を指定する方式に変更した。
+   行番号側・データ側は別テーブルの別要素だが、height指定が完全に同一である以上、
+   ブラウザが計算する行の高さは常に一致する（Excelのように行番号とセルが機械的に
+   「くっついた」状態になり、内容量による食い違いが原理的に発生しなくなる） */
+#excelTopLeftTable td,#excelTopRightTable td,#excelBottomLeftTable td,#excelBottomRightTable td{border:1px solid #ccc;padding:4px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;position:relative;box-sizing:border-box;line-height:18px;height:32px}
+#excelBottomLeftTable td:active,#excelBottomRightTable td:active{background:#ffe9a8}
+/* V1_111: 見出しセル右端の列幅ドラッグ用ハンドル */
+.excel-col-resize-handle{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:3;-webkit-tap-highlight-color:transparent}
+/* V1_134: 列アルファベット行にもハンドルを常設したが、従来のハンドルは完全に透明で
+   見た目に存在が分からず、タッチ操作では発見しづらい。列アルファベット行のハンドルに
+   限り、中央に薄い縦線を表示し、指やApple Pencilでドラッグできることが分かるようにする
+   (ソート行側の見た目は既存動作を変えないよう据え置く) */
+.excel-letter-cell .excel-col-resize-handle::after{content:'';position:absolute;top:20%;bottom:20%;left:4px;width:1px;background:rgba(0,0,0,.35)}
+.excel-letter-cell .excel-col-resize-handle:active::after{background:rgba(0,0,0,.6);width:2px;left:3.5px}
 /* V1_88: 「検索してファイルを開く」で一致したセルをDXF/PDFの黄色マークと同様に強調表示 */
-#excelTable td.cell-highlight{background:#fff3b0;box-shadow:inset 0 0 0 2px #e6b800}
+.excel-cell-table td.cell-highlight,#excelTopLeftTable td.cell-highlight,#excelTopRightTable td.cell-highlight,#excelBottomLeftTable td.cell-highlight,#excelBottomRightTable td.cell-highlight{background:#fff3b0;box-shadow:inset 0 0 0 2px #e6b800}
+/* V1_113: シートタブ下の検索欄（純粋な検索。行は絞り込まずハイライト＋次へ移動のみ）。
+   markKeyword由来の.cell-highlightとは別系統のクラスにして、両者が独立して動作するようにした */
+#excelTopLeftTable td.excel-search-hit,#excelTopRightTable td.excel-search-hit,#excelBottomLeftTable td.excel-search-hit,#excelBottomRightTable td.excel-search-hit{background:#fff3b0;box-shadow:inset 0 0 0 1px #e6b800}
+#excelTopLeftTable td.excel-search-hit-active,#excelTopRightTable td.excel-search-hit-active,#excelBottomLeftTable td.excel-search-hit-active,#excelBottomRightTable td.excel-search-hit-active{background:#ffca28;box-shadow:inset 0 0 0 2px #e65100}
+/* V1_114: 行番号セル・列アルファベット行の外観。V1_115で「固定表示の目印」の意味に変更
+   (タップ操作は廃止し、固定行・列ボタンのピックモード中にのみタップを受け付ける) */
+.excel-rownum-cell{background:#e3e6ea;color:#555;text-align:center;font-size:11px;font-weight:700;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.excel-rownum-cell.frozen{background:#16a085;color:#fff}
+.excel-corner-cell{cursor:default}
+.excel-letter-cell{background:#d5dbe3;color:#333;text-align:center;font-size:11px;font-weight:700}
+.excel-letter-cell.frozen{background:#16a085;color:#fff}
+/* V1_115: ソートで指定した行(旧・見出し行)の強調表示。固定表示とは独立した概念
+   V1_121: 従来の薄い背景色(#eef2f7)だと縞模様と見分けづらく視認性が悪いとの
+   指摘のため、より濃い青系の背景と上下の太線で「帯」として目立たせるよう変更した */
+tr.excel-sort-row td{font-weight:700;background:#cfe2ff;border-top:2px solid #1565c0;border-bottom:2px solid #1565c0}
+/* V1_115: ピックモード中(ソート/固定行列)であることを示すため、タップ対象になる
+   行番号セル・列アルファベット行に薄い点滅風の強調を付ける */
+.excel-pick-armed .excel-rownum-cell,.excel-pick-armed .excel-letter-cell{outline:2px dashed #9b59b6;outline-offset:-2px}
+/* V1_122: 非表示ピックモードで複数選択した行番号・列アルファベットの「非表示予定」表示。
+   確定(ボタン再押下)前は取り消し線+赤系背景で「これから消える」ことを示す */
+.excel-pending-hide{background:#ffcdd2!important;text-decoration:line-through;color:#b71c1c!important}
+/* V1_122: 合計計算モードで選択したセルの強調表示 */
+.excel-sum-selected{background:#fff59d!important;box-shadow:inset 0 0 0 2px #f9a825}
 #cv,#ov{position:absolute;top:0;left:0;width:100%;height:100%}
 #ac{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none} /* V0_82: Annotation専用Canvas */
 #ov{pointer-events:all;cursor:crosshair;touch-action:none}
@@ -149,6 +223,23 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 #snap-hint{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);
   background:rgba(0,0,0,.82);color:var(--accent);font-size:12px;
   padding:6px 14px;border-radius:8px;pointer-events:none;display:none}
+/* V1_125: 非表示/合計ピックモードの確定ボタン。ヘッダーのボタン群から離れた、
+   画面下中央のよく見える位置に大きく表示する（#snap-hintより上に出し、
+   pointer-events:noneのガイドと重なっても確実にタップできるようにする） */
+#excelConfirmBar{position:fixed;bottom:150px;left:50%;transform:translateX(-50%);
+  z-index:60;display:flex;align-items:center;gap:10px;
+  background:rgba(20,20,20,.92);padding:8px 10px 8px 16px;border-radius:30px;
+  box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#excelConfirmCount{color:#fff;font-size:13px;white-space:nowrap}
+#excelConfirmBtn{font-size:15px;font-weight:700;padding:10px 22px;border:none;
+  border-radius:22px;background:#27ae60;color:#fff;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;white-space:nowrap}
+#excelConfirmBtn:active{background:#1e8449}
+/* V1_127: 合計計算の結果を表示している間は、確定(緑)ではなく閉じる操作である
+   ことが見た目でもわかるよう、ボタン色を青系に変える */
+#excelConfirmBar.excel-confirm-result #excelConfirmBtn{background:#1565c0}
+#excelConfirmBar.excel-confirm-result #excelConfirmBtn:active{background:#0d47a1}
+#excelConfirmBar.excel-confirm-result #excelConfirmCount{font-weight:700;font-size:14px}
 #settingsOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:299}
 body.settings-open #settingsOverlay{display:block}
 #settingsPanel{position:fixed;left:0;top:0;bottom:0;width:300px;max-width:80vw;
@@ -265,6 +356,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #searchOverlay.picking{pointer-events:none}
 #searchOverlay.picking #searchPanel{pointer-events:auto}
 #searchOverlay.picking #searchBg{background:rgba(0,0,0,.15)}
+/* V1_121: Excel/CSV表示中にこのパネルを開くと、#searchBg(画面全体を覆う暗幕)が
+   タッチ操作を奪うため、パネル右側の外にあるExcelテーブル(#excelBottomRightWrap)を
+   スクロールできなくなる不具合があった。Excel/CSV表示中はpickingモードと同様に
+   暗幕へのタップ・スクロールを無効化し、下のテーブルへ操作を届かせる
+   （代わりに背景タップでの閉じる動作はできなくなるが、✕ボタンで閉じられる） */
+#searchOverlay.excel-bg-pass #searchBg{pointer-events:none;background:rgba(0,0,0,.15)}
 #searchInput{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);font-size:16px;box-sizing:border-box;-webkit-appearance:none;outline:none}
 #searchInput:focus{border-color:var(--accent)}
 .search-result-item{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07);cursor:pointer;font-size:14px;color:var(--text);word-break:break-all;-webkit-tap-highlight-color:rgba(0,212,255,.2)}
@@ -278,13 +375,22 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #allSearchOverlay.picking{pointer-events:none}
 #allSearchOverlay.picking #allSearchPanel{pointer-events:auto}
 #allSearchOverlay.picking #allSearchBg{background:rgba(0,0,0,.15)}
+/* V1_121: #searchOverlay.excel-bg-passと同じ理由（詳細はそちらのコメント参照） */
+#allSearchOverlay.excel-bg-pass #allSearchBg{pointer-events:none;background:rgba(0,0,0,.15)}
 #allSearchPanel .sp-header{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
 #allSearchPanel .sp-title{font-size:15px;font-weight:600;color:var(--text);flex:1}
 #allSearchPanel .sp-close{background:none;border:none;color:var(--text-dim,#6b7f99);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1}
 #allSearchInput{width:100%;padding:10px 12px;border-radius:9px;border:1.5px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);font-size:16px;box-sizing:border-box;-webkit-appearance:none;outline:none}
 #allSearchInput:focus{border-color:var(--accent)}
-.asr-item{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;display:flex;flex-direction:column;gap:3px;-webkit-tap-highlight-color:rgba(0,212,255,.2)}
+.asr-item{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;display:flex;flex-direction:row;align-items:center;gap:8px;-webkit-tap-highlight-color:rgba(0,212,255,.2)}
 .asr-item:active{background:rgba(0,212,255,.12)}
+/* V1_112: ファイル名+一致テキストの縦積み部分。従来.asr-itemが直接担っていたレイアウトを
+   このコンテナに移し、.asr-itemは横並び（本文+再インデックスボタン）に変更した */
+.asr-info{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+/* V1_112: 検索結果1件だけインデックスを更新するボタン。タップ時はstopPropagation()で
+   行全体のクリック(ファイルを開く動作)を起動させない */
+.asr-reindex-btn{flex-shrink:0;width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#7cb8f5;font-size:16px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.asr-reindex-btn:active{background:rgba(0,212,255,.25)}
 /* V0_108: markPopup を全体ボタン左へ移動 */
 #markFitRow{grid-column:1/-1;display:flex;gap:4px;align-items:stretch;}
 #markFitRow #fitBtn{flex:1;}
@@ -321,6 +427,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #openFileOverlay.picking{pointer-events:none}
 #openFileOverlay.picking #openFilePanel{pointer-events:auto}
 #openFileOverlay.picking #openFileBg{background:rgba(0,0,0,.15)}
+/* V1_121: #searchOverlay.excel-bg-passと同じ理由（詳細はそちらのコメント参照） */
+#openFileOverlay.excel-bg-pass #openFileBg{pointer-events:none;background:rgba(0,0,0,.15)}
 #openFilePanel .sp-header{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
 #openFilePanel .sp-title{font-size:15px;font-weight:600;color:var(--text);flex:1}
 #openFilePanel .sp-close{background:none;border:none;color:var(--text-dim,#6b7f99);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1}
@@ -457,6 +565,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <div id="fileNameDisplay" class="logo-file-name" title="">---</div>
     </div>
   </div>
+  <!-- V1_115: 「ペン」〜「サブ窓」までの計測・描画系ツール群をdisplay:contentsの
+       コンテナで包み、Excel/CSV表示中はこの塊ごと非表示にできるようにした
+       (_updateTopbarForExcel、viewer.js)。計算機・画面検索・検索開く・書込バックアップは
+       この塊の外にあるため、Excel/CSV表示中も現状通り表示され続ける -->
+  <div id="dxfToolGroup" style="display:contents">
   <div class="tb-sep"></div>
   <!-- V1_44: アイコン自体に選択中の色を反映させるため、svgにid(sketchToolIcon)を付与。
        stroke="currentColor"なのでsvg要素自身のstyle.colorを変えるとペン先の線色が変わる
@@ -499,6 +612,46 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <span class="tb-tool-label">サブ窓</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="12" y="12" width="7" height="7" rx="1" fill="currentColor" fill-opacity="0.25"/></svg>
 </button>
+  </div>
+  <!-- V1_115: Excel/CSV表示中のみ表示するツール群。dxfToolGroupと入れ替わりで表示される。
+       ソート＝行を指定してその行にソート/絞り込みアイコンを出す機能、固定行・列＝行番号/列
+       アルファベットをタップしてその行/列を上部・左端に固定する機能、列ストライプ＝列単位の
+       縞模様表示トグル。いずれもrenderExcelView()(viewer.js)と連動する -->
+  <div id="excelToolGroup" style="display:none">
+  <button class="tb-btn" id="excelSortBtn" title="ソート（行を指定してその行にソート機能を表示）" style="border:2px solid #9b59b6">
+  <span class="tb-tool-label">ソート</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="14" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="8" y2="18"/><polyline points="17 4 17 20"/><polyline points="14 17 17 20 20 17"/></svg>
+</button>
+  <button class="tb-btn" id="excelFreezeBtn" title="固定行・列（行番号または列アルファベットをタップして固定）" style="border:2px solid #16a085">
+  <span class="tb-tool-label">固定行列</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+</button>
+  <!-- V1_117: 列ストライプボタンから分離。行単位の縞模様表示をトグルする -->
+  <button class="tb-btn" id="excelRowStripeBtn" title="行ストライプ表示" style="border:2px solid #d35400">
+  <span class="tb-tool-label">行縞</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="4" fill="currentColor" fill-opacity="0.25"/><rect x="4" y="10" width="16" height="4"/><rect x="4" y="17" width="16" height="4" fill="currentColor" fill-opacity="0.25"/></svg>
+</button>
+  <button class="tb-btn" id="excelColStripeBtn" title="列ストライプ表示" style="border:2px solid #d35400">
+  <span class="tb-tool-label">列縞</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="4" height="16" fill="currentColor" fill-opacity="0.25"/><rect x="10" y="4" width="4" height="16"/><rect x="17" y="4" width="4" height="16" fill="currentColor" fill-opacity="0.25"/></svg>
+</button>
+  <!-- V1_121: 行/列の非表示・復元機能。非表示＝ピックモードで行番号/列アルファベットを
+       タップ。復元＝一覧ポップアップから個別または一括で戻す(_showExcelHiddenListMenu) -->
+  <button class="tb-btn" id="excelHideBtn" title="非表示（行番号または列アルファベットをタップして非表示）" style="border:2px solid #7f8c8d">
+  <span class="tb-tool-label">非表示</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+</button>
+  <button class="tb-btn" id="excelUnhideBtn" title="非表示にした行・列を表示に戻す" style="border:2px solid #7f8c8d">
+  <span class="tb-tool-label">表示に戻す<span class="excel-unhide-count" style="font-weight:700"></span></span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+</button>
+  <!-- V1_122: 複数セルを選択して合計を計算するボタン。1回目の押下でセル選択モードに
+       入り(_excelBuildDataCell参照)、もう一度押すと選択セルの数値を合算して表示する -->
+  <button class="tb-btn" id="excelSumBtn" title="合計計算（セルを複数タップして選択後、もう一度押すと合計を表示）" style="border:2px solid #27ae60">
+  <span class="tb-tool-label">合計</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="6" y1="12" x2="10" y2="8"/><line x1="6" y1="12" x2="10" y2="16"/></svg>
+</button>
+  </div>
   <button class="tb-btn" id="calcBtn" title="計算機" style="border:2px solid #8b5a2b"> <!-- V0_158: 計算機ボタン（M_Viewer仕様） / V1_54: 茶色枠 -->
   <span class="tb-tool-label">計算機</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="11" x2="8" y2="11.01"/><line x1="12" y1="11" x2="12" y2="11.01"/><line x1="16" y1="11" x2="16" y2="11.01"/><line x1="8" y1="15" x2="8" y2="15.01"/><line x1="12" y1="15" x2="12" y2="15.01"/><line x1="16" y1="15" x2="16" y2="15.01"/><line x1="8" y1="19" x2="8" y2="19.01"/><line x1="12" y1="19" x2="12" y2="19.01"/><line x1="16" y1="19" x2="16" y2="19.01"/></svg>
@@ -557,7 +710,35 @@ body.settings-open #settingsPanel{transform:translateX(0)}
        renderExcelView()(viewer.js)がタブ・テーブルを構築する -->
   <div id="excelView">
     <div id="excelSheetTabs"></div>
-    <div id="excelTableWrap"><table id="excelTable"></table></div>
+    <!-- V1_115: 検索バー。見出し行(ソート位置)・固定行列の指定は、ヘッダーツールバーの
+         「ソート」「固定行列」ボタン→行番号/列アルファベットのタップ操作に変更したため、
+         ここには検索欄のみを残す -->
+    <div id="excelFilterBar">
+      <input type="text" id="excelFilterInput" placeholder="検索...">
+      <!-- V1_122: 画面検索(ヘッダー)を廃止した代わりに、この検索欄でも図面/PDFの文字を
+           タップして読み込めるようにするボタン。押すとテキスト読込ピックモードに入る
+           （もう一度押すと解除。全図面検索と同じ手動トグル方式） -->
+      <button type="button" id="excelFilterTextPickBtn" title="図面の文字をタップして検索欄へ読込む">読込</button>
+      <button type="button" id="excelFilterNextBtn">次へ</button>
+      <span id="excelFilterCount"></span>
+      <button type="button" id="excelFilterClearBtn">✕</button>
+    </div>
+    <!-- V1_115: 行の固定に加えて列の固定にも対応するため、4分割(上左/上右/下左/下右)の
+         テーブル構成に変更した。#excelBottomRightWrapのみユーザー操作でスクロールし、
+         そのscrollTop/scrollLeftを他の3パネルへJSで同期する(viewer.js)。
+         V1_117: 列幅計測用の隠しテーブル(#excelMeasureWrap)は、大きな表で顕著に重くなる
+         うえ実セルとの表示ずれの原因にもなっていたため廃止した。実際に表示している
+         4テーブル自身を直接計測する方式に変更した(_excelSyncPaneColWidths、viewer.js) -->
+    <div id="excelTableWrap">
+      <div id="excelTopWrap">
+        <div id="excelTopLeftWrap"><table id="excelTopLeftTable"></table></div>
+        <div id="excelTopRightWrap"><table id="excelTopRightTable"></table></div>
+      </div>
+      <div id="excelBottomWrap">
+        <div id="excelBottomLeftWrap"><table id="excelBottomLeftTable"></table></div>
+        <div id="excelBottomRightWrap"><table id="excelBottomRightTable"></table></div>
+      </div>
+    </div>
   </div>
   <div class="viewmemo" id="viewmemo">
     <div id="markFitRow">
@@ -571,6 +752,15 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <button class="mem-btn" data-vi="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>記憶</button><button class="show-btn" data-vs="4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>表示</button><div class="vm-file" data-vf="4"></div>
   </div>
   <div id="snap-hint"></div>
+  <!-- V1_125: 非表示/合計ピックモード用の確定ボタン。従来はヘッダーの「非表示」
+       「合計」ボタンをもう一度押すことで確定していたが、ヘッダーの小さなボタンを
+       もう一度押す操作だとわかりにくいとの指摘のため、選択中だけ画面下に大きく
+       表示される専用の確定ボタンに変更した(ヘッダーボタン自体は入る/やめるの
+       トグルのみに変更、確定操作はこのボタンに一本化する) -->
+  <div id="excelConfirmBar" style="display:none">
+    <span id="excelConfirmCount"></span>
+    <button type="button" id="excelConfirmBtn"></button>
+  </div>
   <!-- V1_48: 水平/鉛直・斜めのP1/P2、線と点の点選択中のみ表示するボタン。
        押すと線を2本選び、その交点(延長含む)を確定点として使う -->
   <button id="ipxBtn" style="display:none">2線の交点取得</button>
@@ -581,7 +771,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_109</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_134</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -925,27 +1115,29 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      もしDXFが開けない場合は直ちにV1_08（accept属性なし）へ戻すこと -->
 <input type="file" id="file" accept=".dxf,application/octet-stream" hidden>
 <input type="file" id="folderInput" webkitdirectory accept=".dxf" hidden>
+<!-- V1_112: 検索結果1件だけインデックスを更新するための単一ファイル選択用input -->
+<input type="file" id="singleReindexInput" accept=".dxf,.pdf,.xlsx,.xls,.csv" hidden>
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=1109"></script>
-<script src="viewer.js?v=1109"></script>
-<script src="utils.js?v=1109"></script>
-<script src="ui.js?v=1109"></script>
-<script src="dialog.js?v=1109"></script>
-<script src="storage.js?v=1109"></script>
-<script src="fonts/NotoSansJP.js?v=1109"></script>
-<script src="export.js?v=1109"></script>
-<script src="tool.js?v=1109"></script>
-<script src="verify.js?v=1109"></script>
+<script src="layer.js?v=1113"></script>
+<script src="viewer.js?v=1113"></script>
+<script src="utils.js?v=1113"></script>
+<script src="ui.js?v=1113"></script>
+<script src="dialog.js?v=1113"></script>
+<script src="storage.js?v=1113"></script>
+<script src="fonts/NotoSansJP.js?v=1113"></script>
+<script src="export.js?v=1113"></script>
+<script src="tool.js?v=1113"></script>
+<script src="verify.js?v=1113"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=1109"></script>
+<script src="pc.js?v=1113"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=1109"></script>
+<script src="supabase-sync.js?v=1113"></script>
 <script>
-const APP_VERSION = 'V1_109';
+const APP_VERSION = 'V1_134';
 
 // =========================================================
 // グローバル状態
@@ -1371,6 +1563,11 @@ function _fileTypeSortKey(f){
 function _fileTypeInfo(name){
   var n=(name||'').toLowerCase();
   if(n.endsWith('.pdf')) return {label:'PDF',color:'#8e44ad'};
+  // V1_120: CSVもXLSXと同じ「XLS」表示になっていたのを、データの種類が
+  // わかるようCSVファイルは「CSV」ラベルに分けた。
+  // V1_121: ラベルだけでなく色もXLSと同じ緑のままだったため区別しにくいとの指摘で、
+  // 既存のアクセントカラー(--accent-2、オレンジ)へ変更した
+  if(n.endsWith('.csv')) return {label:'CSV',color:'#f39c12'};
   if(_isExcelName(n)) return {label:'XLS',color:'#217346'};
   return {label:'DXF',color:'#1565c0'};
 }
@@ -1450,6 +1647,7 @@ fileInput.addEventListener('change',async e=>{
     // V0_131/V1_51: ファイル切替時にマーク自動クリア（従来DXF側にしか無かった処理をPDFにも適用）
     _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     await loadPDF(buf);{const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
+    if(typeof _updateTopbarForPdf==='function') _updateTopbarForPdf(true); // V1_116: 直前のrenderExcelView()呼び出し時点ではpdfDoc未設定だったため、loadPDF完了後に改めて反映する
     // V1_55: PDF分岐だけcurrentFileSizeが一度も設定されておらず、前に開いていた
     // 別ファイルのサイズが残ったままになる不具合があった（DXF分岐にはV0_103で
     // currentFileSize=f.sizeがあるが、PDF分岐には無かった）。この値は
@@ -1620,11 +1818,21 @@ function switchToFile(idx){
     _prevF.pdfDoc=pdfDoc;_prevF.pdfImage=pdfImage; // V1_40: PDF内容も退避
     _prevF.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_prevF.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0); // V1_76
     _prevF.hiddenLayersArr=Array.from(hiddenLayers);
+    // V1_125: 離れるタブのExcel/CSV表示設定(ソート/固定行列/縞/非表示/列幅/列フィルタ等)を
+    // そのファイル専用のスナップショットとして保存する。従来はグローバル変数のまま
+    // 残っていたため、切替先の別ファイルにも前のファイルの設定が反映されてしまっていた
+    if(typeof _excelCaptureViewState==='function') _prevF.excelViewState=_excelCaptureViewState();
   }
   currentFileIdx=idx;
   var f=openFiles[idx];
   doc=f.doc; pdfDoc=f.pdfDoc; pdfImage=f.pdfImage;
   excelWb=f.excelWb||null; excelSheetIdx=f.excelSheetIdx||0; // V1_76
+  // V1_125: 切替先ファイルに保存済みのExcel/CSV表示設定があれば復元し、無ければ
+  // (まだExcel/CSVとして開いたことがない、または前回保存前のファイル)初期状態にする
+  if(typeof _excelApplyViewState==='function'){
+    if(f.excelViewState) _excelApplyViewState(f.excelViewState);
+    else if(typeof _excelResetViewState==='function') _excelResetViewState();
+  }
   if(typeof renderExcelView==='function') renderExcelView();
   try{ if(typeof pdfPageNum!=='undefined') pdfPageNum=f.pdfPageNum||1; }catch(e){}
   // V1_51: pdfMojiはタブ毎に保持していないため、PDFタブに切り替えた際は
@@ -1936,6 +2144,7 @@ function doCloseTab(idx){
   if(openFiles.length===0){
     currentFileIdx=-1;
     doc=null;pdfDoc=null;pdfImage=null;pdfMoji=[]; // V1_51
+    if(typeof _updateTopbarForPdf==='function') _updateTopbarForPdf(false); // V1_116
     doSave(); // V0_128: 即時保存（scheduleSaveは800ms非同期のため不可）
     strokes=[];dims=[];
     if(typeof images!=='undefined') images=[];
@@ -4906,7 +5115,7 @@ async function _markGoNext(){
 // 優先して処理され（詳細はtool.js側のコメント参照）、また検索パネルの暗幕
 // (searchBg/allSearchBg)のタップも無効化して図面へタップが届くようにしている
 // (詳細は#searchOverlay.pickingのCSSコメント参照)
-var _textPickTarget=null; // null | 'screen' | 'all' | 'openFile'
+var _textPickTarget=null; // null | 'screen' | 'all' | 'openFile' | 'excelLocal'(V1_122)
 function _setTextPickMode(target){
   _textPickTarget=target;
   var ov1=document.getElementById('searchOverlay');
@@ -4926,16 +5135,37 @@ function _setTextPickMode(target){
   // 手動でトグルできたV1_62以前の文言。画面検索(screen)・検索して開く(openFile)は
   // V1_62でボタン自体を廃止しパネルの開閉と連動する自動モードになっているため、
   // 「もう一度ボタンを押す」操作自体が存在せず文言が実態と合っていなかった。
-  // 全図面検索(all)のみallTextPickBtnによる手動トグルが今も残っているため、
-  // その場合に限りこの案内を表示する
-  if(target) showGuide('図面上の文字をタップしてください'+(target==='all'?'（もう一度ボタンを押すと中止）':''),0);
+  // 全図面検索(all)・シート内検索(excelLocal)はボタンによる手動トグルが今も残っている
+  // ため、その場合に限りこの案内を表示する
+  if(target) showGuide('図面上の文字をタップしてください'+((target==='all'||target==='excelLocal')?'（もう一度ボタンを押すと中止）':''),0);
   else hideGuide();
   var b1=document.getElementById('screenTextPickBtn');
   var b2=document.getElementById('allTextPickBtn');
   var b3=document.getElementById('openFileTextPickBtn'); // V1_29
+  var b4=document.getElementById('excelFilterTextPickBtn'); // V1_122
   if(b1) b1.classList.toggle('picking', target==='screen');
   if(b2) b2.classList.toggle('picking', target==='all');
   if(b3) b3.classList.toggle('picking', target==='openFile');
+  if(b4) b4.classList.toggle('picking', target==='excelLocal');
+  // V1_122: Excel/CSV表示中に検索パネル(画面検索/検索して開く/全図面検索)を開いた状態で
+  // テキスト読込ピックモードに入ると、パネルが画面右側の一部を覆っているため、
+  // その下に隠れた列のセルをタップできない不具合があった。ピックモード中は、開いている
+  // パネルの実際の幅ぶんだけExcelテーブル領域を右から縮め、隠れていた列も
+  // タップできるようにする（'excelLocal'はシート下の検索欄自体でパネルを covers しないため対象外）
+  // V1_125: 従来はgetBoundingClientRect()でパネルの実測幅を都度measureしてから
+  // marginRightへ書き込んでいたが、パネルの開閉(display切替)とこの測定のタイミングが
+  // 前後する経路があり、稀に0pxのまま(縮まない)ことがあった＝依然としてテキスト読込
+  // したい列がパネルの下に隠れて操作できない、との報告が繰り返された。
+  // パネル幅(searchPanel:320px/85vw、allSearchPanel・openFilePanel:340px/88vw)は
+  // CSSside既に固定値として定義済みのため、JSでの実測はやめ、対象パネルが開いている
+  // 間だけCSSクラスを付け外しする方式に変更した。実際の縮小幅もCSS側の固定値
+  // (双方をまかなえるよう大きい方の340px/88vwを採用)で決まるため、測定タイミングに
+  // 左右されず常に確実に縮む
+  var _tableWrap122=document.getElementById('excelTableWrap');
+  if(_tableWrap122){
+    var _shrink125=(target==='screen'||target==='all'||target==='openFile')&&(typeof excelWb!=='undefined'&&excelWb);
+    _tableWrap122.classList.toggle('excel-search-shrink',_shrink125);
+  }
 }
 function _tapPickText(sx0,sy0){
   // V1_51: DXFのdoc.mojiが無い場合はPDFから抽出したpdfMojiを使う
@@ -4989,12 +5219,19 @@ function _commitPickedText(text){
   } else if(target==='openFile'){ // V1_29
     document.getElementById('openFileSearchInput').value=text;
     doOpenFileSearch();
+  } else if(target==='excelLocal'){ // V1_122: シート下の検索欄(excelFilterInput)へのテキスト読込
+    var fi122=document.getElementById('excelFilterInput');
+    if(fi122){
+      fi122.value=text;
+      _excelSearchText=text;
+      if(typeof _applyExcelLocalSearch==='function') _applyExcelLocalSearch(false);
+    }
   }
   showGuide('「'+text+'」を検索欄に入力しました',2200);
   setTimeout(function(){
-    // V1_95: _setTextPickMode側と同様、'all'(全図面検索)以外はボタンによる
+    // V1_95: _setTextPickMode側と同様、'all'(全図面検索)・'excelLocal'以外はボタンによる
     // 手動トグルが存在しないため「（もう一度ボタンを押すと中止）」を表示しない
-    if(_textPickTarget===target) showGuide('図面上の文字をタップしてください'+(target==='all'?'（もう一度ボタンを押すと中止）':''),0);
+    if(_textPickTarget===target) showGuide('図面上の文字をタップしてください'+((target==='all'||target==='excelLocal')?'（もう一度ボタンを押すと中止）':''),0);
   },2200);
 }
 // V1_62: 画面検索・検索開くはパネルを開くと自動でピックモードになる(V1_58)ため
@@ -5002,10 +5239,29 @@ function _commitPickedText(text){
 document.getElementById('allTextPickBtn').addEventListener('click',function(){
   _setTextPickMode(_textPickTarget==='all'?null:'all');
 });
+// V1_122: シート下の検索欄(excelFilterInput)用のテキスト読込ボタン。
+// 常設のバーであり開閉と連動する対象パネルが無いため、全図面検索と同じ手動トグル方式にする
+var _excelFilterTextPickBtnEl122=document.getElementById('excelFilterTextPickBtn');
+if(_excelFilterTextPickBtnEl122) _excelFilterTextPickBtnEl122.addEventListener('click',function(){
+  _setTextPickMode(_textPickTarget==='excelLocal'?null:'excelLocal');
+});
+// V1_125: 「読込ボタンを押さなくても、検索欄に入力しようとした時点でテキスト読込
+// 状態にしてほしい」との指摘への対応。画面検索・検索して開くは既にパネルを開いた
+// 時点で自動的にピックモードへ入る(V1_58/V1_62)ため、この検索欄も同様に「タップして
+// フォーカスした時点」で自動的に'excelLocal'ピックモードへ入るようにする。
+// 読込ボタン自体は手動での解除・状態表示用としてそのまま残す
+var _excelFilterInputEl125=document.getElementById('excelFilterInput');
+if(_excelFilterInputEl125) _excelFilterInputEl125.addEventListener('focus',function(){
+  if(_textPickTarget!=='excelLocal') _setTextPickMode('excelLocal');
+});
 function openScreenSearch(){ // V0_159: 画面検索（旧searchBtnクリック処理を関数化）
   // DXF/PDFが開かれていたら再インデックス（念のため）V1_51: PDF(pdfMoji)にも対応
   if((doc&&doc.moji)||(typeof pdfMoji!=='undefined'&&pdfMoji&&pdfMoji.length>0)) buildSearchIndex();
-  document.getElementById('searchOverlay').classList.add('open');
+  var _so121=document.getElementById('searchOverlay');
+  // V1_121: Excel/CSV表示中は背景暗幕がテーブルのスクロールを妨げないよう、
+  // 暗幕へのタップ・スクロール捕捉を無効化するクラスを付与する
+  _so121.classList.toggle('excel-bg-pass',!!excelWb);
+  _so121.classList.add('open');
   // インデックス件数をプレースホルダーに表示
   var inp=document.getElementById('searchInput');
   inp.placeholder=_searchIdx.length>0?'キーワードを入力… ('+_searchIdx.length+'件の文字)':'文字なし（DXFを確認）';
@@ -5411,7 +5667,9 @@ function _idbGetAllNameTexts(cb){
 }
 
 function openAllSearchPanel(){
-  document.getElementById('allSearchOverlay').classList.add('open');
+  var _aso121=document.getElementById('allSearchOverlay');
+  _aso121.classList.toggle('excel-bg-pass',!!excelWb); // V1_121: 詳細はopenScreenSearch内のコメント参照
+  _aso121.classList.add('open');
   // V1_33: 進捗表示が空（インデックス処理中・完了直後の表示が残っていない）場合は
   // 直近にインデックスしたフォルダ名を表示し、どのフォルダの索引か分かるようにする
   // V1_37: 「前回のインデックス対象フォルダ」という表示だと、実際に保存済みなのか
@@ -5469,10 +5727,18 @@ function doAllSearch(){
     }
     hits.forEach(function(h){
       var el=document.createElement('div');el.className='asr-item';
+      var info=document.createElement('div');info.className='asr-info';
       var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=h.name;
       var ht=document.createElement('div');ht.className='asr-hit';
       ht.textContent=h.matched.slice(0,4).map(_idxTextOf).join(' / ')+(h.matched.length>4?' …':'');
-      el.appendChild(fn);el.appendChild(ht);
+      info.appendChild(fn);info.appendChild(ht);
+      el.appendChild(info);
+      // V1_112: この1件だけインデックスを更新するボタン
+      var reindexBtn=document.createElement('button');
+      reindexBtn.type='button';reindexBtn.className='asr-reindex-btn';reindexBtn.textContent='⟳';
+      reindexBtn.title='この1件だけインデックスを更新';
+      reindexBtn.addEventListener('click',function(ev){ ev.stopPropagation(); _startSingleReindex(h.name,h.folder); });
+      el.appendChild(reindexBtn);
       el.addEventListener('click',function(){ // V1_75: タップ時にその1件分だけbufを取得
         _idbGetOne(h.name,function(full){
           if(!full){showGuide('読み込みに失敗しました',2000);return;}
@@ -5510,7 +5776,7 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
     resetToolStates();
     // ② V0_140: saveCurrentFileState廃止 → 前ファイルのビュー状態のみinline同期
     // V1_51: PDFタブのpdfDoc/pdfImage/pdfPageNumも退避（V1_40でfileInput側に追加した処理と同様）
-    if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140=openFiles[currentFileIdx];_pf140.tx=tx;_pf140.ty=ty;_pf140.scale=scale;_pf140.fitScale=fitScale;_pf140.hiddenLayersArr=Array.from(hiddenLayers);_pf140.pdfDoc=pdfDoc;_pf140.pdfImage=pdfImage;_pf140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
+    if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140=openFiles[currentFileIdx];_pf140.tx=tx;_pf140.ty=ty;_pf140.scale=scale;_pf140.fitScale=fitScale;_pf140.hiddenLayersArr=Array.from(hiddenLayers);_pf140.pdfDoc=pdfDoc;_pf140.pdfImage=pdfImage;_pf140.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);if(typeof _excelCaptureViewState==='function')_pf140.excelViewState=_excelCaptureViewState();} // V1_125: 離れるタブのExcel表示設定を保存
 
     // ③ DXF/PDF読込 V1_51: 拡張子で分岐し、PDFはloadPDF()で読み込む（doc=nullのまま、
     // pdfDoc/pdfImage/pdfMojiがrenderPdfPage内で設定される）
@@ -5575,6 +5841,12 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
       hiddenLayers=new Set(_ef.hiddenLayersArr||[]);
       tx=_ef.tx||0; ty=_ef.ty||0; scale=_ef.scale||1;
       if(_ef.fitScale) fitScale=_ef.fitScale;
+      // V1_125: loadExcel()内で既にビュー設定がリセットされているため、この既存タブに
+      // 保存済みのExcel表示設定(ソート/固定行列/縞/非表示等)があればここで再適用する
+      if(_isExcel176&&_ef.excelViewState&&typeof _excelApplyViewState==='function'){
+        _excelApplyViewState(_ef.excelViewState);
+        if(typeof renderExcelView==='function') renderExcelView();
+      }
     } else {
       // ⑦ 新規タブ: まず空初期化、次にIDB復元を試みる（F-1）
       hiddenLayers.clear(); strokes=[]; dims=[]; images=[]; // V0_160: savedViewsはグローバルのためリセットしない
@@ -5644,7 +5916,9 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
 // V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索(V0_100〜)と同じ
 // dxfIndex(IndexedDB)を共有し、ファイル名で絞り込んで開けるようにしたもの）
 function openOpenFilePanel(){
-  document.getElementById('openFileOverlay').classList.add('open');
+  var _ofo121=document.getElementById('openFileOverlay');
+  _ofo121.classList.toggle('excel-bg-pass',!!excelWb); // V1_121: 詳細はopenScreenSearch内のコメント参照
+  _ofo121.classList.add('open');
   // V1_33: 進捗表示が空の場合は直近にインデックスしたフォルダ名を表示する
   // V1_37: 実際の保存件数を調べて表示するよう変更（詳細はopenAllSearchPanel参照）
   // V1_43: 保存済み全フォルダの内訳を表示するよう変更（詳細はopenAllSearchPanel参照）
@@ -5698,7 +5972,7 @@ function doOpenFileSearch(){
     }
     var filtered=[];
     records.forEach(function(r){
-      if(!kw){filtered.push({name:r.name,matched:[]});return;}
+      if(!kw){filtered.push({name:r.name,matched:[],folder:r.folder});return;} // V1_112: folderもreindex用に保持
       var nameHit=_normalizeForSearch(r.name).indexOf(kw)>=0;
       var textHits=(r.texts||[]).filter(function(t){return _normalizeForSearch(_idxTextOf(t)).indexOf(kw)>=0;});
       if(nameHit||textHits.length>0){
@@ -5707,7 +5981,7 @@ function doOpenFileSearch(){
         var _first=textHits[0];
         var _pg=(_first&&typeof _first==='object'&&_first.page)?_first.page:undefined;
         var _sh=(_first&&typeof _first==='object'&&_first.sheet!==undefined)?_first.sheet:undefined;
-        filtered.push({name:r.name,matched:textHits,page:_pg,sheet:_sh});
+        filtered.push({name:r.name,matched:textHits,page:_pg,sheet:_sh,folder:r.folder}); // V1_112: folderもreindex用に保持
       }
     });
     filtered.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});}); // V0_157と同じ自然順
@@ -5721,13 +5995,21 @@ function doOpenFileSearch(){
     }
     filtered.forEach(function(item){
       var el=document.createElement('div');el.className='asr-item';
+      var info=document.createElement('div');info.className='asr-info';
       var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=item.name;
-      el.appendChild(fn);
+      info.appendChild(fn);
       if(item.matched&&item.matched.length>0){
         var ht=document.createElement('div');ht.className='asr-hit';
         ht.textContent=item.matched.slice(0,4).map(_idxTextOf).join(' / ')+(item.matched.length>4?' …':'');
-        el.appendChild(ht);
+        info.appendChild(ht);
       }
+      el.appendChild(info);
+      // V1_112: この1件だけインデックスを更新するボタン
+      var reindexBtn=document.createElement('button');
+      reindexBtn.type='button';reindexBtn.className='asr-reindex-btn';reindexBtn.textContent='⟳';
+      reindexBtn.title='この1件だけインデックスを更新';
+      reindexBtn.addEventListener('click',function(ev){ ev.stopPropagation(); _startSingleReindex(item.name,item.folder); });
+      el.appendChild(reindexBtn);
       el.addEventListener('click',function(){
         if(_openFileOpening) return; // 多重タップで複数ファイルを同時読込しない
         _openFileOpening=true;
@@ -5837,14 +6119,29 @@ document.getElementById('openFolderIndexBtn').addEventListener('click', function
   document.getElementById('folderInput').click();
 });
 // V1_69: 現在のインデックス(dxfIndexストア全件)を任意の名前で登録する
+// V1_112: 同名の登録済みプロファイルが既にある場合は上書き確認を挟んでから保存する
 document.getElementById('saveIndexProfileBtn').addEventListener('click', function(){
   var btn=this;
   if(typeof _showIndexProfileNameDialog!=='function') return;
   _showIndexProfileNameDialog(btn, function(name){
-    _idbSaveProfile(name, function(err){
-      if(err){showGuide('登録に失敗しました',2000);return;}
-      showGuide('「'+name+'」として登録しました',2000);
-    });
+    function doSave(){
+      _idbSaveProfile(name, function(err){
+        if(err){showGuide('登録に失敗しました',2000);return;}
+        showGuide('「'+name+'」として登録しました',2000);
+      });
+    }
+    if(typeof _idbListProfiles==='function'){
+      _idbListProfiles(function(list){
+        var exists=(list||[]).some(function(p){return p.name===name;});
+        if(exists){
+          if(confirm('「'+name+'」は既に登録されています。上書きしますか？')) doSave();
+        } else {
+          doSave();
+        }
+      });
+    } else {
+      doSave();
+    }
   });
 });
 // V1_69: 登録済みインデックスパターンの一覧から選んで切替・削除する
@@ -5870,6 +6167,66 @@ document.getElementById('folderInput').addEventListener('change', function(e){
   if(relRef) folderName=relRef.split('/')[0];
   processFolderFiles(files, progEl, folderName);
   e.target.value = '';
+});
+// V1_112: 検索結果一覧の「この1件だけインデックスを更新」ボタンから呼ばれる。
+// フォルダ全体の再インデックスと違い、その場でファイルを1つだけ選び直して
+// 該当エントリ(dxfIndexストアの該当name)だけをput()で上書きする。
+// フォルダ選択ではないので単一ファイル用input(#singleReindexInput)を別途用意している
+var _singleReindexTarget=null; // {name,folder}
+function _startSingleReindex(name,folder){
+  _singleReindexTarget={name:name,folder:folder||''};
+  document.getElementById('singleReindexInput').click();
+}
+// V1_112: processFolderFiles内のテキスト抽出処理(DXF/PDF/Excel)と同じロジックを、
+// 単一ファイル用に流用しやすい形(async関数)として独立させたもの。既存の
+// processFolderFiles自体には手を加えていない（挙動保護のため）
+async function _readFileForSingleReindex(f){
+  var buf=await f.arrayBuffer();
+  var texts=[];
+  if(f.name.toLowerCase().endsWith('.pdf')){
+    if(typeof pdfjsLib==='undefined') throw new Error('PDF.jsが読み込まれていません');
+    var _pdocSR112=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+    texts=await extractAllPdfTexts(_pdocSR112);
+  } else if(_isExcelName(f.name)){
+    if(typeof XLSX==='undefined') throw new Error('Excel読み込み機能が読み込まれていません');
+    var _wbSR112=f.name.toLowerCase().endsWith('.csv')
+      ?XLSX.read(_decodeTextAuto(buf),{type:'string'})
+      :XLSX.read(buf,{type:'array'});
+    texts=extractAllExcelTexts(_wbSR112);
+  } else {
+    var d=parseDXF(buf);
+    if(d&&d.moji){
+      d.moji.forEach(function(m){var t=(m.text||'').trim(); if(t) texts.push(t);});
+    }
+  }
+  return {buf:buf,texts:texts};
+}
+document.getElementById('singleReindexInput').addEventListener('change', function(e){
+  var f=e.target.files[0];
+  e.target.value='';
+  var target=_singleReindexTarget;
+  _singleReindexTarget=null;
+  if(!f||!target) return;
+  function proceed(){
+    showGuide('「'+target.name+'」を更新中…',1500);
+    _readFileForSingleReindex(f).then(function(res){
+      // V1_112: 保存キーは常に更新対象の元の名前(target.name)にする。folderも元の値を
+      // 引き継ぐ（単一ファイル選択ではwebkitRelativePathが取れずフォルダ名が分からないため）
+      _idbSave(target.name, res.buf, res.texts, target.folder);
+      showGuide('「'+target.name+'」のインデックスを更新しました',2200);
+      if(document.getElementById('allSearchInput').value.trim()) doAllSearch();
+      if(document.getElementById('openFileOverlay').classList.contains('open')) doOpenFileSearch();
+    }).catch(function(err){
+      showGuide('更新に失敗しました: '+((err&&err.message)||err),3000);
+    });
+  }
+  if(f.name!==target.name){
+    if(confirm('選択したファイル名「'+f.name+'」が、更新対象「'+target.name+'」と異なります。このまま更新しますか？')){
+      proceed();
+    }
+  } else {
+    proceed();
+  }
 });
 function processFolderFiles(files, progEl, folderName){
   var prog = progEl || document.getElementById('folderProgress');
