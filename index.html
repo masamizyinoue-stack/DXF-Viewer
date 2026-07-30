@@ -148,8 +148,11 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 .excel-letter-cell.frozen{background:#16a085;color:#fff}
 /* V1_115: ソートで指定した行(旧・見出し行)の強調表示。固定表示とは独立した概念
    V1_121: 従来の薄い背景色(#eef2f7)だと縞模様と見分けづらく視認性が悪いとの
-   指摘のため、より濃い青系の背景と上下の太線で「帯」として目立たせるよう変更した */
-tr.excel-sort-row td{font-weight:700;background:#cfe2ff;border-top:2px solid #1565c0;border-bottom:2px solid #1565c0}
+   指摘のため、より濃い青系の背景と上下の太線で「帯」として目立たせるよう変更した
+   V1_135: しかしV1_121で採用した青系(#cfe2ff)が、行縞・列縞の色(#c9d7ea、こちらも
+   青系グレー)と近く見分けにくいとの指摘のため、行縞とはっきり区別できるピンク系の
+   配色に変更した */
+tr.excel-sort-row td{font-weight:700;background:#ffd6e8;border-top:2px solid #d81b60;border-bottom:2px solid #d81b60}
 /* V1_115: ピックモード中(ソート/固定行列)であることを示すため、タップ対象になる
    行番号セル・列アルファベット行に薄い点滅風の強調を付ける */
 .excel-pick-armed .excel-rownum-cell,.excel-pick-armed .excel-letter-cell{outline:2px dashed #9b59b6;outline-offset:-2px}
@@ -417,6 +420,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V1_62: 画面検索・検索開くはパネルを開くと自動でテキスト読込ピックモードになる
    (V1_58)ため、テキスト読込ボタンを廃止し、代わりにこの注記を表示する */
 .text-pick-note{font-size:12px;color:var(--text-dim);text-align:center;padding:2px 4px;line-height:1.4}
+/* V1_136: 「検索開く」(検索してファイルを開く)パネルは、事前にフォルダをインデックス
+   作成した内容(IndexedDB)をもとにファイル名・図面内文字で検索する仕組みのため、
+   インデックス作成後に元ファイルを差し替え・削除・追加しても、再度インデックスを
+   作り直すまではその変更が反映されず、古い内容のまま開かれてしまう。この注意点に
+   気づきにくいとの指摘のため、パネルを開くたびに必ず目に入る位置へ注意文を常設する */
+.idx-stale-note{font-size:12px;color:#8a5a00;background:#fff4d6;border:1px solid #e8b93c;border-radius:6px;padding:6px 8px;line-height:1.4}
 #folderProgress{font-size:13px;color:var(--accent,#00d4ff);min-height:18px;text-align:center;white-space:pre-line} /* V1_43: フォルダ別内訳を複数行表示するため改行を有効化 */
 /* V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索と同じdxfIndexを共有） */
 #openFileOverlay{display:none;position:fixed;inset:0;z-index:300}
@@ -441,6 +450,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V1_69: インデックスパターン登録・切替ボタン */
 .idx-profile-btn{flex:1;padding:9px 0;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;cursor:pointer}
 .idx-profile-btn:active{background:rgba(255,255,255,.08)}
+/* V1_144: 「フォルダを選択してインデックス作成」の下に並べる、個別ファイル選択版。
+   フォルダ選択(webkitdirectory)とファイル選択(multiple)は同じinput要素に同時指定
+   できない(ブラウザの制約上どちらか一方のモードしか選べない)ため、ボタンを分けている。
+   V1_145: 当初は主ボタン(フォルダ選択)と区別するため控えめな枠線スタイルにしていたが、
+   「フォルダを選択してインデックス作成」と同じ色(緑背景・黒字)にしてほしいとの指摘を
+   受け、主ボタンと同一の見た目に変更した */
+.idx-pick-files-btn{width:100%;padding:10px 0;border-radius:9px;border:none;background:var(--accent,#00d4ff);color:#000;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.idx-pick-files-btn:active{opacity:.8}
 /* V0_107: タブバー */
 /* V1_70: 単独divから「スクロールするタブ一覧」＋「開いているファイル一覧ボタン」の
    横並びに変更（タブが多い時に見失わないための対策の一つ）。ボタンはtabBarRowの
@@ -771,7 +788,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_134</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_145</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1052,6 +1069,13 @@ body.settings-open #settingsPanel{transform:translateX(0)}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         フォルダを選択してインデックス作成
       </button>
+      <!-- V1_144: フォルダ単位ではなく、ファイルを個別に複数選んでインデックスに
+           追加・更新できるようにしたもの。フォルダ名を持たないため「個別に開いた
+           ファイル」として集計される(_buildIndexSummaryText参照) -->
+      <button id="filesIndexBtn" class="idx-pick-files-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/></svg>
+        ファイルを選択してインデックス作成
+      </button>
       <div id="folderProgress"></div>
       <div style="display:flex;gap:4px;align-items:center"><input type="search" id="allSearchInput" placeholder="キーワードを入力…" autocomplete="off" autocorrect="off" spellcheck="false" style="flex:1;min-width:0"><button id="asrInputClearBtn" style="background:none;border:none;color:var(--text-dim,#888);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0">✕</button><!-- V0_110: 音声入力 --><button id="voiceSearchBtn" style="background:none;border:none;color:var(--text-dim,#888);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0" title="音声入力">🎤</button><!-- /V0_110: 音声入力 --></div>
       <!-- V1_27: テキスト読込ボタン。押すと図面上の文字をタップして検索欄へ自動入力できる。
@@ -1079,9 +1103,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="sp-close" id="openFileClose">✕</button>
     </div>
     <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
+      <!-- V1_136: データの差替え・削除等を行った場合、最新のインデックスを作り直さないと
+           古いデータのまま開かれてしまうことへの注意喚起 -->
+      <div class="idx-stale-note">データの差替え・削除等を行った場合は、最新のインデックス作成しないと古いデータで開かれます</div>
       <button id="openFolderIndexBtn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         フォルダを選択してインデックス作成
+      </button>
+      <!-- V1_144: フォルダ単位ではなく、ファイルを個別に複数選んでインデックスに
+           追加・更新できるようにしたもの -->
+      <button id="openFilesIndexBtn" class="idx-pick-files-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/></svg>
+        ファイルを選択してインデックス作成
       </button>
       <!-- V1_69: インデックスパターン（複数登録・切替）機能 -->
       <div style="display:flex;gap:6px">
@@ -1117,6 +1150,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <input type="file" id="folderInput" webkitdirectory accept=".dxf" hidden>
 <!-- V1_112: 検索結果1件だけインデックスを更新するための単一ファイル選択用input -->
 <input type="file" id="singleReindexInput" accept=".dxf,.pdf,.xlsx,.xls,.csv" hidden>
+<!-- V1_144: 「ファイルを選択してインデックス作成」用。フォルダ単位(folderInput)とは別に、
+     複数の個別ファイルを直接選んでインデックスに追加・更新できるようにしたもの -->
+<input type="file" id="filesIndexInput" accept=".dxf,.pdf,.xlsx,.xls,.csv,application/octet-stream" multiple hidden>
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
@@ -1137,7 +1173,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=1113"></script>
 <script>
-const APP_VERSION = 'V1_134';
+const APP_VERSION = 'V1_145';
 
 // =========================================================
 // グローバル状態
@@ -1822,11 +1858,24 @@ function switchToFile(idx){
     // そのファイル専用のスナップショットとして保存する。従来はグローバル変数のまま
     // 残っていたため、切替先の別ファイルにも前のファイルの設定が反映されてしまっていた
     if(typeof _excelCaptureViewState==='function') _prevF.excelViewState=_excelCaptureViewState();
+    // V1_143(⑦): 同一ファイル内の複数シートの設定(シートごとにキャッシュしている
+    // _excelSheetStates)も、ファイルをまたいで持ち越さないよう、離れるファイル専用の
+    // スナップショットとして保存しておく。まず今アクティブなシートの最新状態を
+    // キャッシュへ反映してから、キャッシュ全体をファイルへ退避する
+    if(typeof _excelCaptureViewState==='function'&&typeof _excelCaptureAllSheetStates==='function'){
+      var _curSheetStates143=_excelCaptureAllSheetStates();
+      _curSheetStates143[typeof excelSheetIdx!=='undefined'?excelSheetIdx:0]=_excelCaptureViewState();
+      _prevF.excelSheetStates=_curSheetStates143;
+    }
   }
   currentFileIdx=idx;
   var f=openFiles[idx];
   doc=f.doc; pdfDoc=f.pdfDoc; pdfImage=f.pdfImage;
   excelWb=f.excelWb||null; excelSheetIdx=f.excelSheetIdx||0; // V1_76
+  // V1_143: 切替先ファイルのシート別キャッシュを復元する(無ければ空から開始する)。
+  // 個々のシートの設定内容自体は直後の_excelApplyViewState/_excelResetViewStateで
+  // 反映されるため、ここではシート切替時に参照するキャッシュの器を差し替えるだけでよい
+  if(typeof _excelApplyAllSheetStates==='function') _excelApplyAllSheetStates(f.excelSheetStates||{});
   // V1_125: 切替先ファイルに保存済みのExcel/CSV表示設定があれば復元し、無ければ
   // (まだExcel/CSVとして開いたことがない、または前回保存前のファイル)初期状態にする
   if(typeof _excelApplyViewState==='function'){
@@ -6118,6 +6167,17 @@ document.getElementById('openFolderIndexBtn').addEventListener('click', function
   _folderIndexSource='openFile';
   document.getElementById('folderInput').click();
 });
+// V1_144: 「ファイルを選択してインデックス作成」。フォルダ選択(webkitdirectory)とは別に
+// 個別ファイルを複数選んでインデックスに追加・更新できるようにしたもの。進捗表示先の
+// 切替は既存のフォルダ選択と同じ_folderIndexSourceフラグを流用する
+document.getElementById('filesIndexBtn').addEventListener('click', function(){
+  _folderIndexSource='allSearch';
+  document.getElementById('filesIndexInput').click();
+});
+document.getElementById('openFilesIndexBtn').addEventListener('click', function(){
+  _folderIndexSource='openFile';
+  document.getElementById('filesIndexInput').click();
+});
 // V1_69: 現在のインデックス(dxfIndexストア全件)を任意の名前で登録する
 // V1_112: 同名の登録済みプロファイルが既にある場合は上書き確認を挟んでから保存する
 document.getElementById('saveIndexProfileBtn').addEventListener('click', function(){
@@ -6166,6 +6226,25 @@ document.getElementById('folderInput').addEventListener('change', function(e){
   var relRef=files[0].webkitRelativePath||(allFiles[0]&&allFiles[0].webkitRelativePath)||'';
   if(relRef) folderName=relRef.split('/')[0];
   processFolderFiles(files, progEl, folderName);
+  e.target.value = '';
+});
+// V1_144: 個別ファイル選択(#filesIndexInput)からのインデックス作成。
+// webkitRelativePathが無い(＝フォルダの概念が無い)ため、folderNameは常に空のまま
+// processFolderFilesへ渡す。空のfolderNameは_idbSave側でfolder=''として保存され、
+// _buildIndexSummaryTextにより「個別に開いたファイル」件数として集計表示される
+// （既存の単発ファイルオープン時の自動インデックスと同じ扱いになる）
+document.getElementById('filesIndexInput').addEventListener('change', function(e){
+  var progEl = document.getElementById(_folderIndexSource==='openFile'?'openFolderProgress':'folderProgress');
+  var allFiles = Array.from(e.target.files);
+  var files = allFiles.filter(function(f){
+    var n=f.name.toLowerCase();
+    return n.endsWith('.dxf')||n.endsWith('.pdf')||_isExcelName(n);
+  });
+  if(files.length === 0){
+    progEl.textContent = 'DXF・PDF・Excelファイルが見つかりません';
+    return;
+  }
+  processFolderFiles(files, progEl, '');
   e.target.value = '';
 });
 // V1_112: 検索結果一覧の「この1件だけインデックスを更新」ボタンから呼ばれる。

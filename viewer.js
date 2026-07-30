@@ -1158,6 +1158,7 @@ function loadExcel(buf,isCsv){
   }
   excelSheetIdx=0;
   _excelResetViewState(); // V1_111: 新規ファイルオープン時はソート/フィルタ/列幅をリセット
+  _excelSheetStates={}; // V1_143: 新規ファイルでは前のファイルのシート別キャッシュは無関係のため破棄する
   renderExcelView();
   return true;
 }
@@ -1325,6 +1326,24 @@ function _updateExcelToolbarUI(){
 // V1_125: 「非表示」の確定処理。従来hideBtnの2回目押下に直書きしていたロジックを
 // 独立関数化し、画面下の確定ボタン(#excelConfirmBtn)からも呼べるようにした
 function _excelConfirmHide(){
+  // V1_141: 確定操作によって「行が1行も表示されなくなる」または「列が1列も
+  // 表示されなくなる」場合は、確定させずに警告表示のみ行い仮選択状態は保持する
+  // (全て隠すと、非表示を解除する「表示に戻す」ボタン自体は機能するが、シートが
+  // 真っ白になり操作の手がかりを見失いやすいため、根本的に確定させない)
+  var _rowsAfter141={};
+  Object.keys(_excelHiddenRows).forEach(function(k){ _rowsAfter141[k]=true; });
+  Object.keys(_excelPendingHideRows).forEach(function(k){ _rowsAfter141[k]=true; });
+  var _colsAfter141={};
+  Object.keys(_excelHiddenCols).forEach(function(k){ _colsAfter141[k]=true; });
+  Object.keys(_excelPendingHideCols).forEach(function(k){ _colsAfter141[k]=true; });
+  if(_excelLastRowCount>0&&Object.keys(_rowsAfter141).length>=_excelLastRowCount){
+    if(typeof showGuide==='function') showGuide('すべての行を非表示にはできません。少なくとも1行は表示したままにして下さい',2400);
+    return;
+  }
+  if(_excelLastColCount>0&&Object.keys(_colsAfter141).length>=_excelLastColCount){
+    if(typeof showGuide==='function') showGuide('すべての列を非表示にはできません。少なくとも1列は表示したままにして下さい',2400);
+    return;
+  }
   Object.keys(_excelPendingHideRows).forEach(function(k){ _excelHiddenRows[k]=true; });
   Object.keys(_excelPendingHideCols).forEach(function(k){ _excelHiddenCols[k]=true; });
   _excelPendingHideRows={};_excelPendingHideCols={};
@@ -1363,8 +1382,14 @@ function _excelConfirmSum(){
 // V1_115: 行番号セル（左端）を作る。ピックモードに応じて挙動が変わる:
 // ・'sort'中: タップした行がソート位置(origIdx基準・データの並び替えに関わらず固定)になる
 //   （同じ行の再タップで解除。ソート位置を変えるとソート列・列フィルタもリセットする）
-// ・'freeze'中: タップした行が固定行の境界(renderedPos基準・現在の表示順で数えた位置)になる
-//   （同じ位置の再タップで解除）
+// ・'freeze'中: タップした行が固定行の境界になる（同じ行の再タップで解除）
+//   V1_138: 従来はrenderedPos(その時点の表示順で数えた位置)をそのまま保存していたため、
+//   固定範囲より上の行を後から非表示にする、あるいはフィルタで表示行数が大きく減ると、
+//   保存済みの位置番号の意味がズレて余分な行が固定扱いになる不具合があった。固定列
+//   (_excelFreezeColIdx)と同様、origIdx(元の行番号、非表示・フィルタの影響を受けない
+//   安定した識別子)を保存し、毎回の描画でfinalEntries内の現在の位置を探し直す方式に
+//   変更した。固定に指定した行自体が非表示・フィルタで消えている場合はfindIndexが
+//   見つからず、固定列と同様に自然に「固定なし」へ戻る
 // ・V1_122 'hide'中: タップした行(origIdx基準)を「非表示予定」として複数まとめて仮選択する
 //   （全体の再描画はせずクラス切替のみ。確定は「非表示」ボタンの再押下で行う）。ソート位置に
 //   指定中の行は非表示にすると見出し行が消えてソート/絞り込み自体が使えなくなるため対象外
@@ -1382,7 +1407,8 @@ function _excelBuildRowNumCell(rowNumLabel,origIdx,renderedPos,isFrozenTop,isSor
       _excelPickMode=null;_updateExcelToolbarUI();
       renderExcelView();
     } else if(_excelPickMode==='freeze'){
-      _excelFreezeRowIdx=(_excelFreezeRowIdx===renderedPos)?-1:renderedPos;
+      // V1_138: renderedPosではなくorigIdx基準で保存する(詳細は関数冒頭コメント参照)
+      _excelFreezeRowIdx=(_excelFreezeRowIdx===origIdx)?-1:origIdx;
       _excelPickMode=null;_updateExcelToolbarUI();
       renderExcelView();
     } else if(_excelPickMode==='hide'){
@@ -1466,13 +1492,35 @@ function _excelBuildResizeHandle(absColIdx,localIdx,tableIdA,tableIdB){
         var col=c.querySelectorAll('col')[localIdx];
         if(col) col.style.width=w+'px';
       });
+      // V1_139: 列幅を変更した後、その列が属するテーブル自身の幅(table.style.width。
+      // _excelApplyColgroupがcolgroup合計幅とコンテナ幅の大きい方として設定した値)を
+      // 併せて再計算する。従来は各colの幅だけを更新し、外側のtable自身の幅は直前描画時の
+      // 値のままだったため、列を大きく広げるとtable-layout:fixedの制約により広げた分が
+      // テーブル枠内に押し込められ、隣接列が圧迫される・意図通り広がらない可能性があった。
+      // 現在のtable幅と、colgroup全列の合計幅とを比べ、大きい方を採用する(縮める方向には
+      // 動かさない。コンテナ幅ぶんの幅を下回らせないため)
+      [tA,tB].forEach(function(t){
+        if(!t) return;
+        var c=t.querySelector('colgroup');
+        if(!c) return;
+        var sum=0;
+        c.querySelectorAll('col').forEach(function(col){ sum+=parseFloat(col.style.width)||0; });
+        var cur=parseFloat(t.style.width)||0;
+        if(sum>cur) t.style.width=sum+'px';
+      });
     }
+    // V1_139: ドラッグ中にシステムジェスチャー等で操作が横取りされ、pointerupが発火しない
+    // まま終わるケース(pointercancel)を考慮していなかったため、document側に登録した
+    // pointermove/pointerupのリスナーが解除されずに残り続ける可能性があった。
+    // pointercancelでも同じ後片付け(onUp)を行うようにする
     function onUp(){
       document.removeEventListener('pointermove',onMove);
       document.removeEventListener('pointerup',onUp);
+      document.removeEventListener('pointercancel',onUp);
     }
     document.addEventListener('pointermove',onMove);
     document.addEventListener('pointerup',onUp);
+    document.addEventListener('pointercancel',onUp);
   });
   return handle;
 }
@@ -1501,15 +1549,26 @@ function _excelMeasurePaneWidths(t1,t2,count){
 // V1_117: 左右パネルの列幅をそれぞれ計測し、手動ドラッグ調整済みの列
 // (_excelColWidths、index0=行番号列を含む絶対インデックス)があればそちらを優先したうえで、
 // 4テーブルへcolgroupとして適用する
-function _excelSyncPaneColWidths(topLeftTable,bottomLeftTable,topRightTable,bottomRightTable,leftCount,totalCols){
+function _excelSyncPaneColWidths(topLeftTable,bottomLeftTable,topRightTable,bottomRightTable,leftCount,totalCols,visibleColIndices){
   var rightCount=totalCols-leftCount;
   var leftWidths=_excelMeasurePaneWidths(topLeftTable,bottomLeftTable,leftCount);
   var rightWidths=_excelMeasurePaneWidths(topRightTable,bottomRightTable,rightCount);
   for(var i=0;i<leftCount;i++){ if(!(leftWidths[i]>0)) leftWidths[i]=(i===0)?40:80; }
   for(var j=0;j<rightCount;j++){ if(!(rightWidths[j]>0)) rightWidths[j]=80; }
   if(_excelColWidths){
-    for(var a=0;a<leftCount;a++){ if(_excelColWidths[a]!=null) leftWidths[a]=_excelColWidths[a]; }
-    for(var b=0;b<rightCount;b++){ if(_excelColWidths[leftCount+b]!=null) rightWidths[b]=_excelColWidths[leftCount+b]; }
+    // V1_137: _excelColWidthsは元の列番号(origIdx)+1をキーにして記憶するよう変更した
+    // (行番号列のみ従来通りindex0で位置固定)。ここでは各表示位置(a/b)に対応する
+    // 元の列番号をvisibleColIndicesから逆引きして参照する。これにより、列の非表示・
+    // 再表示で表示位置が変わっても、手動調整した幅が意図した列に正しく対応し続ける
+    if(_excelColWidths[0]!=null) leftWidths[0]=_excelColWidths[0];
+    for(var a=1;a<leftCount;a++){
+      var origForA=visibleColIndices?visibleColIndices[a-1]:null;
+      if(origForA!=null&&_excelColWidths[origForA+1]!=null) leftWidths[a]=_excelColWidths[origForA+1];
+    }
+    for(var b=0;b<rightCount;b++){
+      var origForB=visibleColIndices?visibleColIndices[(leftCount-1)+b]:null;
+      if(origForB!=null&&_excelColWidths[origForB+1]!=null) rightWidths[b]=_excelColWidths[origForB+1];
+    }
   }
   // V1_132: 「コンテナ幅まで広げる」処理をCSSのmin-width:100%(V1_131)に任せると、
   // 上段(#excelTopRightWrap等、overflow:hiddenでスクロールバーが出ない)と
@@ -1618,6 +1677,25 @@ function _excelApplyColgroup(table,widths,forceAvailWidth){
   var finalWidth=(forceAvailWidth>total)?forceAvailWidth:total;
   table.style.width=finalWidth+'px';
 }
+// V1_141: 「非表示」確定時に全行または全列を非表示にしてしまうと、シート上に何も
+// 表示されなくなり、非表示を解除する手段(「表示に戻す」ボタン)自体を探すことも
+// 困難になる恐れがある。この安全確認のため、直近のrenderExcelViewで数えた
+// シート全体の行数・列数を保持しておく(_excelConfirmHideから参照する)
+var _excelLastRowCount=0,_excelLastColCount=0;
+// V1_143(⑦): 従来、複数シートを含む1つのファイルでシートタブを切り替えると、
+// ソート・固定行列・縞・非表示・列幅・列フィルタ等の設定が無条件に全リセットされて
+// いた(_excelResetViewStateの直接呼び出し)。V1_125でファイル(タブ)単位の状態は
+// 保存・復元できるようになったが、同一ファイル内のシート単位では従来通り消えて
+// しまっていた。ここでは「今開いているファイル」の中でのシートごとの設定を
+// キー=シート番号(excelSheetIdx)としてキャッシュしておき、シート切替のたびに
+// 離れる側のシートの状態を保存、戻る側のシートに保存済みの状態があれば復元する
+// （無ければ従来通りリセットする）。ファイル自体を切り替える際は、このキャッシュ
+// 全体をそのファイル専用のスナップショットとして保存・復元する必要があるため、
+// _excelCaptureAllSheetStates/_excelApplyAllSheetStatesをindex.html側の
+// switchToFileから呼べるようにしておく（f.excelSheetStatesとして保存される）
+var _excelSheetStates={};
+function _excelCaptureAllSheetStates(){ return _excelSheetStates; }
+function _excelApplyAllSheetStates(states){ _excelSheetStates=states||{}; }
 function renderExcelView(){
   var view=document.getElementById('excelView');
   if(!view) return;
@@ -1628,10 +1706,13 @@ function renderExcelView(){
     _updateViewmemoForExcel(false);
     _updateTopbarForExcel(false);
     _updateTopbarForPdf(!!pdfDoc); // V1_116: PDF表示中は計測グループ・画面ボタンを隠す
+    _excelViewVisible=false; // V1_143: 非表示になったのでスクロール同期ループは次フレームで自然に停止する
     return;
   }
   view.style.display='flex';
   if(cv)cv.style.display='none';if(ac)ac.style.display='none';if(ov)ov.style.display='none';
+  _excelViewVisible=true; // V1_143: 表示中はスクロール同期ループを回す
+  _excelStartScrollSyncLoop(); // V1_143: 停止済みなら再開する(稼働中なら何もしない)
   _updateViewmemoForExcel(true);
   _updateTopbarForExcel(true);
   _updateTopbarForPdf(false); // V1_116: Excel/CSV表示中はdxfToolGroup自体を隠すため対象外
@@ -1652,8 +1733,16 @@ function renderExcelView(){
       b.className='excel-sheet-tab'+(i===excelSheetIdx?' active':'');
       b.textContent=name;
       b.addEventListener('click',function(){
+        // V1_143: 従来はシート切替のたびに無条件で_excelResetViewState()を呼んでおり、
+        // 同じファイル内で複数シートを行き来するとソート・固定行列・縞・非表示・列幅・
+        // 列フィルタ等の設定がシートを離れるたびに消えてしまっていた。離れる側の
+        // シート(切替前のexcelSheetIdx)の現在の設定を_excelSheetStatesへキャッシュして
+        // から切り替え、戻る側のシート(i)に保存済みのキャッシュがあれば復元し、
+        // 無ければ(そのシートを一度も設定したことがない)従来通りリセットする
+        _excelSheetStates[excelSheetIdx]=_excelCaptureViewState();
         excelSheetIdx=i;
-        _excelResetViewState(); // V1_111: シート切替時もソート/フィルタ/列幅をリセット（列の意味がシートごとに異なるため）
+        if(_excelSheetStates[i]) _excelApplyViewState(_excelSheetStates[i]);
+        else _excelResetViewState();
         renderExcelView();
         if(typeof scheduleSave==='function')scheduleSave();
       });
@@ -1666,12 +1755,20 @@ function renderExcelView(){
   var rows=ws?XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false}):[];
   var colCount111=0;
   rows.forEach(function(r){ if(r.length>colCount111) colCount111=r.length; });
+  // V1_141: 「非表示」確定時の全行/全列非表示防止チェック(_excelConfirmHide)で
+  // 使うため、今回の描画時点でのシート全体の行数・列数を保持しておく
+  _excelLastRowCount=rows.length;
+  _excelLastColCount=colCount111;
   // V1_115: ソート位置・固定行・固定列のインデックスを範囲内にクランプする（データが
-  // 無ければ全て未指定へ戻す）。ソート位置(_excelSortRowIdx)はシート上の元の行(origIdx)を
-  // 指す一方、固定行(_excelFreezeRowIdx)は現在の表示順で数えた位置(renderedPos)を指すため、
-  // 意味が異なる点に注意（表全体のクランプはここでは行数のみで簡易チェックする）
+  // 無ければ全て未指定へ戻す）。
+  // V1_138: 固定行(_excelFreezeRowIdx)もソート位置と同様、シート上の元の行(origIdx)を
+  // 指すよう変更した(表示順の位置は毎回finalEntries内で探し直すため、ここでは元の行数
+  // だけを見て範囲外なら未指定へ戻せばよい)
   if(rows.length===0){ _excelSortRowIdx=-1; _excelFreezeRowIdx=-1; }
-  else if(_excelSortRowIdx>=rows.length) _excelSortRowIdx=rows.length-1;
+  else {
+    if(_excelSortRowIdx>=rows.length) _excelSortRowIdx=rows.length-1;
+    if(_excelFreezeRowIdx>=rows.length) _excelFreezeRowIdx=-1;
+  }
   if(colCount111===0) _excelFreezeColIdx=-1;
   else if(_excelFreezeColIdx>=colCount111) _excelFreezeColIdx=colCount111-1;
   // V1_115: ソート位置(_excelSortRowIdx)が指定されていれば、0行目からその行までは
@@ -1725,7 +1822,14 @@ function renderExcelView(){
   // 非表示にされていた場合はindexOfが-1になり、固定なし(leftCount=1)へ自然に戻る
   var _freezeVisiblePos121=_excelFreezeColIdx>=0?visibleColIndices.indexOf(_excelFreezeColIdx):-1;
   var leftCount=_freezeVisiblePos121>=0?(_freezeVisiblePos121+2):1; // 行番号列+固定列ぶん
-  var topCount=1+(_excelFreezeRowIdx>=0?(_excelFreezeRowIdx+1):0); // 列アルファベット行+固定行ぶん
+  // V1_138: 固定列と同様、固定行も「元の行番号(origIdx)が現在のfinalEntries内で
+  // 何番目に表示されているか」を毎回探し直す方式に変更した。固定行に指定した行自体が
+  // 非表示・フィルタで消えている場合はfindIndexが-1を返し、固定列と同様に自然に
+  // 「固定なし」へ戻る(以前は保存済みのrenderedPosをそのまま使っていたため、後から
+  // 上の行が非表示になったり、フィルタで表示行数が大きく減ったりすると、境界がずれて
+  // 本来固定対象でない行まで固定扱いになる不具合があった)
+  var _freezeRowVisiblePos138=_excelFreezeRowIdx>=0?finalEntries.findIndex(function(e){return e.origIdx===_excelFreezeRowIdx;}):-1;
+  var topCount=1+(_freezeRowVisiblePos138>=0?(_freezeRowVisiblePos138+1):0); // 列アルファベット行+固定行ぶん
 
   // V1_133: t.innerHTML=''はcolgroup等の子要素は消すが、table要素自身に直接
   // 設定したstyle.width/style.tableLayout(V1_117〜V1_132で_excelApplyColgroupが
@@ -1757,7 +1861,11 @@ function renderExcelView(){
     // にしか付いていなかった。ソート行を設定していない状態(初期表示)では列幅を手動で
     // 変える手段が一切無く、見た目にも分からなかったため、常に表示される列アルファベット
     // 行自体にもハンドルを付け、ソート行の有無に関係なくいつでも列幅を調整できるようにする
-    var absColIdx134=lvci+1; // 行番号列(index0)を含む絶対インデックス
+    // V1_137: 従来はlvci(現在の表示位置)+1を_excelColWidthsのキーにしていたが、列を
+    // 非表示/再表示すると表示位置がずれるため、手動調整した幅が別の列に付け替わって
+    // しまう不具合があった。_excelFreezeColIdx等と同様、元の列番号(lci=origIdx)+1を
+    // キーにすることで、列の表示位置が変わっても正しい列に幅が対応し続けるようにする
+    var absColIdx134=lci+1; // 元の列番号(origIdx)を含む絶対インデックス(表示位置には依存しない)
     var localIdx134=isColFrozen?(lvci+1):(lvci-(leftCount-1));
     var tableIdA134=isColFrozen?'excelTopLeftTable':'excelTopRightTable';
     var tableIdB134=isColFrozen?'excelBottomLeftTable':'excelBottomRightTable';
@@ -1813,10 +1921,32 @@ function renderExcelView(){
           sortIcon.title=_hasFilter113?'絞り込み中（タップで変更）':'並べ替え・絞り込み';
           sortIcon.addEventListener('click',function(ev){
             ev.stopPropagation();
-            _showExcelColumnMenu(sortIcon,colIdx,sortableSuffix.map(function(e){return e.cells;}));
+            // V1_140: 従来はsortableSuffix(非表示行・他列の絞り込みを一切考慮しない、
+            // ソート適用後の全行)をそのまま候補一覧の元データとして渡していたため、
+            // 「非表示にした行の値」や「別の列で既に絞り込んでいて実際にはもう
+            // 現れないはずの値」までフィルタ候補チェックリストに残り続ける不具合が
+            // あった。Excelのオートフィルタと同様、この列自身の現在のフィルタ条件は
+            // 除外しつつ、非表示行および他の列の現在のフィルタ条件は反映した「今まさに
+            // 表示され得る行」だけを候補の元データとする
+            var _candRows140=sortableSuffix.filter(function(e){
+              if(_excelHiddenRows[e.origIdx]) return false;
+              if(_excelColFilters){
+                for(var _ci140 in _excelColFilters){
+                  if(Number(_ci140)===Number(colIdx)) continue; // 自列の現フィルタは候補には適用しない
+                  var _allowed140=_excelColFilters[_ci140];
+                  var _v140=(e.cells[_ci140]===undefined||e.cells[_ci140]===null)?'':String(e.cells[_ci140]);
+                  if(!_allowed140.has(_v140)) return false;
+                }
+              }
+              return true;
+            }).map(function(e){return e.cells;});
+            _showExcelColumnMenu(sortIcon,colIdx,_candRows140);
           });
           td.appendChild(sortIcon);
-          var absColIdx=vPos+1; // V1_121: _excelColWidths添字は表示位置(vci)基準
+          // V1_121: _excelColWidths添字は表示位置(vci)基準としていたが、
+          // V1_137: 列の非表示/再表示で表示位置がずれると別の列に幅が付け替わる不具合が
+          // あったため、元の列番号(colIdx=origIdx)基準に変更した(letter行側と同様)
+          var absColIdx=colIdx+1;
           var localIdx=isColFrozen2?(vPos+1):(vPos-(leftCount-1));
           var tableIdA=isColFrozen2?'excelTopLeftTable':'excelTopRightTable';
           var tableIdB=isColFrozen2?'excelBottomLeftTable':'excelBottomRightTable';
@@ -1842,7 +1972,7 @@ function renderExcelView(){
   });
 
   // V1_117: 実テーブルを直接測定して列幅を左右パネルへ分配・適用する（隠しテーブルは廃止）
-  _excelSyncPaneColWidths(topLeftTable,bottomLeftTable,topRightTable,bottomRightTable,leftCount,visibleColIndices.length+1);
+  _excelSyncPaneColWidths(topLeftTable,bottomLeftTable,topRightTable,bottomRightTable,leftCount,visibleColIndices.length+1,visibleColIndices);
   // V1_128: 行番号ガター(左)とデータ(右)は別テーブルのため、CSSの固定height指定
   // だけではサブピクセル単位の誤差が行を重ねるごとに蓄積し、行数の多いシートの
   // 下の方で目に見えるズレになる不具合が再発した。実際にレンダリングされた高さを
@@ -1881,18 +2011,35 @@ function _excelScrollSyncTick(br,bl,tr,state){
   if(top!==state.lastTop){ if(bl) bl.scrollTop=top; state.lastTop=top; changed=true; }
   return changed;
 }
-(function(){
+// V1_143(⑩): 従来はページ読込時に一度だけ即時実行IIFEでループを開始し、以後
+// DXF/PDF表示中でExcel/CSVビュー自体が非表示(display:none)の間も含めて、
+// アプリを開いている間ずっとrequestAnimationFrameが呼ばれ続けていた。
+// 非表示中は同期する対象のスクロール位置自体が動かない(ユーザーが触れない)ため
+// 完全に無駄なフレーム処理であり、iPad等でのバッテリー消費・他の描画処理との
+// 競合が懸念される。Excel/CSVビューが表示されている間だけループを回し、
+// 非表示になった時点でループ自身がrequestAnimationFrameの再スケジュールを止めて
+// 停止し、再度表示された時にrenderExcelView側から再開させる方式に変更する
+var _excelViewVisible=false; // renderExcelViewが更新する「今まさに表示中か」の状態
+var _excelScrollSyncRunning=false; // ループが既に稼働中かどうか(二重起動防止)
+function _excelStartScrollSyncLoop(){
+  if(_excelScrollSyncRunning) return; // 既に稼働中なら何もしない
   var br=document.getElementById('excelBottomRightWrap');
   var bl=document.getElementById('excelBottomLeftWrap');
   var tr=document.getElementById('excelTopRightWrap');
   if(!br) return;
+  _excelScrollSyncRunning=true;
   var _scrollSyncState={lastLeft:-1,lastTop:-1};
   function loop(){
+    if(!_excelViewVisible){
+      // 非表示になっていたら、これ以上フレームを消費しないようループを終了する
+      _excelScrollSyncRunning=false;
+      return;
+    }
     _excelScrollSyncTick(br,bl,tr,_scrollSyncState);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
-})();
+}
 // V1_115: ヘッダーツールバーのソート/固定行列ボタンの配線。
 // V1_117: 列ストライプボタンを行縞/列縞の2ボタンに分離した。
 // いずれも常設の静的要素なので、リスナーはここで1度だけ登録する
@@ -2024,7 +2171,11 @@ function _applyExcelLocalSearch(advance){
   if(!kw){ _excelSearchMatchIdx=-1; if(fc) fc.textContent=''; return; }
   var matches=[];
   tables.forEach(function(table){
-    table.querySelectorAll('td').forEach(function(td){
+    // V1_137: 従来はtd全件(行番号ガター・列アルファベット行を含む)を検索対象にしていたため、
+    // 例えば「12」のような検索キーワードが実データではなく12行目の行番号セルにもヒットし、
+    // 「次へ」でそこへジャンプしてしまう不具合があった。行番号・列アルファベット・角セルは
+    // データではなくUI要素なので、検索対象から除外する
+    table.querySelectorAll('td:not(.excel-rownum-cell):not(.excel-letter-cell)').forEach(function(td){
       var t=(typeof _normalizeForSearch==='function')?_normalizeForSearch(td.textContent):td.textContent.toLowerCase();
       if(t.indexOf(kw)>=0){ td.classList.add('excel-search-hit'); matches.push(td); }
     });
@@ -2294,7 +2445,9 @@ function _applyExcelSearchHighlight(scrollToFirst){
   if(!kw) return;
   var first=null;
   tables.forEach(function(table){
-    table.querySelectorAll('td').forEach(function(td){
+    // V1_137: _applyExcelLocalSearchと同様、行番号ガター・列アルファベット行はデータでは
+    // ないため、「検索して開く」「全図面検索」由来のキーワードハイライト対象からも除外する
+    table.querySelectorAll('td:not(.excel-rownum-cell):not(.excel-letter-cell)').forEach(function(td){
       var t=(typeof _normalizeForSearch==='function')?_normalizeForSearch(td.textContent):td.textContent;
       if(t.indexOf(kw)>=0){
         td.classList.add('cell-highlight');
