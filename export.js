@@ -136,15 +136,29 @@ var _PDF_SAFE_MEM_MB = 500;
 //         メモリ安全: 4x→3x→2x 自動調整（500MB上限）
 //         PDF作成後: Canvas width=1 でピクセルバッファ即時解放
 // =========================================================
-document.getElementById('savePDFBtn').addEventListener('click', async ()=>{
+// V1_146: 「PDFの倍率設定を復活させてほしい」との要望を受け、V0_154で廃止していた
+// 品質(倍率)選択ダイアログを復活させた。ボタン押下時はまず_showPdfQualityDialogで
+// 倍率(2/3/4)を選んでもらい、選択後に実際のPDF生成処理(_runPdfExport、旧ハンドラの
+// 中身をそのまま関数化しただけで生成ロジック自体は変更していない)を呼ぶ。
+// ダイアログをキャンセルした場合はボタンを再度押せる状態に戻すだけで何もしない
+document.getElementById('savePDFBtn').addEventListener('click', function(){
   const btn = document.getElementById('savePDFBtn');
-  btn.disabled = true;
-
-  // ── V0_154: 品質選択ダイアログを廃止し、高画質(3倍)固定で出力 ──────
+  if(typeof _showPdfQualityDialog!=='function'){
+    // ダイアログ関数が無い場合のフォールバック（従来通り3倍固定で実行）
+    btn.disabled = true;
+    _runPdfExport(3).finally(function(){ btn.disabled=false; });
+    return;
+  }
+  _showPdfQualityDialog(btn, function(multi){
+    btn.disabled = true;
+    _runPdfExport(multi).finally(function(){ btn.disabled=false; });
+  });
+});
+async function _runPdfExport(_dlgSel){
+  // ── V1_146: 倍率(_dlgSel)は呼び出し元(savePDFBtnハンドラ)がダイアログで選ばせた値を
+  // 引数として受け取る。以下の生成ロジック自体はV0_141〜V0_154から変更していない ──
   const _dlgCvEl = document.getElementById('cv');
   const _dlgBaseLong = Math.max(_dlgCvEl.width, _dlgCvEl.height);
-  const _dlgSel = 3;
-  // ────────────────────────────────────────────────────────────────
 
   showGuide('PDFを生成中...');
 
@@ -348,9 +362,10 @@ document.getElementById('savePDFBtn').addEventListener('click', async ()=>{
       if(_rAc)  { _rAc.width=1;   _rAc.height=1;   } _rAc=null;
       if(_rComp){ _rComp.width=1; _rComp.height=1; } _rComp=null;
     }catch(e){}
-    btn.disabled=false;
+    // V1_146: btn.disabled=falseは呼び出し元(savePDFBtnハンドラ)の.finally()側で
+    // 行うよう変更した（この関数はボタン要素を引数に持たない独立関数のため）
   }
-});
+}
 
 // =========================================================
 // V0_147: スクリーンショット機能削除（screenshotBtnハンドラ・html2canvas依存を廃止）

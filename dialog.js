@@ -138,6 +138,47 @@ function _showIndexProfileNameDialog(anchorEl, onConfirm){
 }
 
 // =========================================================
+// V1_146: PDF書き出しの品質(倍率)選択ダイアログ。
+// V0_141で2x/3x/4xの選択ダイアログとして導入されたが、V0_154でいったん廃止され
+// 3倍固定になっていた。「倍率設定を復活してほしい」との要望を受け復活させたもの。
+// 選んだ倍率(2/3/4)をonConfirmへ渡す。実際のPDF生成処理自体はexport.js側
+// (_runPdfExport)が担当し、このダイアログは倍率を選ばせるだけに専念する
+// 依存関数: なし（showGuide等は呼び出し側のexport.jsで使用）
+// =========================================================
+function _showPdfQualityDialog(anchorEl, onConfirm){
+  var existing=document.getElementById('_pdfQualityMenu');
+  if(existing){existing.remove();return;}
+  var menu=document.createElement('div');
+  menu.id='_pdfQualityMenu';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  // V1_146: 開く方向は既存の_showPageJumpDialog等と同じ「アンカー直下」に統一する
+  // （savePDFBtnは設定パネル内のスクロール領域にあり、画面上下どちらにも来うるが、
+  // 他のダイアログと同じ単純な規則にした方が挙動が予測しやすいため）
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.left=Math.max(4,Math.min(r.left,window.innerWidth-236))+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">PDFの解像度を選択</div>'
+    +'<button type="button" data-m="2" class="_pdfQBtn" style="background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;text-align:left;">2倍（軽量・高速）</button>'
+    +'<button type="button" data-m="3" class="_pdfQBtn" style="background:#1a7a3a;color:#fff;border:1px solid #2a3040;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;text-align:left;">3倍（推奨）</button>'
+    +'<button type="button" data-m="4" class="_pdfQBtn" style="background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;text-align:left;">4倍（高画質・低速）</button>'
+    +'<div style="color:#7a95b5;font-size:10px;">※機種のメモリが不足する場合は自動的に倍率が下げられます</div>'
+    +'<button type="button" id="_pdfQCnl" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_pdfQualityMenu'))menu.remove();}
+  menu.querySelectorAll('._pdfQBtn').forEach(function(b){
+    b.addEventListener('click',function(){
+      var m=parseInt(b.getAttribute('data-m'),10);
+      closeMenu();
+      onConfirm(m);
+    });
+  });
+  document.getElementById('_pdfQCnl').onclick=closeMenu;
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
+
+// =========================================================
 // V1_69: 登録済みインデックスパターンの一覧表示・切替・削除
 // V1_77: チェックボックスで複数選択できるようにし、選択した複数パターンを
 //        まとめて（結合して）現在のインデックスへ読み込めるようにした
