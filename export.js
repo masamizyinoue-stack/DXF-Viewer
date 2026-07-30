@@ -124,8 +124,18 @@ function exportSketchDxf(){
 // =========================================================
 // V0_141: PDF品質選択定数・ダイアログ
 // 安全上限: 500MB（4 canvas × 4 bytes/px × CW × CH）
+// V1_147: 「4倍を選んでも3倍と同じデータサイズになる」との指摘を受け見直した。
+// 500MBという値はV0_148.2で同時使用Canvasを4枚→最大2枚に削減する前の想定
+// （4 canvas×4bytes/px=16bytes/px）のまま据え置かれており、画面解像度の高い
+// 機種(iPad Pro等)では2倍の時点で既にこの上限に達してしまい、3倍・4倍のどちらを
+// 選んでも実質2倍まで自動格下げされ区別がつかない、という状態になっていた。
+// 実態(最大2 canvas=8bytes/px)+エンコード時の一時バッファ分の余裕を見て
+// 700MBまで緩和する（下記_PDF_BYTES_PER_PXの見直しと合わせて対応）。
+// なお、これでも尚メモリが足りない高解像度機種では引き続き自動格下げが働き、
+// 実際のCanvas確保失敗を検知する仕組み(下記のgetImageDataによる実測チェック)も
+// 従来通り保護として残っているため、格下げが必要な場面で失敗する懸念はない
 // =========================================================
-var _PDF_SAFE_MEM_MB = 500;
+var _PDF_SAFE_MEM_MB = 700;
 
 // V0_154: 品質選択ダイアログ(_pdfQualityDialog)を削除。常に高画質(3倍)で出力する。
 
@@ -206,13 +216,24 @@ async function _runPdfExport(_dlgSel){
     const pageMM_H=aspect>=1?Math.round(PDF_LONG_MM/aspect):PDF_LONG_MM;
 
     // V0_141: メモリ安全チェック（4x→3x→2x 自動調整）
+    // V1_147: 1px当たりの見積りバイト数(旧16)を見直した。この「16」は元々、
+    // pdfCv/pdfAc/pdfOv/pdfCompの4枚のCanvas(各RGBA=4バイト/px)を同時に保持していた
+    // 頃の実装を前提にした値だったが、V0_148.2で「1枚ずつ描画→合成→即解放」方式に
+    // 変更され、同時に存在するCanvasは最大2枚(作業用1枚+合成先pdfComp)に削減された。
+    // 実態は8バイト/px(2枚分)まで下がっているにも関わらず見積りだけが16バイト/pxの
+    // ままだったため、4倍を選んでも3倍相当まで無駄に自動格下げされやすく、
+    // 「4倍と3倍が同じデータサイズになる」との指摘につながった。実態(8バイト/px)に
+    // toDataURL/JPEGエンコード時の一時バッファ分の余裕を見て10バイト/pxとし、
+    // 過剰に保守的だった判定を緩和する（自機種でのメモリ不足時は引き続き
+    // 2x以上での自動格下げ・下記の実測失敗検知(Canvasサイズ制限)で保護される）
+    const _PDF_BYTES_PER_PX = 10;
     const _PDF_MAX_MEM_B = _PDF_SAFE_MEM_MB * 1024 * 1024;
     let _safeMulti = _dlgSel;
     while (_safeMulti >= 2) {
       const _lp = Math.round(_dlgBaseLong * _safeMulti);
       const _cW = aspect >= 1 ? _lp : Math.round(_lp * aspect);
       const _cH = aspect >= 1 ? Math.round(_lp / aspect) : _lp;
-      if (_cW * _cH * 16 <= _PDF_MAX_MEM_B) break;
+      if (_cW * _cH * _PDF_BYTES_PER_PX <= _PDF_MAX_MEM_B) break;
       _safeMulti--;
     }
     if (_safeMulti < 2) { showGuide('メモリ不足のため出力できません',3000); return; }
@@ -348,7 +369,13 @@ async function _runPdfExport(_dlgSel){
     pdf.addImage(imgData,'JPEG',0,0,pageMM_W,pageMM_H);
     const fname=(currentFileName||'drawing').replace(/\.[^.]+$/,'')+'.pdf'; // V0_96: DXFファイル名をそのまま使用
     pdf.save(fname);
-    showGuide('PDFを保存しました（'+_safeMulti+'x / '+CW+'×'+CH+'px）',2500);
+    // V1_147: 「4倍を選んだのに3倍と同じサイズになった」との指摘は、生成途中の
+    // 自動調整メッセージ(1.5秒のみ表示)を見逃すと、保存完了メッセージだけでは
+    // 実際に使われた倍率が選んだ倍率と違うことに気づけないのが原因だった。
+    // 自動調整が起きた場合は保存完了メッセージ自体にも選択値→実際値を明記し、
+    // 見逃しにくいよう表示時間も長くする
+    var _multiNote147=(_safeMulti!==_dlgSel)?(_dlgSel+'x→'+_safeMulti+'xに自動調整・'):'';
+    showGuide('PDFを保存しました（'+_multiNote147+_safeMulti+'x / '+CW+'×'+CH+'px）',_multiNote147?4000:2500);
     if(typeof window._afterPDFExport==='function'){var _cb=window._afterPDFExport;window._afterPDFExport=null;setTimeout(_cb,600);}
 
   }catch(err){
