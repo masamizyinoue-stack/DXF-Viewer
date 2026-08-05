@@ -799,7 +799,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_150</span>
+    <span id="ver-label" style="font-size:11px;color:var(--text-dim);margin-right:auto;padding-left:8px">V1_160</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -880,6 +880,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="sp-section">
     <button id="savePDFBtn" class="sp-action-btn" title="図面全体をPDF出力（倍率を選択できます）">PDF書出</button> <!-- V0_154: ヘッダーから移動・品質選択廃止(3倍固定) → V1_146: 倍率選択ダイアログを復活 -->
+  </div>
+  <div class="sp-section">
+    <button id="hybridPDFBtn" class="sp-action-btn" title="DXF線・円弧・文字をベクター、書き込み・寸法を画像として重ねる高解像度PDF（試験機能・文字幅補正Phase1）">HD-PDF書出（試験）</button> <!-- V1_151: V0_154で削除されたHD-PDF機能を文字幅補正Phase1つきで復元 -->
   </div>
   <div class="sp-section">
     <button id="importDxfviewBtn" class="sp-action-btn">書込復元</button> <!-- V0_136: .dxfview保存→書込復元に変更 -->
@@ -1184,7 +1187,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=1113"></script>
 <script>
-const APP_VERSION = 'V1_150';
+const APP_VERSION = 'V1_160';
 
 // =========================================================
 // グローバル状態

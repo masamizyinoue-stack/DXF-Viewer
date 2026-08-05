@@ -804,4 +804,547 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// V0_154: HD-PDF書出（試験）機能(exportHybridPDF)・PDF解像度（試験）設定(_pdfResMulti)を削除
+// V0_154で削除されたHD-PDF書出（試験）機能を、文字幅補正Phase1つきでV1_151で復元。
+// V1_152: V1_151で報告された2つの不具合(生成直後にPDF閲覧側が黒画面になる/文字が
+//   ほぼ見えない)に対応。
+// V1_153: 文字サイズ計算の見直し(mm基準に変更)・A3化・線種(点線等)反映・
+//   文字幅補正の安全域を狭めて太さを緩和。
+// V1_154: 埋め込み日本語フォントを548文字サブセット→6886文字収録のNoto Sans JPに差替え。
+// V1_155: 【書き込みのベクター化】これまで手書き(strokes)・寸法(dims)は透過PNG
+//   ラスター画像として重ねていたが、大きなラスター画像を埋め込むこと自体が
+//   V1_151〜152で対応した「閲覧側が黒画面になる」不具合の根本要因だった。
+//   strokes・dimsは元々ワールド座標の点列・線分データとして保持されているため、
+//   全てjsPDFのベクターパス(pdf.lines()での3次ベジェ近似・直線・矢印三角形)として
+//   描画するよう変更した。これによりHD-PDFは（DXF由来の画像を除き）完全ベクターの
+//   PDFになり、大きなラスター画像を一切埋め込まなくなったため、黒画面の原因となる
+//   巨大画像の展開負荷そのものが構造的に無くなった。
+//   あわせて、ラスター化のために用意していた作業用Canvas・メモリ見積り・実測
+//   アロケーションテスト・devicePixelRatio/tx/ty/scaleの一時差し替えは全て不要に
+//   なったため削除した(LONG_PXはCanvasを実際には作らない、スケール計算専用の
+//   参照値に変更)。
+//   埋め込みフォントもRegular(400)→Light(300)に変更し「文字が少し太い」との
+//   指摘に対応した(文字セットのカバー範囲はV1_154と同じ)。
+// V1_156: 【文字欠落】「～」(全角チルダ、Unicode U+FF5E)がPDFで表示されない不具合を
+//   修正。DXFデータはWindows製CAD由来のためJIS/CP932の全角チルダ(U+FF5E)を使うことが
+//   多いが、埋め込みフォント(Google Fonts Noto Sans JP)の日本語サブセットは
+//   Unicode標準の波ダッシュ(U+301C)しか収録していない。jsPDFは埋め込みフォントに
+//   無い文字を警告もなく無音で読み飛ばすため、「10～20」が「1020」のように文字が
+//   消えたまま表示されていた(実測: PDFのTj内容を確認し、U+FF5Eのみ欠落してグリフが
+//   1つ減っていることを確認)。フォントを追加せず、pdf.text()/getTextWidth()に渡す
+//   直前でU+FF5E→U+301C、同種のU+2015(全角ダッシュ)→U+2014に置換するヘルパー
+//   (_hpFixChars)を追加し、doc.moji・dims文字の両方に適用した。見た目はほぼ同一の
+//   文字に単純置換するだけなので、実際の寸法値や記号の意味は変わらない。
+//   【寸法の矢印・文字の重なり】ごく短い区間の寸法(例: 実寸2.75mm相当など)で、
+//   矢印同士・矢印と文字が重なって判読できなくなる不具合を修正。V1_155では矢印長・
+//   矢印幅・寸法線幅・センターマークを固定mm値としていたため、図面全体をA3用紙に
+//   収める際の縮小率が大きい(＝一枚のシートに長大な図面を収める)場合、実寸が
+//   小さい寸法ほど矢印サイズが相対的に大きくなり重なりやすかった。V1_151以前の
+//   画面表示ロジック(dimensionTextMode='fixed'時、worldFontH*scaleに比例して矢印・
+//   線幅も縮小する)と同じ考え方に戻し、矢印長・矢印幅・寸法線幅・センターマーク・
+//   文字とのオフセットを全て寸法文字サイズ(fsMM、worldFontHに比例)基準の相対値に
+//   変更した。これにより極小スケールの寸法では矢印・線も連動して小さくなり、
+//   重なりを避けやすくなる。
+// V1_157: 「スクショの画面表示とPDF印刷の文字の見た目の違いが大きい」との指摘に対応。
+//   これまでDXF文字(doc.moji)・寸法文字(dims)とも、英数字を含む文字列全体を単一の
+//   埋め込みフォント(Noto Sans JP Light300)で描画していた。画面側は英数字も含めて
+//   ブラウザの既定sans-serif(Helvetica/Arial系)で表示されるため、特に数字の字形・
+//   字幅がPDFと画面とで大きく異なって見えていた。本バージョンでは、文字列を
+//   ASCII文字(半角英数字・記号、コードポイント0x7E以下)の連続部分と、それ以外
+//   (漢字・かな・全角記号)の連続部分とに分割し、ASCII部分はjsPDF内蔵のHelvetica
+//   フォントで、それ以外はNoto Sans JP埋め込みフォントで、それぞれ描画するように
+//   変更した(_hpSplitRuns)。文字列中で複数回フォントが切り替わる場合も、各区間の
+//   実測幅をjsPDFのネイティブ回転規約(角度θ度に対し水平方向の送りベクトルは
+//   (cosθ, -sinθ)、実測してjsPDF自身のalign:'center'と一致することを確認済み)で
+//   連続的に積み上げて描画位置を求めるため、回転や複数行が付いた文字でも隙間なく
+//   連結して表示される。文字列全体の画面幅とPDF幅の比率(horizontalScale補正)も、
+//   各区間をそれぞれ正しいフォントで実測した合計値を基準に計算し直すため、より
+//   正確な補正になる。
+// V1_158: 「文字がたくさん書いた図面になるとPDFの時に文字が大きくなりすぎて、
+//   ぐちゃぐちゃになる」との指摘に対応。ユーザー提供のPDF(A1版・縮尺1/200を想定した
+//   広域・高密度な部材リスト付きDXF、部材ラベルが約2000個)を実測したところ、
+//   実に2024個中2001個のテキストが、DXF文字の最低文字高フロア(MIN_TEXT_MM=2.2mm、
+//   V1_153で「文字が出てこない」不具合対策として導入)にちょうど張り付いていた。
+//   図面全体を固定ページ長辺のA3に収める都合上、この図面のように広域・高密度な
+//   図面ほど本来の縮尺で計算される文字サイズが小さくなるが、2.2mmという下限が
+//   「完全に不可視化することを防ぐ安全弁」の役割を超えて、ほぼ全ての文字を
+//   一律に本来より大きく引き伸ばしてしまい、狭い間隔に並ぶ多数のラベルが
+//   重なり合って判読不能になっていた。DXF文字(doc.moji)のMIN_TEXT_MM、寸法文字
+//   (dims)のDIM_MIN_TEXT_MMをともに2.2mm→1.1mmへ引き下げた。この下限値は
+//   「完全な不可視化を防ぐ」目的に立ち返った安全弁として、密な図面での重なりを
+//   大きく緩和しつつ、極端に小さい文字が完全に消えてしまうことは防ぐバランスで
+//   設定している。なお、密な図面ほど本来の縮尺自体が小さいため、下限を下げても
+//   なお文字が小さく感じられる場合はあり得るが、これは1枚のA3に図面全体を収める
+//   という仕様上の制約によるものである。
+// V1_159: V1_158(フロア1.1mm)適用後、ユーザーからPDFとアプリ画面のスクリーン
+//   ショットを提供いただき比較した結果、「階段6」のように複数のDXF文字ラベルが
+//   世界座標上で近接して並ぶ箇所で、PDF側はラベル同士がアプリ画面より詰まって
+//   見えることを確認した。DXF原本は特定の縮尺(A1版1/200等)で重ならないよう
+//   文字高と行間隔の比率が設計されているため、本来はフロアで引き伸ばさず
+//   e.h*pdfScale*_sxをそのまま使えば、ラベル同士の間隔と文字高が同じ比率で
+//   縮小されて重なりが生じないはずである。しかし前バージョンまでのフロア値
+//   (1.1mm)がこの自然な比率より大きい場合、フロアで一律に引き伸ばされた文字が
+//   本来の行間隔を超えてしまい、なお重なりが残っていた。PDFはベクター形式で
+//   PDFビューア側から自由に拡大できるため、密な図面では「フロアで無理に読みやすい
+//   大きさへ引き伸ばす」よりも「元の縮尺どおりの比率を保ち、必要なら閲覧側で
+//   拡大してもらう」方が重なりを避けやすいと判断し、DXF文字(doc.moji)の
+//   MIN_TEXT_MM、寸法文字(dims)のDIM_MIN_TEXT_MMをともに1.1mm→0.6mmへさらに
+//   引き下げた。完全な不可視化(V1_152の実測不具合値は約0.1mm)を防ぐ安全弁としての
+//   役割は0.6mmでも6倍以上の余裕があり十分に果たせる。
+// V1_160: 「寸法の数字が若干PDFにすると小さくなります」との指摘に対応。ユーザー
+//   提供のPDF(2B-034_hd.pdf)の内部データを実測したところ、寸法値(dims)の
+//   テキスト13個のうち5個が、V1_159で0.6mmに揃えたDIM_MIN_TEXT_MMにちょうど
+//   張り付いており(1.7007874pt=0.6mm)、周囲のDXF文字(黒、この図面では大半が
+//   約4.08pt≒1.44mm相当)や、床に張り付いていない他の寸法値(約2.07〜6.57pt=
+//   0.73〜2.3mm相当)より明らかに小さく浮いて見えていた。dimsはユーザーが寸法を
+//   作成した時点のワールド座標系での文字高(worldFontH)を記録しており、画面表示
+//   (dimensionTextMode='fixed')でもズームに依存せず一定の見やすさで表示される
+//   設計になっているため、doc.moji(V1_159で密な図面での重なり対策として0.6mmに
+//   下げた)とは別に、dims専用の下限を引き上げるのが適切と判断した。
+//   DIM_MIN_TEXT_MM(dims専用)を0.6mm→1.2mmへ引き上げ、MIN_TEXT_MM(doc.moji用、
+//   V1_158/159の密な図面対策)は0.6mmのまま変更していない。
+// =========================================================
+var _jpFontLoaded=false;
+function _loadJPFont(){
+  return new Promise(function(resolve){
+    if(_jpFontLoaded||window._notoSansJPBase64){_jpFontLoaded=true;resolve();return;}
+    var s=document.createElement('script');
+    s.src='./fonts/NotoSansJP.js';
+    s.onload=function(){_jpFontLoaded=true;resolve();};
+    s.onerror=function(){console.warn('[HybridPDF] フォント読み込み失敗');resolve();};
+    document.head.appendChild(s);
+  });
+}
+
+// V1_151: 画面表示フォント(sans-serif)での文字列幅測定用の使い回しcanvas
+var _hpMeasureCv=null,_hpMeasureCtx=null;
+
+// V1_155: canvasのctx.rotate(angle)と同じ回転（Y下向き画面空間、標準的な回転行列）。
+// 書き込み(矢印・寸法文字の下線)のベクター化で、画面描画と同じ見た目になるよう
+// ローカル座標を回転させてから配置するために使用する
+function _hpRotPt(lx,ly,angle){
+  const c=Math.cos(angle),s=Math.sin(angle);
+  return [lx*c-ly*s, lx*s+ly*c];
+}
+
+// V1_155: 寸法の色(d.color、'#rrggbb'形式のCSS16進文字列)をr,g,bに変換
+function _hpHexColor(hex){
+  var h=(hex||'#f39c12').replace('#','');
+  if(h.length===3) h=h.split('').map(function(c){return c+c;}).join('');
+  var r=parseInt(h.slice(0,2),16), g=parseInt(h.slice(2,4),16), b=parseInt(h.slice(4,6),16);
+  return [isFinite(r)?r:0, isFinite(g)?g:0, isFinite(b)?b:0];
+}
+
+// V1_156: 埋め込みフォント(Noto Sans JP 日本語サブセット)に収録が無く、jsPDFが
+// 無音で読み飛ばしてしまう一部のWindows/CP932由来の記号を、見た目がほぼ同一の
+// Unicode標準の文字へ置換してから描画・幅測定する。実測でU+FF5E(全角チルダ「～」)が
+// 欠落することを確認したため対応。同種のU+2015(全角ダッシュ「―」)も念のため含める
+function _hpFixChars(s){
+  if(!s) return s;
+  return s.replace(/～/g,'〜').replace(/―/g,'—');
+}
+
+// V1_157: 文字列をASCII文字(半角英数字・記号、コードポイント0x7E以下)の連続部分と
+// それ以外(漢字・かな・全角記号)の連続部分に分割する。ASCII部分は画面と同じ
+// 系統のHelveticaで、それ以外はNoto Sans JP埋め込みフォントで描画するための下準備
+function _hpSplitRuns(s){
+  const runs=[];
+  let cur='', curFont=null;
+  for(const ch of (s||'')){
+    const cp=ch.codePointAt(0);
+    const f=(cp<=0x7E)?'ascii':'jp';
+    if(f!==curFont){
+      if(cur) runs.push({text:cur,font:curFont});
+      cur=ch; curFont=f;
+    }else{
+      cur+=ch;
+    }
+  }
+  if(cur) runs.push({text:cur,font:curFont});
+  return runs;
+}
+// V1_157: ランのフォント種別に応じてjsPDFの現在フォントを切り替える
+function _hpSetRunFont(pdf,font){
+  if(font==='ascii') pdf.setFont('helvetica','normal');
+  else pdf.setFont('NotoSansJP','normal');
+}
+// V1_157: jsPDFのpdf.text()にoptions.angle(度)を渡した場合の実際の送りベクトルを
+// 実測・検証済みの式で計算する(ローカル+x方向に距離wだけ進んだ位置は
+// (w*cosθ, -w*sinθ)だけオフセットされる。jsPDFのalign:'center'と実測比較し一致を
+// 確認済み)。フォントが途中で切り替わる文字列を区間ごとに連続して描画するために使う
+function _hpPdfAdvance(w,angleDeg){
+  const rad=(angleDeg||0)*Math.PI/180;
+  return [w*Math.cos(rad), -w*Math.sin(rad)];
+}
+
+async function exportHybridPDF(){
+  const btn=document.getElementById('hybridPDFBtn');
+  btn.disabled=true;
+  showGuide('HD-PDFを生成中...');
+  try{
+    // V0_124: 日本語フォントを事前ロード
+    await _loadJPFont();
+
+    // ── 1. バウンディングボックス（現行PDFと同じロジック）──
+    var _hMnX=Infinity,_hMnY=Infinity,_hMxX=-Infinity,_hMxY=-Infinity;
+    function _hExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_hMnX)_hMnX=x;if(y<_hMnY)_hMnY=y;if(x>_hMxX)_hMxX=x;if(y>_hMxY)_hMxY=y;}
+    if(doc){
+      for(const e of doc.sen){_hExp(e.x1,e.y1);_hExp(e.x2,e.y2);}
+      for(const e of doc.enko){const r=e.rx||e.r||0;_hExp(e.cx-r,e.cy-r);_hExp(e.cx+r,e.cy+r);}
+      for(const e of (doc.ten||[])){_hExp(e.x,e.y);}
+      for(const e of (doc.moji||[])){_hExp(e.x,e.y);}
+      for(const e of (doc.solid||[])){for(const p of e.pts)_hExp(p.x,p.y);}
+    }
+    if(typeof pdfImage!=='undefined'&&pdfImage){_hExp(pdfImage.wx,pdfImage.wy);_hExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
+    for(const img of (typeof images!=='undefined'?images:[])){_hExp(img.wx,img.wy);_hExp(img.wx+img.ww,img.wy-img.wh);}
+    for(const s of strokes)for(const p of s.pts)_hExp(p.x,p.y);
+    for(const d of dims){
+      for(const l of(d.lines||[])){_hExp(l.x1,l.y1);_hExp(l.x2,l.y2);}
+      if(d.tx!=null&&d.ty!=null)_hExp(d.tx,d.ty);
+    }
+    if(!isFinite(_hMnX)){showGuide('描画データがありません',2000);return;}
+
+    // ── 2. ページサイズ・スケール決定 ──
+    const PAD=0.02;
+    const eW=_hMxX-_hMnX, eH=_hMxY-_hMnY;
+    const extMinX=_hMnX-eW*PAD, extMinY=_hMnY-eH*PAD;
+    const extW=eW*(1+2*PAD), extH=eH*(1+2*PAD);
+    const aspect=extW/extH;
+    // V1_153: 「A4版ではなくA3版にして」との要望により、長辺を297mm(A4)→420mm(A3)に変更
+    const PDF_LONG_MM=420;
+    const pageMM_W=aspect>=1?PDF_LONG_MM:Math.round(PDF_LONG_MM*aspect);
+    const pageMM_H=aspect>=1?Math.round(PDF_LONG_MM/aspect):PDF_LONG_MM;
+
+    // V1_155: DXF線・円弧・文字・書き込み(手書き・寸法)を全てベクター描画するため、
+    // 実際に大きなCanvasを作成する必要が無くなった。LONG_PXは「画面表示相当の
+    // 線幅・文字サイズになるようスケール計算するための参照値」としてのみ使用し、
+    // メモリ見積り・実測アロケーションテストは不要になったため削除した
+    const LONG_PX=6500;
+    const CW=aspect>=1?LONG_PX:Math.round(LONG_PX*aspect);
+    const CH=aspect>=1?Math.round(LONG_PX/aspect):LONG_PX;
+    const pdfScale=Math.min(CW/extW, CH/extH);
+
+    // ── 3. 座標変換 ──
+    const tx_p = -extMinX * pdfScale;
+    const ty_p =  CH + extMinY * pdfScale;
+    const _sx = pageMM_W / CW;
+    const _sy = pageMM_H / CH;
+    const w2mx = wx => ( wx * pdfScale + tx_p) * _sx;
+    const w2my = wy => (-wy * pdfScale + ty_p) * _sy;
+
+    // ── 5. jsPDF 生成 ──
+    if(typeof window.jspdf==='undefined'){showGuide('jsPDFが読み込まれていません',2000);return;}
+    const {jsPDF}=window.jspdf;
+    const orient=pageMM_W>=pageMM_H?'l':'p';
+    const pdf=new jsPDF({orientation:orient,unit:'mm',format:[pageMM_W,pageMM_H],compress:true});
+
+    // 白背景
+    pdf.setFillColor(255,255,255);
+    pdf.rect(0,0,pageMM_W,pageMM_H,'F');
+
+    // 色設定ヘルパー（e.color は {r,g,b} オブジェクト。白背景用に近白色は黒に変換）
+    function _setPdfColor(col){
+      const css=(typeof rgbCss==='function')?rgbCss(col,false):'rgb(0,0,0)';
+      let r=0,g=0,b=0;
+      const m=css.match(/rgb\((\d+),(\d+),(\d+)\)/);
+      if(m){r=+m[1];g=+m[2];b=+m[3];}
+      else if(css.length>=7&&css[0]==='#'){r=parseInt(css.slice(1,3),16);g=parseInt(css.slice(3,5),16);b=parseInt(css.slice(5,7),16);}
+      pdf.setDrawColor(r,g,b);
+    }
+
+    // 線幅ヘルパー（現行canvas算出式と同じ: max(0.8, lw*scale*1.4) px → mm変換）
+    function _lwMM(lw){
+      return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx);
+    }
+
+    // V1_153: 線種(点線・一点鎖線等)のダッシュパターンをmm単位に変換するヘルパー。
+    // 画面描画(viewer.js)は ctx.setLineDash(e.dash.map(d=>d*scale)) で線種を反映して
+    // いるが、旧HD-PDF実装(V0_123〜V0_153)にはこの処理が無く、全て実線になっていた
+    function _dashMM(dashArr){
+      if(!dashArr||dashArr.length===0) return [];
+      return dashArr.map(function(d){ return Math.max(0.05, d*pdfScale*_sx); });
+    }
+
+    // ── 6. DXF線分（sen）ベクター描画 ──
+    if(doc&&doc.sen){
+      for(const e of doc.sen){
+        if(hiddenLayers.has(e.layer)) continue;
+        _setPdfColor(e.color);
+        pdf.setLineWidth(_lwMM(e.lw));
+        pdf.setLineDashPattern(_dashMM(e.dash),0); // V1_153
+        pdf.line(w2mx(e.x1),w2my(e.y1),w2mx(e.x2),w2my(e.y2));
+      }
+    }
+
+    // ── 7. DXF円・円弧（enko）ベクター描画 ──
+    if(doc&&doc.enko){
+      for(const e of doc.enko){
+        if(hiddenLayers.has(e.layer)) continue;
+        _setPdfColor(e.color);
+        pdf.setLineWidth(_lwMM(e.lw));
+        pdf.setLineDashPattern(_dashMM(e.dash),0); // V1_153
+        const r=e.rx||e.r||0; if(r<=0) continue;
+        const a1=e.a1!=null?e.a1:0, a2=e.a2!=null?e.a2:360;
+        const cxmm=w2mx(e.cx), cymm=w2my(e.cy);
+        const rMM=r*pdfScale*_sx;
+        if(a1===0&&a2===360){
+          // 真円: jsPDF circle()
+          pdf.circle(cxmm,cymm,rMM,'S');
+        }else{
+          // 円弧: 36分割線分近似（DXF角度: X軸正から反時計回り）
+          const rad1=a1*Math.PI/180;
+          let rad2=a2*Math.PI/180;
+          if(rad2<=rad1) rad2+=2*Math.PI; // 折り返しアーク対応
+          const N=36;
+          let px0=cxmm+rMM*Math.cos(rad1), py0=cymm-rMM*Math.sin(rad1);
+          for(let i=1;i<=N;i++){
+            const a=rad1+(rad2-rad1)*i/N;
+            const px1=cxmm+rMM*Math.cos(a), py1=cymm-rMM*Math.sin(a);
+            pdf.line(px0,py0,px1,py1);
+            px0=px1; py0=py1;
+          }
+        }
+      }
+    }
+
+    // V1_153: 線分・円弧の描画で設定したダッシュ状態が後続の描画に残らないよう解除
+    pdf.setLineDashPattern([],0);
+
+    // ── 7.5 文字（moji）をjsPDFベクター描画（V0_124: 日本語フォント対応、V1_151: 文字幅補正Phase1）──
+    if(doc&&doc.moji&&doc.moji.length>0&&window._notoSansJPBase64){
+      try{
+        pdf.addFileToVFS('NotoSansJP.ttf',window._notoSansJPBase64);
+        pdf.addFont('NotoSansJP.ttf','NotoSansJP','normal');
+      }catch(er){/* 登録済みの場合は無視 */}
+      for(const e of doc.moji){
+        if(hiddenLayers.has(e.layer)) continue;
+        if(!e.text||!e.text.trim()) continue;
+        const xmm=w2mx(e.x);
+        const ymm=w2my(e.y);
+        // V1_153: V1_152の「最低6px相当」クランプは、6という数値がCanvas(CW)側の
+        // ピクセル単位で、そのCanvas自体がメモリ安全策で数千pxに調整される一方
+        // 固定ページ長辺(mm)へ縮小されるため、6px分が最終的に何mmになるかは
+        // Canvas解像度に依存してしまい、結果的にほぼ改善しないケースがあった
+        // (実際に報告されたPDFでもフォントサイズが変わっていなかった)。
+        // 印刷後の見た目のmm寸法で直接下限を決める方式に変更する。
+        // V1_158: 「文字がたくさん書いた図面になるとPDFの時に文字が大きくなり
+        // すぎてぐちゃぐちゃになる」との指摘を受け、2.2mmから1.1mmへ引き下げ。
+        // 実測したところ、A1版・縮尺1/200を想定した密なDXF(部材ラベル約2000個)
+        // をA3に収める場合、ほぼ全ての文字(2024個中2001個)が2.2mmの下限に
+        // 張り付いて重なり合っていた。この下限は「完全に見えなくなる」ことを
+        // 防ぐための安全弁であり、必ずしも快適な可読性まで保証するものではない
+        // (図面全体を1枚のA3に収める都合上、密な図面では本来の縮尺より文字が
+        // 小さくなるのは避けられない)。下限を約半分に下げることで、密な図面での
+        // 重なりを大きく緩和しつつ、完全な不可視化は防ぐバランスを取った
+        // V1_159: V1_158(1.1mm)適用後もなお「PDFとアプリの文字の見た目差」が
+        // 残っているとの報告(隣接する複数のDXF文字ラベルが密に並ぶ箇所で、
+        // フロアによる引き伸ばしが元の行間隔を超えてしまい重なりが残っていた)。
+        // PDFはベクター形式でありPDFビューア側で自由に拡大できるため、密な図面では
+        // 「フロアで無理に読みやすい大きさへ引き伸ばす」よりも「元の縮尺どおりの
+        // 比率を保ち、必要なら閲覧側で拡大してもらう」方が重なりを避けやすいと
+        // 判断し、フロアをさらに約半分(1.1mm→0.6mm)に下げた。完全な不可視化(V1_152の実測不具合値は
+        // 約0.1mm)を防ぐ安全弁としての役割は0.6mmでも十分に果たせる
+        const MIN_TEXT_MM=0.6;
+        const fsMM=Math.max(MIN_TEXT_MM, e.h*pdfScale*_sx);
+        const fsPx=fsMM/_sx; // 画面実測(measureText)用の対応ピクセルサイズ
+        if(fsMM<=0) continue;
+        const css=(typeof rgbCss==='function')?rgbCss(e.color,false):'rgb(0,0,0)';
+        const mc=css.match(/rgb\((\d+),(\d+),(\d+)\)/);
+        if(mc) pdf.setTextColor(+mc[1],+mc[2],+mc[3]);
+        pdf.setFontSize(fsMM*(72/25.4));
+        // V1_156: 埋め込みフォント未収録の記号(全角チルダ等)を読み飛ばされる前に置換
+        const lines=_hpFixChars(e.text).split('\n');
+        const angleDeg=(e.angle&&Math.abs(e.angle)>0.1)?e.angle:0;
+        for(let i=0;i<lines.length;i++){
+          const ln=lines[i];
+          if(!ln.trim()) continue;
+          // V1_157: ASCII(半角英数字記号)とそれ以外(漢字・かな)でフォントを分けるため
+          // 行をランに分割する
+          const runs=_hpSplitRuns(ln);
+          // V1_151→V1_152→V1_157: 文字幅補正Phase1 — 実際に描画されるサイズ(fsPx、
+          // 6px下限適用後)でmeasureTextし、画面実測幅と「各ランを正しいフォントで
+          // 実測した合計」との比率をhorizontalScale(PDFのTzオペレータ)として渡す
+          var _hpRatio=1;
+          try{
+            var _pdfMM=0;
+            for(const run of runs){ _hpSetRunFont(pdf,run.font); _pdfMM+=pdf.getTextWidth(run.text); }
+            if(!_hpMeasureCv){_hpMeasureCv=document.createElement('canvas');_hpMeasureCtx=_hpMeasureCv.getContext('2d');}
+            _hpMeasureCtx.font=fsPx+'px sans-serif';
+            var _rawPx=_hpMeasureCtx.measureText(ln).width*(e.widthFactor||1);
+            if(_rawPx>0&&_pdfMM>0){
+              var _screenMM=_rawPx*_sx;
+              _hpRatio=_screenMM/_pdfMM;
+              if(!isFinite(_hpRatio)||_hpRatio<=0) _hpRatio=1;
+              // V1_153: 「文字がやや太い」との指摘を受け、安全域を0.5〜2.0から
+              // 0.7〜1.4に狭めた。比率が極端(50%前後など)になるケースで文字が
+              // 大きく水平圧縮され、字間が詰まって太く見える一因になっていたため、
+              // 補正の効き目を弱める代わりに見た目の歪みを抑える方向にした
+              _hpRatio=Math.max(0.7,Math.min(1.4,_hpRatio));
+            }
+          }catch(werr){_hpRatio=1;}
+          // 複数行: PDF座標系（Y下向き）ではi行目をfsMM*i だけ上方向へ(既存仕様のまま)
+          let curX=xmm, curY=ymm-fsMM*i;
+          for(const run of runs){
+            _hpSetRunFont(pdf,run.font);
+            const opts={baseline:'alphabetic',horizontalScale:_hpRatio};
+            if(angleDeg) opts.angle=angleDeg;
+            pdf.text(run.text,curX,curY,opts);
+            const rw=pdf.getTextWidth(run.text)*_hpRatio;
+            const adv=_hpPdfAdvance(rw,angleDeg);
+            curX+=adv[0]; curY+=adv[1];
+          }
+        }
+      }
+      pdf.setTextColor(0,0,0); // リセット
+    }
+
+    // ── 8. 手書き（strokes）ベクター描画 ──
+    // V1_155: 画面描画(drawAnnotation)と同じCatmull-Rom風2次ベジェのスムージングを、
+    // jsPDFのpdf.lines()が対応する3次ベジェへ変換して描画する(標準変換式:
+    // 現在のペン位置P0・2次制御点Q・終点P2に対しC1=P0+2/3(Q-P0), C2=P2+2/3(Q-P2))。
+    // ハイライトは setGState({'stroke-opacity':0.45}) で不透明度0.45を再現(ノード上で
+    // ExtGState/ca出力を実測確認済み)。ラスター画像を一切使わないため、V1_152で
+    // 対応した「巨大画像展開による黒画面」不具合の要因自体が構造的に無くなる。
+    if(typeof strokes!=='undefined'&&strokes.length>0){
+      const _curPg155=_curPage();
+      const lwRef155=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:scale;
+      for(const s of strokes){
+        if(!s.pts||s.pts.length<2) continue;
+        if((s.page||1)!==_curPg155) continue;
+        const n=s.pts.length;
+        const col=s.color||{r:0,g:0,b:0};
+        const lwPx=s.hl?(s.lw*(scale/lwRef155)):Math.max(1,s.lw*(scale/lwRef155));
+        pdf.setDrawColor(col.r,col.g,col.b);
+        pdf.setLineWidth(Math.max(0.05,lwPx*_sx));
+        pdf.setLineCap('round'); pdf.setLineJoin('round');
+        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':0.45}));
+        const P=s.pts.map(p=>[w2mx(p.x),w2my(p.y)]);
+        if(n===2){
+          pdf.line(P[0][0],P[0][1],P[1][0],P[1][1]);
+        }else{
+          let curX=(P[0][0]+P[1][0])/2, curY=(P[0][1]+P[1][1])/2;
+          const startX=curX, startY=curY;
+          const segs=[];
+          for(let i=1;i<n-1;i++){
+            const Qx=P[i][0], Qy=P[i][1];
+            const P2x=(P[i][0]+P[i+1][0])/2, P2y=(P[i][1]+P[i+1][1])/2;
+            const C1x=curX+2/3*(Qx-curX), C1y=curY+2/3*(Qy-curY);
+            const C2x=P2x+2/3*(Qx-P2x), C2y=P2y+2/3*(Qy-P2y);
+            segs.push([C1x-curX,C1y-curY,C2x-curX,C2y-curY,P2x-curX,P2y-curY]);
+            curX=P2x; curY=P2y;
+          }
+          segs.push([P[n-1][0]-curX, P[n-1][1]-curY]);
+          pdf.lines(segs,startX,startY,[1,1],'S',false);
+        }
+        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':1}));
+      }
+    }
+
+    // ── 9. 寸法（dims）ベクター描画 ──
+    // V1_155: 寸法線・矢印・センターマーク・寸法文字・アンダーバーを全てベクター化。
+    // 矢印はctx.translate+rotate(a.angle)と同じ回転行列を自前計算し絶対座標の三角形
+    // として塗りつぶす。寸法文字はd.worldFontH(作成時の画面表示ズームに依存しない
+    // ワールド座標系での文字高)をDXF文字(doc.moji)と同じ考え方でmm換算し、印刷でも
+    // 判読できるよう最低文字高(DIM_MIN_TEXT_MM)を設ける。
+    // V1_156: 矢印長・矢印幅・寸法線幅・センターマークは、V1_155では固定mm値だった
+    // ため、図面全体をA3用紙に収める縮小率が大きい図面ほど、実寸が小さい寸法
+    // (例:実寸2.75mm相当)で矢印同士・矢印と文字が重なって判読できなくなっていた。
+    // 画面表示ロジック(dimensionTextMode='fixed'時、矢印長=10*fixedRatio px、
+    // fixedRatio=worldFontH*scale/17)と同じ比率関係になるよう、矢印長・矢印幅・
+    // 寸法線幅・センターマーク・文字とのオフセットを全てこの寸法の文字サイズ
+    // (fsMM、worldFontHに比例)基準の相対値に変更した。これにより文字サイズが
+    // 最低文字高(DIM_MIN_TEXT_MM)でクランプされる極小スケールの寸法でも、矢印等が
+    // 連動して相応に小さくなり、重なりを避けやすくなる。
+    if(typeof dims!=='undefined'&&dims.length>0){
+      // V1_158: doc.moji側と同じ理由(密な図面での文字の重なり緩和)により2.2mm→1.1mmへ
+      // V1_159: さらに1.1mm→0.6mmへ(doc.moji側と同じ理由・同じ値)
+      // V1_160: 「寸法の数字が若干PDFにすると小さくなる」との指摘を受け実測PDFを
+      // 解析した結果、寸法値(dims)の文字13個中5個がこの下限(0.6mm)にちょうど
+      // 張り付いており、周囲のDXF文字(黒、この図面では自然サイズが約1.4mm相当)や
+      // 他の寸法値(自然サイズで0.7〜2.3mm相当)より明らかに小さく浮いて見えていた。
+      // dimsは寸法作成時にworldFontHが記録されズーム非依存の一定サイズを意図して
+      // いるため、doc.mojiの下限(0.6mm、密な図面での重なり対策)とは別に、dims
+      // 専用の下限を引き上げてこの見た目の不揃いを解消する
+      const DIM_MIN_TEXT_MM=1.2;
+      const _curPg155b=_curPage();
+      for(const d of dims){
+        if((d.page||1)!==_curPg155b) continue;
+        const [dr,dg,db]=_hpHexColor(d.color);
+        pdf.setDrawColor(dr,dg,db); pdf.setFillColor(dr,dg,db); pdf.setTextColor(dr,dg,db);
+        // V1_156: 画面表示(dimensionTextMode='fixed')の比率(17px基準)をmmへ換算
+        const worldH=d.worldFontH||(17/(scale||1));
+        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5);
+        const lineMM=Math.max(0.05, fsMM/17);
+        const arrowLenMM=fsMM*(10/(17*1.5));
+        const arrowWMM=fsMM*(4/(17*1.5));
+        const gapMM=fsMM*(8/(17*1.5));
+        const centerMarkMM=fsMM*(8/(17*1.5));
+        pdf.setLineWidth(lineMM);
+        pdf.setLineCap('butt'); pdf.setLineJoin('miter');
+        for(const l of (d.lines||[])){
+          pdf.line(w2mx(l.x1),w2my(l.y1),w2mx(l.x2),w2my(l.y2));
+        }
+        for(const a of (d.arrows||[])){
+          const axmm=w2mx(a.x), aymm=w2my(a.y);
+          const p1=_hpRotPt(-arrowLenMM, arrowWMM, a.angle);
+          const p2=_hpRotPt(-arrowLenMM,-arrowWMM, a.angle);
+          pdf.triangle(axmm,aymm, axmm+p1[0],aymm+p1[1], axmm+p2[0],aymm+p2[1], 'F');
+        }
+        if(d.text){
+          // V1_156: 埋め込みフォント未収録の記号(全角チルダ等)を読み飛ばされる前に置換
+          const dtext=_hpFixChars(d.text);
+          const txmm=w2mx(d.tx), tymm=w2my(d.ty);
+          const angleDeg=-(d.tangle||0)*180/Math.PI; // canvasのctx.rotate(d.tangle)と
+                                                       // 同じ見た目になるよう符号反転
+          const off=_hpRotPt(0,-gapMM,d.tangle||0);
+          if(window._notoSansJPBase64){
+            pdf.setFontSize(fsMM*(72/25.4));
+            // V1_157: ASCII(半角英数字記号)とそれ以外(漢字・かな)でフォントを分ける
+            const runs=_hpSplitRuns(dtext);
+            // 中央揃え相当にするため、各ランを正しいフォントで実測した合計幅を求める
+            let totalW=0;
+            for(const run of runs){ _hpSetRunFont(pdf,run.font); totalW+=pdf.getTextWidth(run.text); }
+            const anchorX=txmm+off[0], anchorY=tymm+off[1];
+            const startAdv=_hpPdfAdvance(-totalW/2, angleDeg);
+            let curX=anchorX+startAdv[0], curY=anchorY+startAdv[1];
+            for(const run of runs){
+              _hpSetRunFont(pdf,run.font);
+              const opts={baseline:'bottom'};
+              if(angleDeg) opts.angle=angleDeg;
+              pdf.text(run.text,curX,curY,opts);
+              const rw=pdf.getTextWidth(run.text);
+              const adv=_hpPdfAdvance(rw,angleDeg);
+              curX+=adv[0]; curY+=adv[1];
+            }
+            if(typeof needsUnderbar==='function'&&needsUnderbar(dtext)){
+              const twMM=totalW;
+              const u1=_hpRotPt(-twMM/2,-gapMM+0.3,d.tangle||0);
+              const u2=_hpRotPt( twMM/2,-gapMM+0.3,d.tangle||0);
+              pdf.setLineWidth(Math.max(0.1,fsMM*0.07));
+              pdf.line(txmm+u1[0],tymm+u1[1], txmm+u2[0],tymm+u2[1]);
+              pdf.setLineWidth(lineMM);
+            }
+          }
+        }
+        if(d.centerMark){
+          const cmxmm=w2mx(d.centerMark.cx), cmymm=w2my(d.centerMark.cy);
+          pdf.setLineWidth(lineMM);
+          pdf.line(cmxmm-centerMarkMM,cmymm, cmxmm+centerMarkMM,cmymm);
+          pdf.line(cmxmm,cmymm-centerMarkMM, cmxmm,cmymm+centerMarkMM);
+        }
+      }
+      pdf.setTextColor(0,0,0); pdf.setFillColor(0,0,0);
+    }
+
+    // ── 10. 保存 ──
+    const fname=(currentFileName||'drawing').replace(/\.[^.]+$/,'')+'_hd.pdf';
+    pdf.save(fname);
+    showGuide('HD-PDFを保存しました',2000);
+
+  }catch(err){
+    console.error('[HybridPDF]',err);
+    showGuide('HD-PDF出力に失敗しました: '+err.message,3000);
+  }finally{
+    btn.disabled=false;
+  }
+}
+document.getElementById('hybridPDFBtn').addEventListener('click',exportHybridPDF);
