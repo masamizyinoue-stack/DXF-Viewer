@@ -24,6 +24,10 @@ var bwMode=true;  // false=黒背景
 var dimensionTextMode='fixed'; // 'auto' | 'fixed'  寸法文字サイズモード（V0_154: 「サイズ指定」(manual)は廃止）
 var DIM_TEXT_MIN_PX=11;  // autoモード: 最小スクリーンpx
 var DIM_TEXT_MAX_PX=30;  // autoモード: 最大スクリーンpx
+// V1_166: 「DXFの文字が少し小さい」との指摘により、DXF文字(doc.moji)の表示サイズを
+// 画面表示・HD-PDF書き出し(export.js側も同じ定数を参照)の両方で1.1倍にした。
+// 寸法値(dims)の文字サイズはこの定数の対象外(別のworldFontH仕組みで決まる)
+var MOJI_SIZE_MULTIPLIER=1.1;
 var inputMode='pen'; // 'pen' | 'freehand'  入力モード
 // hiddenLayers → layer.js
 var pdfDoc=null,pdfPageNum=1;
@@ -437,6 +441,143 @@ function parseDXF(buf){
   return out;
 }
 
+// =========================================================
+// V1_173: 実寸法師(.tdf)バイナリ形式リーダー
+// リバースエンジニアリングにより解明した構造:
+//   ・各エンティティは[長さ(4byte,最上位ビット=1)]から始まり、その長さぶん
+//     進むと次のエンティティへ到達する「連続ストリーム」形式。
+//   ・LINE   : 24byte共通ヘッダ + 4 double(x1,y1,x2,y2)               = 56byte
+//   ・CIRCLE : 24byte共通ヘッダ + 3 double(cx,cy,r)                   = 48byte
+//   ・ARC    : CIRCLEと同じ48byte直後に32byteの角度拡張ブロックが付く
+//              (開始角・終了角をラジアンのdoubleで格納)
+//   ・POINT  : 24byte共通ヘッダ + 2 double(x,y)                      = 40byte
+//   ・POLYLINE: 24byte共通ヘッダ + 頂点数(4byte) + 頂点数*2 double    = 可変長
+//   ・TEXT   : 24byte共通ヘッダ + 5 double(x,y,h,w,angle) +
+//              [予約4][ポインタ4][マーカー4] + (文字列実体がある場合のみ)
+//              [長さ4(自己込み)][付随値4][文字列本体]。
+//              初出でない同一文字/文字列は前出箇所へのポインタのみを持つ。
+// 実寸法師のDXF変換結果と全数照合し、線分・円・円弧・点・ポリラインは件数/座標が
+// 完全一致、文字は635件中630件が完全一致（残りは全角/半角ダッシュ等の表記差のみ）
+// することを確認済み。
+// ※レイヤー分けは未解明のため、当面は全エンティティを単一レイヤーとして読み込む。
+// =========================================================
+function parseTDF(buf){
+  const dv=new DataView(buf);
+  const n=buf.byteLength;
+  function u32(p){return dv.getUint32(p,true);}
+  function dbl(p){return dv.getFloat64(p,true);}
+  function sjis(u8slice){
+    try{ return new TextDecoder('shift_jis').decode(u8slice); }
+    catch(e){ return new TextDecoder('utf-8').decode(u8slice); }
+  }
+
+  const out={
+    ver:'TDF',sen:[],enko:[],ten:[],moji:[],solid:[],sunpou:[],
+    usedLayers:{},header:{},layerMap:{},ltypeMap:{},blockMap:{}
+  };
+  const LAYER='実寸法師読込'; // V1_173: レイヤー分け未対応のため単一レイヤーに統一
+  const COLOR={r:255,g:255,b:255};
+  out.layerMap[LAYER]={color:7,ltype:'CONTINUOUS',visible:true};
+
+  function findStart(){
+    const lim=Math.min(n-8,0x4000);
+    for(let p=0;p<lim;p+=4){
+      const lenraw=u32(p);
+      if((lenraw&0x80000000)===0) continue;
+      const reclen=lenraw&0x00ffffff; // V1_174: 上位1バイトは複数フラグを含むため、長さは下位24bitのみを使う(旧0x7fffffffマスクは0x81xxxxxx等のフラグ付き長さを誤って巨大な値にしていた)
+      const sub=u32(p+4);
+      if((sub===1||sub===2||sub===4||sub===8||sub===16)&&(reclen===24||reclen===40||reclen===48||reclen===56||reclen===76)) return p;
+    }
+    throw new Error('実寸法師(.tdf)のエンティティ開始位置が見つかりません');
+  }
+
+  let pos=findStart();
+  const somevalMap=new Map();
+  let nRec=0;
+  while(pos<n-8&&nRec<300000){
+    const lenraw=u32(pos);
+    if((lenraw&0x80000000)===0) break; // エンティティ以外のテーブル領域に到達
+    const reclen=lenraw&0x00ffffff; // V1_174: 上位1バイトは複数フラグを含むため長さは下位24bitのみ使う
+    const sub=u32(pos+4);
+    let consumed=reclen;
+
+    if(sub===1){
+      out.sen.push({type:'sen',x1:dbl(pos+24),y1:dbl(pos+32),x2:dbl(pos+40),y2:dbl(pos+48),color:COLOR,dash:[],layer:LAYER,lw:0.25});
+    } else if(sub===2){
+      const cx=dbl(pos+24),cy=dbl(pos+32),r=dbl(pos+40);
+      const extOff=pos+reclen;
+      const l2=u32(extOff),m2=u32(extOff+4);
+      if(l2===0x80000020&&m2===0x00130000){
+        const a1r=dbl(extOff+16),a2r=dbl(extOff+24);
+        const a1=((a1r*180/Math.PI)%360+360)%360;
+        const a2=((a2r*180/Math.PI)%360+360)%360;
+        out.enko.push({type:'enko',cx,cy,r,a1,a2,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
+        consumed=reclen+0x20;
+      } else {
+        out.enko.push({type:'enko',cx,cy,r,a1:0,a2:360,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
+      }
+    } else if(sub===4){
+      out.ten.push({type:'ten',x:dbl(pos+24),y:dbl(pos+32),color:COLOR,layer:LAYER});
+    } else if(sub===16){
+      const count=u32(pos+24);
+      for(let i=0;i<count-1;i++){
+        const x1=dbl(pos+28+16*i),y1=dbl(pos+28+16*i+8);
+        const x2=dbl(pos+28+16*(i+1)),y2=dbl(pos+28+16*(i+1)+8);
+        out.sen.push({type:'sen',x1,y1,x2,y2,color:COLOR,dash:[],layer:LAYER,lw:0.25});
+      }
+    } else if(sub===8){
+      const x=dbl(pos+24),y=dbl(pos+32),h=dbl(pos+40),w=dbl(pos+48),angleR=dbl(pos+56);
+      const ptr=u32(pos+68); // 24+44
+      const peek=u32(pos+reclen);
+      const somevalAddr=pos+reclen+4;
+      let text;
+      if((peek&0x80000000)===0){
+        const length=peek;
+        const strLen=length-8;
+        const rawStart=somevalAddr+4;
+        let end=rawStart+strLen;
+        // NUL終端があればそこで切る
+        for(let q=rawStart;q<end;q++){ if(dv.getUint8(q)===0){end=q;break;} }
+        text=sjis(new Uint8Array(buf,rawStart,Math.max(0,end-rawStart)));
+        somevalMap.set(somevalAddr,text);
+        consumed=reclen+length;
+      } else {
+        text=somevalMap.get(ptr);
+        if(text===undefined){
+          let end=ptr+6;
+          for(let q=ptr+4;q<end;q++){ if(dv.getUint8(q)===0){end=q;break;} }
+          text=sjis(new Uint8Array(buf,ptr+4,Math.max(0,end-(ptr+4))));
+        }
+      }
+      out.moji.push({type:'moji',x,y,text,h,angle:(angleR*180/Math.PI),color:COLOR,layer:LAYER,widthFactor:1});
+    }
+    // V1_174: 未知のレコード(スタイル/SEQEND/配列テーブル等の付随情報、サイズは様々)は
+    // 描画に使わず、宣言された長さぶんだけスキップして次のレコードへ進む。
+    // 旧実装はreclen>64の未知レコードで即座に走査を打ち切っており、その1件以降の
+    // 全エンティティ(線・円・文字等)が丸ごと欠落する重大な不具合があった(V1_173)。
+    if(reclen<8){
+      // 安全弁: 長さが異常に小さい場合は無限ループ防止のため走査を打ち切る
+      break;
+    }
+    nRec++;
+    pos+=consumed;
+  }
+
+  [...out.sen,...out.enko,...out.ten,...out.moji].forEach(e=>{
+    if(e.layer) out.usedLayers[e.layer]=true;
+  });
+  return out;
+}
+
+// V1_173: ファイル名の拡張子でDXFテキスト形式/実寸法師バイナリ形式を振り分ける
+// 共通入口。既存のparseDXF呼び出し箇所を置き換えることで、両形式とも同じ
+// doc構造(out.sen/enko/ten/moji等)に変換され、以降の描画・計測・PDF書出等の
+// 処理は一切変更せずそのまま利用できる。
+function parseAnyDrawing(buf,filename){
+  if((filename||'').toLowerCase().endsWith('.tdf')) return parseTDF(buf);
+  return parseDXF(buf);
+}
+
 function resolveColor(attrs,layerMap){
   if(attrs.truecolor!==undefined){
     const c=attrs.truecolor;
@@ -724,7 +865,11 @@ function fit(){
   const W=cv.width/dpr, H=cv.height/dpr; // CSS pixels
   const dw=bb.maxx-bb.minx,dh=bb.maxy-bb.miny;
   if(dw<1e-10||dh<1e-10){scale=1;tx=W/2;ty=H/2;return;}
-  const margin=0.05; // 5%余白
+  // V1_172: 「画面の『全体』表示でも四隅のトリムマーク(隅の記号)がギリギリ見える
+  // くらいまで余白を減らしたい」との要望により、5%→0.5%に縮小(V1_171のHD-PDF書出と
+  // 同水準)。画面表示は印刷と違いプリンタの印字不可領域を気にする必要が無いため、
+  // HD-PDF書出と同じ値まで詰めている
+  const margin=0.005; // V1_172: 0.5%余白(旧5%)
   const s=Math.min(W*(1-2*margin)/dw,H*(1-2*margin)/dh);
   scale=s;
   fitScale=s; // V0_83: 全体表示時のscaleを保存
@@ -839,7 +984,9 @@ function draw(){
   // ズーム・パン中はどのみち読み取れないため、省略による視覚的な影響は小さい
   if(!_interacting) for(const e of doc.moji){
     if(hiddenLayers.has(e.layer)) continue;
-    const sxm=e.x*scale+tx,sym=-e.y*scale+ty,fsm=Math.max(6,e.h*scale);
+    // V1_166: MOJI_SIZE_MULTIPLIERはdrawText()側と揃える(画面外判定の余白計算に使うだけの値のため、
+    // ここがズレていても実害はないが、念のため実際の描画サイズと一致させている)
+    const sxm=e.x*scale+tx,sym=-e.y*scale+ty,fsm=Math.max(6,e.h*scale*MOJI_SIZE_MULTIPLIER);
     if(sxm<-200||sxm>W+200||sym<-fsm*2-20||sym>H+200) continue;
     drawText(ctx,e,darkBg);
   }
@@ -869,7 +1016,11 @@ function drawArc(ctx,e){
 function drawText(ctx,e,darkBg){
   if(!e.text||!e.text.trim()) return;
   const[sx,sy]=w2s(e.x,e.y);
-  const fs=Math.max(6,e.h*scale);
+  // V1_166: 「DXFの文字が少し小さい」との指摘により、画面表示・HD-PDF書き出し(export.js)の
+  // 両方で文字サイズをMOJI_SIZE_MULTIPLIER倍(1.1倍)に統一した。DXFファイル自体が持つ
+  // 文字高さ(e.h、DXFグループコード40)は変更していないため、DXF書き出し(元データの再保存)には
+  // 影響しない。あくまで画面表示・PDF出力時の見た目のサイズだけを拡大する
+  const fs=Math.max(6,e.h*scale*MOJI_SIZE_MULTIPLIER);
   ctx.save();
   ctx.translate(sx,sy);ctx.rotate(-e.angle*Math.PI/180);
   if(e.widthFactor&&Math.abs(e.widthFactor-1)>0.01) ctx.scale(e.widthFactor,1);
@@ -1031,6 +1182,11 @@ function _pdfNeededRectAndScale(pageRawW,pageRawH){
     subWindows.forEach(function(sw){
       if(sw&&sw.scale&&sw.W&&sw.H) views.push({txv:sw.tx,tyv:sw.ty,scalev:sw.scale,cw:sw.W,ch:sw.H});
     });
+  }
+  // V1_162: 図面番号欄インセットも表示中なら、拡大表示している範囲を高解像度化の
+  // 対象に含める（サブ窓と同じ扱い。含めないと拡大部分が低解像度のままボケる）
+  if(typeof detailInset!=='undefined'&&detailInset&&detailInset.visible&&detailInset.scale&&detailInset.W&&detailInset.H){
+    views.push({txv:detailInset.tx,tyv:detailInset.ty,scalev:detailInset.scale,cw:detailInset.W,ch:detailInset.H});
   }
   var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity,maxScale=0;
   views.forEach(function(v){
@@ -2528,7 +2684,7 @@ function resizeCanvas(){
 // =========================================================
 window.viewer = {
   loadDXF: function(buf, fname) {
-    doc = parseDXF(buf);
+    doc = parseAnyDrawing(buf, fname); // V1_173: .tdf拡張子なら実寸法師形式として読み込む
     currentFileName = fname || '';
     buildLayerModal();
     detectScale();

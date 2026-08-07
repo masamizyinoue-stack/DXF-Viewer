@@ -25,7 +25,9 @@ function _showMemMenu(idx,anchorBtn){
     // V0_160: savedViewsはファイル横断のグローバル項目。上書き保存時も現在ファイルの
     // fileKey/fileNameを記録し直す（表示時にどのファイルへ切り替えるか判定するため）
     var _fk160=(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])?openFiles[currentFileIdx].fileKey:null;
-    savedViews[idx]={tx:tx,ty:ty,scale:scale,fileKey:_fk160,fileName:(typeof currentFileName!=='undefined'?currentFileName:null)};
+    // V1_161: 複数ページPDFで「今見ていたページ」も上書き保存時に記憶し直す
+    var _pnOvr161=(typeof pdfDoc!=='undefined'&&pdfDoc&&typeof pdfPageNum!=='undefined')?pdfPageNum:null;
+    savedViews[idx]={tx:tx,ty:ty,scale:scale,fileKey:_fk160,fileName:(typeof currentFileName!=='undefined'?currentFileName:null),pdfPageNum:_pnOvr161};
     updateViewmemoState(idx);scheduleSave();if(typeof verify==='function')verify('savedViews変更',{slot:idx,action:'overwrite'});
     closeMenu();showGuide('記憶'+(idx+1)+'を上書き保存しました',1500);
   };
@@ -79,6 +81,73 @@ function _showPageJumpDialog(anchorEl){
   setTimeout(function(){document.addEventListener('click',function _dc(ev){
     if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
   });},10);
+}
+
+// =========================================================
+// V1_190: PDFを開いている時の「HD-PDF書出」用ページ選択ダイアログ。
+// アップロードされたM_Viewer(V7.09、参考実装)の「現在のページ/全ページ」クイック
+// ボタン+範囲テキスト入力(例: 1-3,5)方式を、本アプリの既存ダイアログ配色・構造
+// (_showPageJumpDialog等)に合わせて実装したもの。
+// 依存関数: _parsePageRange190(本ファイル), showGuide (ui.js)
+// =========================================================
+function _showPdfHdExportPageDialog190(anchorEl,onConfirm){
+  if(!pdfDoc) return;
+  var existing=document.getElementById('_pdfHdPageMenu190');
+  if(existing){existing.remove();return;}
+  var total=pdfDoc.numPages;
+  var menu=document.createElement('div');
+  menu.id='_pdfHdPageMenu190';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.right=Math.max(4,window.innerWidth-r.right)+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">HD-PDF書出 — ページ指定（全'+total+'ページ）</div>'
+    +'<div style="display:flex;gap:7px;">'
+    +'<button type="button" id="_pdfHdCur190" style="flex:1;background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:9px 4px;font-size:12px;cursor:pointer;">現在のページ</button>'
+    +'<button type="button" id="_pdfHdAll190" style="flex:1;background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:9px 4px;font-size:12px;cursor:pointer;">全ページ</button>'
+    +'</div>'
+    +'<input type="text" id="_pdfHdRangeInput190" placeholder="例: 1, 1-5, 1,3,5-8" style="width:100%;box-sizing:border-box;padding:10px;border-radius:9px;font-size:15px;background:#0a0c10;color:#eee;border:1px solid #2a3040;text-align:center">'
+    +'<button id="_pdfHdGo190" style="background:#1a7a3a;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;cursor:pointer;">出力</button>'
+    +'<button id="_pdfHdCnl190" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_pdfHdPageMenu190'))menu.remove();}
+  var inp=document.getElementById('_pdfHdRangeInput190');
+  document.getElementById('_pdfHdCur190').onclick=function(){inp.value=String(pdfPageNum);};
+  document.getElementById('_pdfHdAll190').onclick=function(){inp.value='1-'+total;};
+  function doGo(){
+    var pages=_parsePageRange190(inp.value.trim(),total);
+    if(!pages.length){showGuide('ページ指定が無効です',2000);return;}
+    closeMenu();
+    onConfirm(pages);
+  }
+  document.getElementById('_pdfHdGo190').onclick=doGo;
+  inp.addEventListener('keydown',function(ev){if(ev.key==='Enter'){ev.preventDefault();doGo();}});
+  document.getElementById('_pdfHdCnl190').onclick=closeMenu;
+  inp.focus();
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
+
+// V1_190: ページ範囲文字列("1, 1-5, 1,3,5-8"形式)を解析してページ番号配列を返す。
+// M_Viewer(参考実装)と同じ記法・仕様(範囲外・不正値は無視、重複除去、昇順ソート)
+function _parsePageRange190(str,total){
+  var pages=[],seen={};
+  (str||'').split(',').forEach(function(s){
+    s=s.trim();
+    if(!s) return;
+    if(s.indexOf('-')>=0){
+      var parts=s.split('-');
+      var a=parseInt(parts[0],10), b=parseInt(parts[1],10);
+      if(isNaN(a)||isNaN(b)) return;
+      for(var i=Math.max(1,a);i<=Math.min(total,b);i++){ if(!seen[i]){seen[i]=true;pages.push(i);} }
+    } else {
+      var n=parseInt(s,10);
+      if(n>=1&&n<=total&&!seen[n]){ seen[n]=true; pages.push(n); }
+    }
+  });
+  pages.sort(function(a,b){return a-b;});
+  return pages;
 }
 
 // =========================================================
@@ -363,6 +432,28 @@ function _showOpenFilesListMenu(anchorEl){
   listBody.style.cssText='display:flex;flex-direction:column;gap:2px;';
   listWrap.appendChild(listBody);
 
+  // V1_182: 複数選択したファイルへの一括「HD-PDF書出」「バックアップ」ボタン。
+  // どちらもファイルを閉じない(選択したタブを閉じるボタンとは独立)。
+  // exportHybridPDF/exportDxfviewManualはいずれもグローバル変数(doc/strokes/dims/
+  // currentFileName等)を直接参照する実装のため、switchToFile(idx)で対象タブに
+  // 切り替えた直後にそのまま呼び出せば、そのタブのデータを正しく処理できる
+  // (switchToFileは同期関数でありrAFの描画完了を待つ必要はない)
+  var batchRow=document.createElement('div');
+  batchRow.style.cssText='display:flex;gap:6px;margin-top:4px;flex-shrink:0;';
+  var batchPdfBtn=document.createElement('button');
+  batchPdfBtn.type='button';
+  batchPdfBtn.disabled=true;
+  batchPdfBtn.style.cssText='flex:1;background:#f1c40f;color:#000;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;';
+  batchPdfBtn.textContent='HD-PDF書出';
+  var batchBackupBtn=document.createElement('button');
+  batchBackupBtn.type='button';
+  batchBackupBtn.disabled=true;
+  batchBackupBtn.style.cssText='flex:1;background:#fff;color:#000;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;';
+  batchBackupBtn.textContent='バックアップ';
+  batchRow.appendChild(batchPdfBtn);
+  batchRow.appendChild(batchBackupBtn);
+  menu.appendChild(batchRow);
+
   var closeSelBtn=document.createElement('button');
   closeSelBtn.type='button';
   closeSelBtn.disabled=true;
@@ -393,6 +484,13 @@ function _showOpenFilesListMenu(anchorEl){
     closeSelBtn.disabled=(n===0);
     closeSelBtn.style.opacity=(n===0)?'.5':'1';
     closeSelBtn.textContent=(n===0)?'選択したタブを閉じる':('選択した'+n+'件を閉じる');
+    // V1_182: HD-PDF書出/バックアップボタンの有効/無効・件数表示もここで一緒に更新する
+    batchPdfBtn.disabled=(n===0);
+    batchPdfBtn.style.opacity=(n===0)?'.5':'1';
+    batchPdfBtn.textContent=(n===0)?'HD-PDF書出':('HD-PDF書出('+n+'件)');
+    batchBackupBtn.disabled=(n===0);
+    batchBackupBtn.style.opacity=(n===0)?'.5':'1';
+    batchBackupBtn.textContent=(n===0)?'バックアップ':('バックアップ('+n+'件)');
     updateSelectAllCb();
   }
   closeSelBtn.onclick=function(){
@@ -408,6 +506,45 @@ function _showOpenFilesListMenu(anchorEl){
     idxs.forEach(function(i){ if(typeof doCloseTab==='function') doCloseTab(i); });
     closeMenu();
     if(typeof showGuide==='function') showGuide(idxs.length+'件のタブを閉じました',2000);
+  };
+
+  // V1_182: 選択したfileKey群を、閉じるたびにインデックスがずれても正しく引けるよう
+  // 都度openFiles内のインデックスへ変換する共通処理
+  function _selectedIdxs182(){
+    var keys=Array.from(selected);
+    return keys.map(function(k){return openFiles.findIndex(function(x){return x.fileKey===k;});})
+      .filter(function(i){return i>=0;});
+  }
+  // V1_183: 複数選択時のHD-PDF書出/バックアップは、以前は1件ずつ個別に保存(pdf.save/
+  // showSaveFilePicker等)していたが、iOS Safari等のブラウザは「1回のユーザー操作につき
+  // 1回」しか保存/共有を許可しないため、1件目しか保存されず2件目以降が出てこない不具合が
+  // あった。export.js側にexportHybridPDFBatch183/exportDxfviewManualBatch183を新設し、
+  // 各ファイルの生成物をいったん集めて1つのZIPにまとめ、保存自体は1回だけ行うようにした
+  batchPdfBtn.onclick=function(){
+    if(selected.size===0) return;
+    var n=selected.size;
+    if(!confirm('選択した'+n+'件をHD-PDF書出します。よろしいですか？')) return;
+    var idxs=_selectedIdxs182();
+    closeMenu();
+    if(typeof exportHybridPDFBatch183!=='function') return;
+    exportHybridPDFBatch183(idxs).then(function(res){
+      if(typeof showGuide==='function'){
+        showGuide('HD-PDF書出完了: '+res.count+'件'+(res.skipped>0?(' (データなし等で'+res.skipped+'件スキップ)'):''),3000);
+      }
+    });
+  };
+  batchBackupBtn.onclick=function(){
+    if(selected.size===0) return;
+    var n=selected.size;
+    if(!confirm('選択した'+n+'件をバックアップします。よろしいですか？')) return;
+    var idxs=_selectedIdxs182();
+    closeMenu();
+    if(typeof exportDxfviewManualBatch183!=='function') return;
+    exportDxfviewManualBatch183(idxs).then(function(res){
+      if(typeof showGuide==='function'){
+        showGuide('バックアップ完了: '+res.count+'件'+(res.skipped>0?(' (データなし等で'+res.skipped+'件スキップ)'):''),3000);
+      }
+    });
   };
 
   function renderList(){

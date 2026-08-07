@@ -100,8 +100,10 @@ function doSave(){
       var _pnSv=1;try{if(typeof pdfPageNum!=='undefined')_pnSv=pdfPageNum;}catch(e){}
       _cfsv.pdfPageNum=_pnSv;
       _cfsv.currentFileName=currentFileName;_cfsv.fileSize=currentFileSize;
+      if(typeof _diSyncStateToFile==='function') _diSyncStateToFile(); // V1_162: 図面番号欄インセットの状態も同期
     }
     const sd=parseFloat(document.getElementById('scaleDenom').value)||1;
+    const _insetSv162=(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])?(openFiles[currentFileIdx].insetState||null):null;
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       strokes,dims,savedViews,tx,ty,scale,fitScale,
       bwMode,scaleDenom:sd,hiddenLayers:[...hiddenLayers],
@@ -109,7 +111,8 @@ function doSave(){
       fileKey:(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null),
       currentHL_Color,currentHL_LW,currentDimColor,
       dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
-      pdfPageNum:(typeof pdfPageNum!=='undefined'?pdfPageNum:1) // V0_135: PDFページ番号保存
+      pdfPageNum:(typeof pdfPageNum!=='undefined'?pdfPageNum:1), // V0_135: PDFページ番号保存
+      insetState:_insetSv162 // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
     }));
     // V0_112: マルチファイル保存
     if(typeof openFiles!=='undefined'&&openFiles.length>1&&typeof openFilesBufs!=='undefined'){
@@ -123,7 +126,8 @@ function doSave(){
           fileSize:f.fileSize||0,scaleDenom:sd,
           isPDF:!!(f.pdfDoc||f.pdfImage),
           isExcel:!!f.excelWb, excelSheetIdx:f.excelSheetIdx||0, // V1_76
-          pdfPageNum:f.pdfPageNum||1 // V0_135: PDFページ番号保存
+          pdfPageNum:f.pdfPageNum||1, // V0_135: PDFページ番号保存
+          insetState:f.insetState||null // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
         };
       });
       // V0_114: DXFバイナリはIndexedDBへ保存（サイズ制限・容量制限なし）
@@ -212,7 +216,8 @@ async function tryRestore(){
                 savedViews:_sv3,
                 hiddenLayersArr:_mf.hiddenLayersArr||[],
                 tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
-                fileSize:_mf.fileSize||0
+                fileSize:_mf.fileSize||0,
+                insetState:_mf.insetState||null // V1_162: 図面番号欄インセット
               };
               if(_i===_md.currentFileIdx) _activeLocal=_restored.length;
               _restored.push(_fstP);
@@ -244,7 +249,8 @@ async function tryRestore(){
                 savedViews:_sv4,
                 hiddenLayersArr:_mf.hiddenLayersArr||[],
                 tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
-                fileSize:_mf.fileSize||0
+                fileSize:_mf.fileSize||0,
+                insetState:_mf.insetState||null // V1_162: 図面番号欄インセット
               };
               if(_i===_md.currentFileIdx) _activeLocal=_restored.length;
               _restored.push(_fstX);
@@ -253,7 +259,7 @@ async function tryRestore(){
             continue;
           }
           try{
-            var _pdoc=parseDXF(_buf2);
+            var _pdoc=parseAnyDrawing(_buf2,_mf.currentFileName||_mf.name); // V1_173: .tdf対応
             var _sv=(_mf.savedViews||[]).slice();
             while(_sv.length<5)_sv.push(null);
             var _fst={
@@ -267,7 +273,8 @@ async function tryRestore(){
               savedViews:_sv, // V0_160: 参照のみ残す（もはや読み出しには使わない。後方互換のため保持）
               hiddenLayersArr:_mf.hiddenLayersArr||[],
               tx:_mf.tx||0,ty:_mf.ty||0,scale:_mf.scale||1,fitScale:_mf.fitScale||1,
-              fileSize:_mf.fileSize||0
+              fileSize:_mf.fileSize||0,
+              insetState:_mf.insetState||null // V1_162: 図面番号欄インセット
             };
             if(_i===_md.currentFileIdx) _activeLocal=_restored.length;
             _restored.push(_fst);
@@ -359,6 +366,7 @@ async function tryRestore(){
           scheduleDraw();scheduleOverlay();updateUndoRedo();
           if(typeof buildSearchIndex==='function')buildSearchIndex();
           if(typeof updateFileNavUI==='function')updateFileNavUI();
+          if(typeof _diApplyStateFromFile==='function')_diApplyStateFromFile(); // V1_162: 図面番号欄インセットを復元
           _multiOk=true;
         }
       }
@@ -383,7 +391,7 @@ async function tryRestore(){
         } else if(typeof _isExcelName==='function'&&_isExcelName(_sfName)){ // V1_76
           loadExcel(_restoreBuf,_sfName.toLowerCase().endsWith('.csv')); // V1_106: CSVは文字コード自動判定させる
         } else {
-          doc=parseDXF(_restoreBuf);detectScale();
+          doc=parseAnyDrawing(_restoreBuf,_sfName);detectScale(); // V1_173: .tdf対応
         }
         const nd=document.getElementById('noDrawingMsg');if(nd)nd.style.display='none';
         updateFileNameDisplay();
@@ -450,8 +458,9 @@ async function tryRestore(){
       currentFileIdx=0;
       if(typeof openFilesBufs!=='undefined'&&_restoreBuf) openFilesBufs[0]=_restoreBuf; // V0_112
       // V0_140: saveCurrentFileState廃止 → strokes/dims/images/savedViewsを参照として設定
-      {var _singleF=openFiles[0];_singleF.strokes=strokes;_singleF.dims=dims;_singleF.images=typeof images!=='undefined'?images:[];_singleF.savedViews=savedViews;_singleF.doc=doc;_singleF.hiddenLayersArr=Array.from(hiddenLayers);_singleF.tx=tx;_singleF.ty=ty;_singleF.scale=scale;_singleF.fitScale=fitScale;_singleF.currentFileName=currentFileName;_singleF.fileSize=currentFileSize;_singleF.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_singleF.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0);}
+      {var _singleF=openFiles[0];_singleF.strokes=strokes;_singleF.dims=dims;_singleF.images=typeof images!=='undefined'?images:[];_singleF.savedViews=savedViews;_singleF.doc=doc;_singleF.hiddenLayersArr=Array.from(hiddenLayers);_singleF.tx=tx;_singleF.ty=ty;_singleF.scale=scale;_singleF.fitScale=fitScale;_singleF.currentFileName=currentFileName;_singleF.fileSize=currentFileSize;_singleF.excelWb=(typeof excelWb!=='undefined'?excelWb:null);_singleF.excelSheetIdx=(typeof excelSheetIdx!=='undefined'?excelSheetIdx:0);_singleF.insetState=d.insetState||null;} // V1_162: 図面番号欄インセット
       if(typeof updateFileNavUI==='function') updateFileNavUI();
+      if(typeof _diApplyStateFromFile==='function') _diApplyStateFromFile(); // V1_162: 図面番号欄インセットを復元
     }
   }catch(e){}
   if(typeof verify==='function')verify('tryRestore:done');
