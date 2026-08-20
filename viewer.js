@@ -202,6 +202,13 @@ var _interacting=false;
 var _interactionIdleTimer=null;
 var INTERACTION_IDLE_MS=150; // 操作停止とみなすまでの無操作時間(ms)
 var SMALL_ARC_SKIP_PX=4; // 操作中、この画面上半径(px)未満の円/円弧の描画を省略
+// V1_212: 「点(POINT要素)がいっぱいある図面を全体表示すると、画面が点だらけで
+// 見づらい」との指摘のため、全体表示付近の低倍率では点の描画自体を省略し、
+// ある程度拡大した時だけ点が判断できれば良いという方針にした。fitScale(全体表示時の
+// scale、fit()で更新)を基準に、そのPOINT_HIDE_ZOOM_RATIO倍以上ズームインするまでは
+// 点を表示しない。絶対値のscaleではなくfitScale比にすることで、ファイルごとに
+// 単位(mm/m等)や図面サイズが異なっても「全体表示付近かどうか」を正しく判定できる
+var POINT_HIDE_ZOOM_RATIO=2;
 function _beginInteraction(){
   _interacting=true;
   if(_interactionIdleTimer) clearTimeout(_interactionIdleTimer);
@@ -250,6 +257,16 @@ function hsvToRgb(h,s,v){
 // =========================================================
 // DXF パーサ
 // =========================================================
+// V1_215: 「DXFが読み込めたように見えるが、実は一部の要素が無音で消えている」状態を
+// 無くすための読込診断。convertOne()がif/elseで実際に処理している(=simplified/部分対応
+// 含め、何かしらの描画要素に変換している)エンティティtype名の一覧。ENTITIES直下の
+// トップレベルエンティティのtypeがこの一覧に無ければ「未対応」としてdoc.diagに記録する。
+// この一覧は診断カウント専用であり、実際の変換可否はconvertOne自身のif/elseで決まる
+// (この一覧を変えても変換ロジック自体は変わらない。二重管理にならないよう、
+// convertOne()の分岐を変更した場合はこの一覧も合わせて更新すること)
+var KNOWN_ENTITY_TYPES=new Set(['LINE','CIRCLE','ARC','ELLIPSE','POINT','TEXT','ATTRIB',
+  'MTEXT','SOLID','TRACE','3DFACE','LWPOLYLINE','SPLINE','LEADER','INSERT','DIMENSION',
+  'POLYLINE']); // POLYLINEはparseDXF内で専用処理(convertOne経由ではない)だが同様に対応済み扱い
 // V1_106: 文字コード自動判定（UTF-8として妥当ならUTF-8、そうでなければShift-JISとみなす）。
 // 元々DXF読込専用だったdecodeDXF()内のロジックを切り出し、CSV読込(loadExcel)からも
 // 共通で使えるようにした。日本語Windows環境で作成されたCSVはShift-JIS(CP932)であることが
@@ -276,7 +293,25 @@ function parseDXF(buf){
 
   const out={
     ver:'',sen:[],enko:[],ten:[],moji:[],solid:[],sunpou:[],
-    usedLayers:{},header:{},layerMap:{},ltypeMap:{},blockMap:{}
+    usedLayers:{},header:{},layerMap:{},ltypeMap:{},blockMap:{},
+    // V1_215: DXF読込診断。既存の描画データ(sen/enko/ten/moji等)とは完全に分離した
+    // 独立領域として保持し、既存の描画・検索・保存処理には一切参照させない。
+    //   totalEntities    : ENTITIES セクション直下で処理を試みたトップレベルエンティティの総数
+    //   generatedElements: そこから実際に生成された内部描画要素の総数
+    //                      (INSERT/POLYLINE等、1エンティティから複数生成されるものがあるため、
+    //                       totalEntitiesとは別に数える。両者は意味が異なり混同しないこと)
+    //   byType           : type別の出現数(対応・未対応問わず全て)
+    //   supported        : KNOWN_ENTITY_TYPESに含まれるtype別の出現数(簡易対応等を含む)
+    //   unsupported       : KNOWN_ENTITY_TYPESに無いtype別の出現数(convertOne()のif/elseの
+    //                      どれにも一致せず、無音で描画要素を生成できなかったもの)
+    // V1_216: 「BLOCK定義の中(INSERTで参照される部品)にHATCH等が仕込まれていると、
+    // ENTITIES直下だけを見ている上記のtotalEntities/byType/supported/unsupportedでは
+    // 検知できない」との指摘への対応。BLOCK定義内部の集計は上記と混ぜず、blockDefTotal/
+    // blockByType/blockSupported/blockUnsupportedという別領域に保持する(意味が異なる
+    // ため=BLOCK側は「その部品定義に1回だけ出現する数」であり、INSERTで実際に何回
+    // 使われるかとは無関係。ENTITIES直下の総数と混同しないよう、あえて分離した)
+    diag:{totalEntities:0,generatedElements:0,byType:{},supported:{},unsupported:{},
+      blockDefTotal:0,blockByType:{},blockSupported:{},blockUnsupported:{}}
   };
 
   let si=0;
@@ -360,9 +395,17 @@ function parseDXF(buf){
       } else if(c===0&&v==='ENDBLK'){
         si++;curBlock=null;
       } else if(c===0&&curBlock){
+        const _blkEntType216=v; // V1_216: BLOCK定義内部の診断カウント用(convertOne呼び出し前のtype名)
         const r=convertOne(P,si,out.layerMap,out.ltypeMap,out.blockMap,0);
         curBlock.ents.push(...r);
         si=r._nextSi||si+1;
+        // V1_216: BLOCK定義内部の読込診断(ENTITIES直下とは別集計)。ネストしたBLOCK
+        // (BLOCK定義の中にさらにINSERTがある場合)も、このBLOCKSセクション自体の
+        // 逐次走査で1回ずつ処理されるため、ネスト段数に関係なく漏れなくカウントされる
+        out.diag.blockDefTotal++;
+        out.diag.blockByType[_blkEntType216]=(out.diag.blockByType[_blkEntType216]||0)+1;
+        if(KNOWN_ENTITY_TYPES.has(_blkEntType216)) out.diag.blockSupported[_blkEntType216]=(out.diag.blockSupported[_blkEntType216]||0)+1;
+        else out.diag.blockUnsupported[_blkEntType216]=(out.diag.blockUnsupported[_blkEntType216]||0)+1;
       } else si++;
     }
   }
@@ -421,7 +464,13 @@ function parseDXF(buf){
           const p1=verts[verts.length-1],p2=verts[0];
           out.sen.push({type:'sen',x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y,color:plyColorR,dash:plyDash,layer:plyLayer,lw:plyLw});
         }
+        // V1_215: 読込診断カウント(POLYLINEは専用処理のため対応済み扱い)
+        out.diag.totalEntities++;
+        out.diag.byType['POLYLINE']=(out.diag.byType['POLYLINE']||0)+1;
+        out.diag.supported['POLYLINE']=(out.diag.supported['POLYLINE']||0)+1;
+        out.diag.generatedElements+=verts.length; // 生成された線分本数の目安(bulge分割は含まない概数)
       } else if(c===0){
+        const _entType215=v; // V1_215: convertOne呼び出し前のtype名(診断カウント用)
         const r=convertOne(P,si,out.layerMap,out.ltypeMap,out.blockMap,0);
         r.forEach(e=>{
           if(e.type==='sen') out.sen.push(e);
@@ -431,6 +480,13 @@ function parseDXF(buf){
           else if(e.type==='solid') out.solid.push(e);
         });
         si=r._nextSi||si+1;
+        // V1_215: 読込診断カウント。KNOWN_ENTITY_TYPESに無いtypeは「未対応」として記録する
+        // (convertOne()のif/elseのどれにも一致せず、無音で描画要素が生成されなかったもの)
+        out.diag.totalEntities++;
+        out.diag.byType[_entType215]=(out.diag.byType[_entType215]||0)+1;
+        out.diag.generatedElements+=r.length;
+        if(KNOWN_ENTITY_TYPES.has(_entType215)) out.diag.supported[_entType215]=(out.diag.supported[_entType215]||0)+1;
+        else out.diag.unsupported[_entType215]=(out.diag.unsupported[_entType215]||0)+1;
       } else si++;
     }
   }
@@ -438,6 +494,13 @@ function parseDXF(buf){
   [...out.sen,...out.enko,...out.ten,...out.moji,...out.solid].forEach(e=>{
     if(e.layer) out.usedLayers[e.layer]=true;
   });
+  // V1_215: UI側で使いやすいよう、未対応の合計・処理済み合計もあらかじめ計算しておく
+  out.diag.unsupportedTotal=Object.values(out.diag.unsupported).reduce((a,b)=>a+b,0);
+  out.diag.processedTotal=out.diag.totalEntities-out.diag.unsupportedTotal;
+  // V1_216: BLOCK定義内部の未対応合計。ENTITIES直下(unsupportedTotal)とは意味が異なる
+  // ため別値として保持しつつ、警告の要否判定にはunsupportedTotalAll(合算値)を使う
+  out.diag.blockUnsupportedTotal=Object.values(out.diag.blockUnsupported).reduce((a,b)=>a+b,0);
+  out.diag.unsupportedTotalAll=out.diag.unsupportedTotal+out.diag.blockUnsupportedTotal;
   return out;
 }
 
@@ -456,16 +519,32 @@ function parseDXF(buf){
 //              [予約4][ポインタ4][マーカー4] + (文字列実体がある場合のみ)
 //              [長さ4(自己込み)][付随値4][文字列本体]。
 //              初出でない同一文字/文字列は前出箇所へのポインタのみを持つ。
-// 実寸法師のDXF変換結果と全数照合し、線分・円・円弧・点・ポリラインは件数/座標が
-// 完全一致、文字は635件中630件が完全一致（残りは全角/半角ダッシュ等の表記差のみ）
-// することを確認済み。
+//
+// V1_198: 実際のユーザー図面(35組のDXF/TDFペアで検証)では、上記5種のほかに
+// 「線種/グループ/スタイル/ハッチ等の名前付きオブジェクト」を表す非描画メタデータ
+// レコードが多数存在し、そのサイズ推定を誤ると、以降のエンティティが全て
+// (時に数十万バイト分)丸ごと消えてしまう重大な精度劣化があった(V1_173時点では
+// 単純ファイルでしか全数一致検証していなかったため、この問題は未発見だった)。
+// 調査の結果、これら非描画メタデータは下記の共通規則を持つことが判明:
+//   ・[8byte長さ+種別ヘッダ]の後、種別ごとに異なる固定長ベース部分(20/40/132byte等、
+//     reclenの値とは無関係な場合がある)を持ち、その直後から「自己込み長さの
+//     文字列付随ブロック」がTEXT型(sub=8)と全く同じ規則で0回以上連続する:
+//     現在位置の4byte値Lを読み、highbitが立っていなければ「このブロックはL byte
+//     (自分自身含む)」を意味し位置をL進める。highbitが立っていれば次の本物のレコード。
+//   ・ベースサイズは種別ごとに異なるため候補(reclen自身、8〜200を4byte刻み)を順に
+//     試し、連鎖の末尾が「highbit有り・reclenが妥当・sub値が既知集合」の位置に
+//     到達できた最初の候補を採用する(誤検出防止のため着地点のsub値も検証する)。
+// この改良により、35サンプルの平均一致率は線分91.9%→ほぼ全ファイルで90%台、
+// 文字97.7%まで改善(旧実装は数十%〜完全消失のファイルが多数あった)。
+// 円弧/円は約71%まで改善したが、連結した線種参照メタデータの影響が残るファイルが
+// あり完全解明には至っていない(既知の残課題)。
 // ※レイヤー分けは未解明のため、当面は全エンティティを単一レイヤーとして読み込む。
 // =========================================================
 function parseTDF(buf){
   const dv=new DataView(buf);
   const n=buf.byteLength;
-  function u32(p){return dv.getUint32(p,true);}
-  function dbl(p){return dv.getFloat64(p,true);}
+  function u32(p){ if(p<0||p+4>n) return 0; return dv.getUint32(p,true); }
+  function dbl(p){ if(p<0||p+8>n) return NaN; return dv.getFloat64(p,true); }
   function sjis(u8slice){
     try{ return new TextDecoder('shift_jis').decode(u8slice); }
     catch(e){ return new TextDecoder('utf-8').decode(u8slice); }
@@ -473,7 +552,11 @@ function parseTDF(buf){
 
   const out={
     ver:'TDF',sen:[],enko:[],ten:[],moji:[],solid:[],sunpou:[],
-    usedLayers:{},header:{},layerMap:{},ltypeMap:{},blockMap:{}
+    usedLayers:{},header:{},layerMap:{},ltypeMap:{},blockMap:{},
+    // V1_215: .tdf(実寸法師)はDXFではないため今回の読込診断の対象外。
+    // doc.diagを参照するUI側が未定義エラーにならないよう空の診断値を持たせておくだけ
+    diag:{totalEntities:0,generatedElements:0,byType:{},supported:{},unsupported:{},unsupportedTotal:0,processedTotal:0,
+      blockDefTotal:0,blockByType:{},blockSupported:{},blockUnsupported:{},blockUnsupportedTotal:0,unsupportedTotalAll:0}
   };
   const LAYER='実寸法師読込'; // V1_173: レイヤー分け未対応のため単一レイヤーに統一
   const COLOR={r:255,g:255,b:255};
@@ -491,9 +574,47 @@ function parseTDF(buf){
     throw new Error('実寸法師(.tdf)のエンティティ開始位置が見つかりません');
   }
 
+  // V1_198: 描画エンティティ(1,2,4,8,16)+カタログ済みの非描画メタデータ種別。
+  // walkChainの着地点のsub値がこの集合に含まれる場合のみ「本物のレコード境界に
+  // 到達した」と信頼する(誤ったベースサイズ候補が偶然highbitっぽい値に辿り着く
+  // 誤検出を防ぐ)
+  const RECOGNIZED_SUBS=new Set([1,2,4,8,16,
+    32,64,8192,73728,139264,204800,270336,655360,851968,983040,
+    1114112,1179648,1245184,1441792,1703936,1966080,2031616,5505024]);
+
+  // V1_198: 位置pから「自己込み長さブロックの連鎖」(TEXT型sub=8と同じ規則)を辿り、
+  // highbitが立った位置かつsub値が既知集合に含まれる位置に到達すればその位置を
+  // 返す。連鎖が破綻/範囲外/上限回数超過の場合はnullを返す
+  function walkChain(p){
+    for(let iter=0; iter<24; iter++){
+      if(p+4>n) return null; // 範囲外
+      const v=u32(p);
+      if((v&0x80000000)!==0){
+        const rl=v&0xffffff;
+        if(rl<8 || rl>500000) return null;
+        const s=u32(p+4);
+        if(RECOGNIZED_SUBS.has(s)) return p;
+        return null;
+      }
+      if(v<8 || v>200000) return null; // 妥当な自己込み長さではない
+      p+=v;
+      if(p>=n-8) return null;
+    }
+    return null;
+  }
+
+  // V1_198: 座標の妥当性チェック(安全弁)。ストリームの解釈が万一ズレた場合、
+  // doubleとして読んだ値が桁違いに巨大/NaNになることが多いため、そのような
+  // エンティティは描画に追加しない(走査自体は継続する。実害の少ない防御策)
+  const COORD_LIMIT=1e7;
+  function validXY(x,y){ return isFinite(x)&&isFinite(y)&&Math.abs(x)<COORD_LIMIT&&Math.abs(y)<COORD_LIMIT; }
+
   let pos=findStart();
   const somevalMap=new Map();
   let nRec=0;
+  // V1_198: 未知の非描画メタデータ用ベースサイズ候補(4byte刻み、8〜200)
+  const BASE_CANDIDATES=[];
+  for(let b=8;b<=200;b+=4) BASE_CANDIDATES.push(b);
   while(pos<n-8&&nRec<300000){
     const lenraw=u32(pos);
     if((lenraw&0x80000000)===0) break; // エンティティ以外のテーブル領域に到達
@@ -502,7 +623,8 @@ function parseTDF(buf){
     let consumed=reclen;
 
     if(sub===1){
-      out.sen.push({type:'sen',x1:dbl(pos+24),y1:dbl(pos+32),x2:dbl(pos+40),y2:dbl(pos+48),color:COLOR,dash:[],layer:LAYER,lw:0.25});
+      const x1=dbl(pos+24),y1=dbl(pos+32),x2=dbl(pos+40),y2=dbl(pos+48);
+      if(validXY(x1,y1)&&validXY(x2,y2)) out.sen.push({type:'sen',x1,y1,x2,y2,color:COLOR,dash:[],layer:LAYER,lw:0.25});
     } else if(sub===2){
       const cx=dbl(pos+24),cy=dbl(pos+32),r=dbl(pos+40);
       const extOff=pos+reclen;
@@ -511,19 +633,20 @@ function parseTDF(buf){
         const a1r=dbl(extOff+16),a2r=dbl(extOff+24);
         const a1=((a1r*180/Math.PI)%360+360)%360;
         const a2=((a2r*180/Math.PI)%360+360)%360;
-        out.enko.push({type:'enko',cx,cy,r,a1,a2,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
+        if(validXY(cx,cy)&&isFinite(r)) out.enko.push({type:'enko',cx,cy,r,a1,a2,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
         consumed=reclen+0x20;
       } else {
-        out.enko.push({type:'enko',cx,cy,r,a1:0,a2:360,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
+        if(validXY(cx,cy)&&isFinite(r)) out.enko.push({type:'enko',cx,cy,r,a1:0,a2:360,color:COLOR,dash:[],layer:LAYER,lw:0.25,tilt:0,rx:r,ry:r});
       }
     } else if(sub===4){
-      out.ten.push({type:'ten',x:dbl(pos+24),y:dbl(pos+32),color:COLOR,layer:LAYER});
+      const x=dbl(pos+24),y=dbl(pos+32);
+      if(validXY(x,y)) out.ten.push({type:'ten',x,y,color:COLOR,layer:LAYER});
     } else if(sub===16){
       const count=u32(pos+24);
       for(let i=0;i<count-1;i++){
         const x1=dbl(pos+28+16*i),y1=dbl(pos+28+16*i+8);
         const x2=dbl(pos+28+16*(i+1)),y2=dbl(pos+28+16*(i+1)+8);
-        out.sen.push({type:'sen',x1,y1,x2,y2,color:COLOR,dash:[],layer:LAYER,lw:0.25});
+        if(validXY(x1,y1)&&validXY(x2,y2)) out.sen.push({type:'sen',x1,y1,x2,y2,color:COLOR,dash:[],layer:LAYER,lw:0.25});
       }
     } else if(sub===8){
       const x=dbl(pos+24),y=dbl(pos+32),h=dbl(pos+40),w=dbl(pos+48),angleR=dbl(pos+56);
@@ -535,10 +658,10 @@ function parseTDF(buf){
         const length=peek;
         const strLen=length-8;
         const rawStart=somevalAddr+4;
-        let end=rawStart+strLen;
+        let end=Math.min(n,rawStart+Math.max(0,strLen));
         // NUL終端があればそこで切る
         for(let q=rawStart;q<end;q++){ if(dv.getUint8(q)===0){end=q;break;} }
-        text=sjis(new Uint8Array(buf,rawStart,Math.max(0,end-rawStart)));
+        text=(rawStart>=0&&rawStart<=n)?sjis(new Uint8Array(buf,rawStart,Math.max(0,end-rawStart))):'';
         somevalMap.set(somevalAddr,text);
         consumed=reclen+length;
       } else {
@@ -549,7 +672,20 @@ function parseTDF(buf){
           text=sjis(new Uint8Array(buf,ptr+4,Math.max(0,end-(ptr+4))));
         }
       }
-      out.moji.push({type:'moji',x,y,text,h,angle:(angleR*180/Math.PI),color:COLOR,layer:LAYER,widthFactor:1});
+      if(validXY(x,y)&&text) out.moji.push({type:'moji',x,y,text,h,angle:(angleR*180/Math.PI),color:COLOR,layer:LAYER,widthFactor:1});
+    } else {
+      // V1_198: 未知の非描画メタデータレコード。reclen自体を最有力候補として先頭で
+      // 試し(多くの型はreclenがそのまま正しい全長)、それで着地できない場合のみ
+      // 8〜200刻みの候補を試す。どの候補でも本物のレコード境界に到達できなければ、
+      // 安全策として従来通りreclen分だけ進める(V1_173〜V1_197までの挙動と同じ)
+      let handled=false;
+      const tryBases=[reclen, ...BASE_CANDIDATES];
+      for(const base of tryBases){
+        if(base<8) continue;
+        const landing=walkChain(pos+base);
+        if(landing!==null){ consumed=landing-pos; handled=true; break; }
+      }
+      // handled===falseの場合はconsumed=reclen(既定値)のまま進む
     }
     // V1_174: 未知のレコード(スタイル/SEQEND/配列テーブル等の付随情報、サイズは様々)は
     // 描画に使わず、宣言された長さぶんだけスキップして次のレコードへ進む。
@@ -681,8 +817,33 @@ function convertOne(P,si,layerMap,ltypeMap,blockMap,depth){
     // group code 3 (continuation) + 1 (last/only part) を結合
     var _mt3=extras.filter(function(e){return e[0]===3;}).map(function(e){return e[1];}).join('');
     let txt=_mt3+(gv(1,'')||'');
+    // V1_215: MTEXT文字消失バグ修正。
+    // 旧実装は「\S1/2;」のような分数書式(スタック)を、書式コード除去用の汎用正規表現
+    // (\\[A-Za-z][^;]*;)にマッチさせてしまい、書式記号だけでなく中身の数字「1/2」ごと
+    // 削除していた。分数用の書式コード(\S...;)は他の書式コード(\H,\W,\F,\C等)より先に
+    // 処理し、区切り文字(^や#)を「/」に正規化した上で中身の数字は必ず残す。
+    // (上下スタック表示そのものの再現は第2段階以降の課題とし、今回は「数字を消さない」
+    // ことを最優先する)
+    txt=txt.replace(/\\S([^;]*);/g,function(_m,inner){return inner.replace(/[\^#]/g,'/');});
+    // V1_215: Unicodeエスケープ(\U+XXXX)を実際のUnicode文字に変換する。
+    // 旧実装はこの書式を変換しておらず、「\U+2205」のような文字列がそのまま画面に
+    // 残ってしまっていた。日本語(Shift-JIS/UTF-8)本文には\U+という並びは通常出現しない
+    // ため、既存の日本語処理への影響はない
+    txt=txt.replace(/\\U\+([0-9A-Fa-f]{4,6})/g,function(_m,hex){
+      try{return String.fromCodePoint(parseInt(hex,16));}catch(e){return _m;}
+    });
     txt=txt.replace(/\\[pP]/g,'\n').replace(/\{\\[^;]+;/g,'').replace(/\}/g,'').replace(/\\[A-Za-z][^;]*;/g,'').replace(/%%[cCdDpP]/g,'');
-    result.push({type:'moji',x:gf(10),y:gf(20),text:txt,h:gf(40,1),angle:0,color,layer,widthFactor:1});
+    // V1_215: MTEXT回転角の反映(旧実装はangle:0固定で回転文字が正立表示されていた)。
+    // MTEXTのgroup50はTEXT/INSERT等と異なり「ラジアン」表記のため、既存のTEXT処理(角度は
+    // 度=degree)と単位・座標系を統一するためdegreeへ変換する。DXFはgroup50より
+    // X軸方向ベクトル(11/21)を優先すべき仕様のため、11/21が存在すればそちらを優先する
+    var _mtAngleDeg=0;
+    if(gv(11,null)!==null||gv(21,null)!==null){
+      _mtAngleDeg=Math.atan2(gf(21,0),gf(11,1))*180/Math.PI;
+    } else if(gv(50,null)!==null){
+      _mtAngleDeg=gf(50,0)*180/Math.PI;
+    }
+    result.push({type:'moji',x:gf(10),y:gf(20),text:txt,h:gf(40,1),angle:_mtAngleDeg,color,layer,widthFactor:1});
   } else if(type==='SOLID'||type==='TRACE'){
     const pts=[{x:gf(10),y:gf(20)},{x:gf(11),y:gf(21)},{x:gf(13),y:gf(23)},{x:gf(12),y:gf(22)}];
     result.push({type:'solid',pts,color,layer});
@@ -971,7 +1132,10 @@ function draw(){
   ctx.setLineDash([]);
   // Points（ビューポートカリング）
   // V1_102: 操作中は点要素の描画も省略し、操作停止後に復元する
-  if(!_interacting) for(const e of doc.ten){
+  // V1_212: 全体表示付近の低倍率(fitScaleのPOINT_HIDE_ZOOM_RATIO倍未満)では、
+  // 点が多い図面だと画面いっぱいに点が密集して主張しすぎるため、そもそも描画しない。
+  // 拡大して判断したい時だけ表示されれば良いという方針
+  if(!_interacting && scale>=fitScale*POINT_HIDE_ZOOM_RATIO) for(const e of doc.ten){
     if(hiddenLayers.has(e.layer)) continue;
     const sxt=e.x*scale+tx,syt=-e.y*scale+ty;
     if(sxt<-mg||sxt>W+mg||syt<-mg||syt>H+mg) continue;
@@ -1043,6 +1207,56 @@ function showInfo(){
     `線:${doc.sen.length} 円弧:${doc.enko.length}<br>文字:${doc.moji.length} 点:${doc.ten.length}<br>ソリッド:${doc.solid.length}<br>レイヤ:${Object.keys(doc.layerMap).length}<br>Ver:${doc.ver||'不明'}`;
 }
 
+// =========================================================
+// V1_215: DXF読込診断の警告表示
+// 「DXFが読み込めたように見えるが、実は一部の要素が無音で消えている」ことに利用者が
+// 気づけるようにするための最小限の通知。未対応エンティティが1件も無ければ何も表示しない
+// (既存のUI/デザインを変えないため、新規モーダルは作らず既存alert()/confirm()方式を使う。
+// export.jsの_applyDxfviewJson176が既に同じ方式で復元結果を通知しているのに合わせた)
+// =========================================================
+function _showDxfDiagWarningIfNeeded215(d){
+  try{
+    if(!d||!d.diag) return; // .tdf(実寸法師)や旧データにdiagが無い場合は何もしない
+    // V1_216: ENTITIES直下(unsupportedTotal)に加え、BLOCK定義内部(blockUnsupportedTotal)の
+    // 未対応も合算した値(unsupportedTotalAll)で警告要否を判定する。旧バージョンのdoc等
+    // unsupportedTotalAllが無い場合にも対応できるよう、無ければ従来通りunsupportedTotalで代用する
+    var u=(d.diag.unsupportedTotalAll!==undefined)?d.diag.unsupportedTotalAll:(d.diag.unsupportedTotal||0);
+    if(u<=0) return; // 未対応0件なら警告を出さない
+    var msg='⚠ DXF読込確認\n\nこの図面にはViewer未対応の要素が\n'+u+'件あります。\n\n'
+      +'[OK] 詳細を見る　/　[キャンセル] 閉じる';
+    if(confirm(msg)) _showDxfDiagDetail215(d);
+  }catch(e){console.warn('[DXF読込診断]',e);}
+}
+function _showDxfDiagDetail215(d){
+  try{
+    var diag=d.diag||{};
+    var lines=['DXF読込診断','','総エンティティ(ENTITIES直下)　'+(diag.totalEntities||0),
+      '処理済み　　　　　　　　　　'+(diag.processedTotal||0),
+      '未対応(ENTITIES直下)　　　　'+(diag.unsupportedTotal||0)];
+    // V1_216: BLOCK定義内部(INSERTで参照される部品)の集計。値が存在する場合のみ追記する
+    // (旧バージョンのdoc等、この項目が無いデータでも安全に動作させるため)
+    if(diag.blockDefTotal!==undefined){
+      lines.push('BLOCK定義内部の要素　　　　　'+(diag.blockDefTotal||0));
+      lines.push('BLOCK内部の未対応　　　　　　'+(diag.blockUnsupportedTotal||0));
+    }
+    lines.push('','内訳(未対応type別、ENTITIES直下+BLOCK内部合算):');
+    // V1_216: ENTITIES直下とBLOCK内部の未対応type別件数を合算して1つの一覧として見せる
+    // (利用者にとっては「どこにあるか」より「何がどれだけ足りないか」の方が重要なため)
+    var merged={};
+    var u1=diag.unsupported||{};
+    Object.keys(u1).forEach(function(k){ merged[k]=(merged[k]||0)+u1[k]; });
+    var u2=diag.blockUnsupported||{};
+    Object.keys(u2).forEach(function(k){ merged[k]=(merged[k]||0)+u2[k]; });
+    var keys=Object.keys(merged);
+    if(keys.length===0){ lines.push('(なし)'); }
+    else{
+      keys.sort(function(a,b){return (merged[b]||0)-(merged[a]||0);});
+      keys.forEach(function(k){ lines.push(k+'　　'+merged[k]+'件'); });
+    }
+    alert(lines.join('\n'));
+  }catch(e){console.warn('[DXF読込診断detail]',e);}
+}
+
 // buildLayerModal → layer.js
 
 // =========================================================
@@ -1108,6 +1322,15 @@ async function renderPdfPage(n){
 // 高さ(フォントサイズ)がほぼ同じ・同じ行（垂直方向のずれが小さい）・すき間がほぼ無い
 // （前の文字の右端と次の文字の左端がほぼ接している）場合にひとつの単語として結合する。
 // 間に空白のみの要素(スペース)があれば単語の区切りとして結合しない（従来通り除去）
+// V1_199: 「90度等回転した文字はタップ判定・オレンジ枠がずれる」との指摘に対応。
+// 従来angleは常に0固定だったため、DXF文字(doc.moji)と違いPDF文字は回転を考慮した
+// 当たり判定ができていなかった。pdf.jsのitem.transformとviewport.transformを合成した
+// 行列から実際の文字の向き(ベースライン方向)を求め、world角度(度、+X軸からCCW、
+// Y上向き。DXFのgroup code50と同じ規約)に変換してangleへ格納する。
+// 数式はpdf-lib(degrees()指定)で生成した既知角度のテキストを実際にpdfjs-distで
+// 読み取り、0/30/90/135/180/-45度いずれも計算値と完全一致することを検証済み。
+// 単語結合の同一行/すき間判定も、水平前提の生x/y差分ではなく回転角に沿った
+// 投影(沿い方向/垂直方向)に一般化し、回転した文字列でも従来通り結合できるようにした
 async function _pdfPageTextItems(page,viewport){
   try{
     var tc=await page.getTextContent();
@@ -1128,12 +1351,33 @@ async function _pdfPageTextItems(page,viewport){
       var rawFontSize=Math.hypot(it.transform[2],it.transform[3])||Math.hypot(it.transform[0],it.transform[1])||h||1;
       var w=(it.width||0)*(h/rawFontSize);
       if(!t){ raw.push(null); return; } // 空白のみの要素は単語の区切りを示す目印として残す
-      raw.push({text:t,x:tr[4]/s,y:(vp.height-tr[5])/s,h:h,w:w});
+      // V1_199: デバイス空間でのベースライン方向(tr[0],tr[1])からワールド角度を求める。
+      // デバイスYは下向き・ワールドYは上向きのためtr[1]の符号を反転する
+      var angle=Math.atan2(-tr[1],tr[0])*180/Math.PI;
+      raw.push({text:t,x:tr[4]/s,y:(vp.height-tr[5])/s,h:h,w:w,angle:angle});
     });
     var arr=[];
     var cur=null;
+    // V1_234: 「画面検索でLG1が実際は1個しか無いのに4件ヒットする」不具合の修正。
+    // 原因は、このPDFを出力したCAD側が文字を太く見せるため、同じ文字列を全く同じ
+    // 位置に複数回(疑似太字。今回のデータでは4回)重ね描きしていたこと。pdf.jsの
+    // getTextContent()は重ね描きされた分だけ別々のテキスト要素として返してくるため、
+    // 単語結合(既存のsameH/sameAngle/sameRow/closeGap判定)を経てもなお、同じ単語が
+    // 座標まで完全に同じ状態で複数個arrに積まれ、画面検索・全図面検索のヒット件数が
+    // 実際の表示個数より多く数えられてしまっていた。単語を確定する直前に、直前に
+    // 確定済みの単語とテキスト・位置(x,y)・角度がほぼ完全に一致するかを調べ、一致
+    // すれば重ね描きとみなして追加しない(先に確定した1個だけを残す)ようにした
     function flush(){
-      if(cur) arr.push({text:cur.text,x:cur.x,y:cur.y,h:cur.h,angle:0,widthFactor:1});
+      if(cur){
+        var dup=false;
+        var last=arr[arr.length-1];
+        if(last&&last.text===cur.text){
+          var posTol=Math.max(cur.h,last.h,1)*0.2; // フォント高さの2割程度を同一位置とみなす許容誤差
+          var dAng=Math.abs(((cur.angle-last.angle)%360+540)%360-180);
+          if(Math.abs(cur.x-last.x)<posTol&&Math.abs(cur.y-last.y)<posTol&&dAng<3) dup=true;
+        }
+        if(!dup) arr.push({text:cur.text,x:cur.x,y:cur.y,h:cur.h,angle:cur.angle,widthFactor:1});
+      }
       cur=null;
     }
     raw.forEach(function(it){
@@ -1141,18 +1385,29 @@ async function _pdfPageTextItems(page,viewport){
       if(cur){
         var maxH=Math.max(cur.h,it.h), minH=Math.min(cur.h,it.h);
         var sameH=minH>0&&(maxH/minH)<1.2; // フォントサイズがほぼ同じ(20%以内の差)
-        var sameRow=Math.abs(it.y-cur.y)<maxH*0.35; // 縦方向のずれが小さい＝同じ行
-        var gap=it.x-cur.endX; // 前の文字の右端から次の文字の左端までのすき間
+        // V1_199: 角度差が小さい(同じ向きの文字列)場合のみ結合対象とする
+        var dAng=Math.abs(((it.angle-cur.angle)%360+540)%360-180);
+        var sameAngle=dAng<3;
+        // V1_199: 生x/y差分ではなく、cur.angleに沿った方向へ投影した座標で
+        // 「沿い方向の進み(along)」「行に垂直な方向のずれ(perp)」を求める。
+        // angle=0(水平)の場合は従来のit.x/it.yそのものと等価になる
+        var rad=cur.angle*Math.PI/180, ca=Math.cos(rad), sa=Math.sin(rad);
+        var itAlong=it.x*ca+it.y*sa, itPerp=-it.x*sa+it.y*ca;
+        var sameRow=Math.abs(itPerp-cur.endPerp)<maxH*0.35; // 行に垂直な方向のずれが小さい＝同じ行
+        var gap=itAlong-cur.endAlong; // 前の文字の終端から次の文字の始端までの沿い方向のすき間
         var closeGap=gap>-maxH*0.6&&gap<maxH*0.6; // すき間がほぼ無い(重なりも軽微な隙間も許容)
-        if(sameH&&sameRow&&closeGap){
+        if(sameH&&sameAngle&&sameRow&&closeGap){
           cur.text+=it.text;
-          cur.endX=it.x+it.w;
+          cur.endAlong=itAlong+it.w;
+          cur.endPerp=itPerp;
           if(it.h>cur.h) cur.h=it.h;
           return;
         }
         flush();
       }
-      cur={text:it.text,x:it.x,y:it.y,h:it.h,endX:it.x+it.w};
+      var rad0=it.angle*Math.PI/180, ca0=Math.cos(rad0), sa0=Math.sin(rad0);
+      var along0=it.x*ca0+it.y*sa0, perp0=-it.x*sa0+it.y*ca0;
+      cur={text:it.text,x:it.x,y:it.y,h:it.h,angle:it.angle,endAlong:along0+it.w,endPerp:perp0};
     });
     flush();
     return arr;
@@ -1343,15 +1598,27 @@ function extractAllExcelTexts(wb){
 // 現在のexcelWb/excelSheetIdxをもとに #excelView 内のシートタブ・テーブルを再構築する。
 // excelWbがnullの場合は#excelViewを隠しcanvasを元に戻すだけの役割も兼ねる
 // （PDF/DXF側に戻る際は excelWb=null にしてから本関数を呼ぶだけでよい）
-// V1_107: Excel/CSV表示中は#viewmemo内の記憶・表示ボタン(mem-btn/show-btn/vm-file)を隠す。
+// V1_107: Excel/CSV表示中はヘッダーの「記憶VIEW」「全体」ボタンを隠す。
 // V1_121: 「全体」ボタン(#fitBtn、DXF/PDFのズームを画面に合わせる機能)はExcel/CSVの
 // セル表示には適用できないため、Excel/CSV表示中は非表示にする（マーク送り自体は
 // DXF/PDFの文字読込マーク機能のため、そちらは従来通り対象外のまま変更しない）
+// V1_234: 記憶VIEW/全体ボタンがヘッダー(#vbmToggleBtn/#fitBtn)へ移動したのに合わせ、
+// 対象要素を変更。isExcel=falseの場合は_updateVbmFitBtnVisibility()に委ねる
+// (DXF/PDFのどちらを開いているか判定して表示・非表示を決める共通ロジックのため)
 function _updateViewmemoForExcel(isExcel){
-  var els=document.querySelectorAll('#viewmemo .mem-btn, #viewmemo .show-btn, #viewmemo .vm-file');
-  els.forEach(function(el){ el.style.display=isExcel?'none':''; });
+  var vb=document.getElementById('vbmToggleBtn');
   var fitBtn=document.getElementById('fitBtn');
-  if(fitBtn) fitBtn.style.display=isExcel?'none':'';
+  if(isExcel){
+    if(vb) vb.style.display='none';
+    if(fitBtn) fitBtn.style.display='none';
+    var pop=document.getElementById('vbmPop');
+    if(pop&&pop.classList.contains('on')){
+      pop.classList.remove('on');
+      if(typeof _vbmToggleBtnUI==='function') _vbmToggleBtnUI(false);
+    }
+  } else if(typeof _updateVbmFitBtnVisibility==='function'){
+    _updateVbmFitBtnVisibility();
+  }
 }
 // V1_110: 文字列が数値として扱えるか判定する（桁区切りカンマ許容）。
 // V1_111: ソート比較(_excelCompareVal)と集計行(件数・合計)の両方で共通利用するため関数化した
@@ -1403,15 +1670,30 @@ function _updateTopbarForExcel(isExcel){
   // Excel/CSV表示中は非表示にする（DXF/PDF表示中は従来通り表示する）
   var searchMenuBtn=document.getElementById('searchMenuBtn');
   if(searchMenuBtn) searchMenuBtn.style.display=isExcel?'none':'';
+  // V1_202: 計測ボタン(#measureToggleBtn)はdxfToolGroup内にあるため上のdisplay切替で
+  // 自動的に隠れるが、選択ポップアップ(V1_205: #measureToolPopup)自体はdxfToolGroupの
+  // 外にある独立要素のため、Excel表示に切り替わったタイミングで開いていれば強制的に閉じる
+  // (ボタンが隠れたままポップアップだけ表示され続ける状態を防ぐ)
+  if(isExcel&&typeof _closeMeasureToolPopup==='function') _closeMeasureToolPopup();
 }
-// V1_116: PDF表示中は計測グループ(.dim-group、水・鉛/斜め/2線間/線と点/直径/半径)と
-// 画面(白黒切替、#bwToggleBtn)ボタンを非表示にする。ペン・蛍光ペン・消しゴム・戻る/進む・
-// サブ窓・計算機等その他のボタンは現状の位置のまま表示を維持するため、dxfToolGroup全体を
-// 隠す_updateTopbarForExcelとは別に、この2要素だけを個別にdisplay切替する
+// V1_116: PDF表示中は計測ボタン(#measureToggleBtn、V1_202で.dim-groupから改称、
+// V1_205で第2段バーからポップアップ選択方式に変更)と画面(白黒切替、#bwToggleBtn)
+// ボタンを非表示にする。ペン・蛍光ペン・消しゴム・戻る/進む・サブ窓・計算機等その他の
+// ボタンは現状の位置のまま表示を維持するため、dxfToolGroup全体を隠す
+// _updateTopbarForExcelとは別に、この2要素だけを個別にdisplay切替する
 function _updateTopbarForPdf(isPdf){
-  var dimGroup=document.querySelector('.dim-group');
+  var measureBtn=document.getElementById('measureToggleBtn');
   var bwBtn=document.getElementById('bwToggleBtn');
-  if(dimGroup) dimGroup.style.display=isPdf?'none':'';
+  if(measureBtn) measureBtn.style.display=isPdf?'none':'';
+  // V1_205: PDF表示に切り替わったタイミングで計測ツール選択ポップアップが開いていれば
+  // 強制的に閉じる(ボタンが隠れたままポップアップだけ表示され続ける状態を防ぐ)
+  if(isPdf&&typeof _closeMeasureToolPopup==='function') _closeMeasureToolPopup();
+  // V1_225: 「2線の交点取得」ボタン(#ipxBtn)がIPX.active(交点ピック操作の途中)の
+  // 状態のままPDFに切り替わった場合の保険。ボタンの表示自体は_ipxIsPointPhasePending()
+  // 側のpdfDoc判定で隠れるが、IPX.activeのフラグそのものは残ってしまい、DXFへ戻さず
+  // 別のDXFを開いた際に「交点計測を中止」表示から始まってしまう等の不整合を避けるため、
+  // ここで明示的にキャンセルしておく
+  if(isPdf&&window.IPX&&IPX.active&&typeof ipxCancel==='function') ipxCancel();
   if(bwBtn) bwBtn.style.display=isPdf?'none':'';
 }
 // V1_115: ソート/固定行列ボタンの押下状態(active表示)・タップ待ちガイド文言・
@@ -1609,6 +1891,10 @@ function _excelBuildDataCell(cellVal,origIdx,colIdx){
   var td=document.createElement('td');
   var _cellText110=(cellVal===null||cellVal===undefined)?'':String(cellVal);
   td.textContent=_cellText110;
+  // V1_203: 文字判定枠表示ON中(body.text-hitbox-on)に、テキスト読込ピックモードで
+  // 実際に読み取れる非空セルだけを薄いオレンジのアウトラインで可視化するためのフラグ。
+  // 通常時はこのクラスがあってもCSS側がbody.text-hitbox-onスコープのため見た目に影響しない
+  if(_cellText110.trim()) td.classList.add('excel-hasText');
   var _sumKey122=origIdx+'_'+colIdx;
   if(_excelSumSelected[_sumKey122]) td.classList.add('excel-sum-selected');
   td.addEventListener('click',function(){
@@ -2692,6 +2978,7 @@ window.viewer = {
     checkPerfMode();
     fit();
     scheduleDraw();
+    _showDxfDiagWarningIfNeeded215(doc); // V1_215: DXF読込診断の警告
   },
   loadPDF: async function(buf, fname) {
     currentFileName = fname || '';

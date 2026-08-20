@@ -110,6 +110,8 @@ function doSave(){
       currentTool,currentColor,currentLW,currentFileName,fileSize:currentFileSize,
       fileKey:(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null),
       currentHL_Color,currentHL_LW,currentDimColor,
+      ERASER_RADIUS_PX:(typeof ERASER_RADIUS_PX!=='undefined'?ERASER_RADIUS_PX:20), // V1_207: 消しゴム範囲を保存
+      _lastMeasureTool:(typeof _lastMeasureTool!=='undefined'?_lastMeasureTool:null), // V1_210: 前回選んだ計測ツールを保存
       dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
       pdfPageNum:(typeof pdfPageNum!=='undefined'?pdfPageNum:1), // V0_135: PDFページ番号保存
       insetState:_insetSv162 // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
@@ -331,6 +333,8 @@ async function tryRestore(){
             if(_d2.currentHL_Color)currentHL_Color=_d2.currentHL_Color;
             if(_d2.currentHL_LW)currentHL_LW=_d2.currentHL_LW;
             if(_d2.currentDimColor)currentDimColor=_d2.currentDimColor;
+            if(_d2.ERASER_RADIUS_PX)ERASER_RADIUS_PX=_d2.ERASER_RADIUS_PX; // V1_207
+            if(_d2._lastMeasureTool)_lastMeasureTool=_d2._lastMeasureTool; // V1_210: 前回の計測ツールを復元
             document.querySelectorAll('.hl-color-btn').forEach(b=>{
               const[r,g,b_]=b.dataset.color.split(',').map(Number);
               b.classList.toggle('active',r===currentHL_Color.r&&g===currentHL_Color.g&&b_===currentHL_Color.b);
@@ -338,14 +342,21 @@ async function tryRestore(){
             document.querySelectorAll('.hl-lw-btn').forEach(b=>{
               b.classList.toggle('active',parseFloat(b.dataset.lw)===currentHL_LW);
             });
+            const _hlwl207=document.getElementById('hlLwLabel');if(_hlwl207)_hlwl207.textContent=currentHL_LW; // V1_207
             document.querySelectorAll('.dim-color-btn').forEach(b=>{
               b.classList.toggle('active',b.dataset.color===currentDimColor);
             });
+            document.querySelectorAll('.er-btn').forEach(b=>{ // V1_207
+              b.classList.toggle('active',parseFloat(b.dataset.er)===ERASER_RADIUS_PX);
+            });
+            const _erl207=document.getElementById('eraserSizeLabel');if(_erl207)_erl207.textContent=ERASER_RADIUS_PX; // V1_207
             if(_d2.scaleDenom)document.getElementById('scaleDenom').value=_d2.scaleDenom;
             if(typeof updateBwToggleBtn==='function')updateBwToggleBtn();
             document.querySelectorAll('.tool-btn').forEach(b=>{
               b.classList.toggle('active',b.dataset.tool===currentTool);
             });
+            {const _mb207=document.getElementById('measureToggleBtn');if(_mb207)_mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+            if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
             if(_d2.dimensionTextMode&&_d2.dimensionTextMode!=='manual')dimensionTextMode=_d2.dimensionTextMode; // V0_154: manual廃止
             if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
             if(_d2.inputMode)inputMode=_d2.inputMode;
@@ -423,6 +434,8 @@ async function tryRestore(){
     if(d.currentHL_Color)currentHL_Color=d.currentHL_Color;
     if(d.currentHL_LW)currentHL_LW=d.currentHL_LW;
     if(d.currentDimColor)currentDimColor=d.currentDimColor;
+    if(d.ERASER_RADIUS_PX)ERASER_RADIUS_PX=d.ERASER_RADIUS_PX; // V1_207
+    if(d._lastMeasureTool)_lastMeasureTool=d._lastMeasureTool; // V1_210: 前回の計測ツールを復元
     document.querySelectorAll('.hl-color-btn').forEach(b=>{
       const[r,g,b_]=b.dataset.color.split(',').map(Number);
       b.classList.toggle('active',r===currentHL_Color.r&&g===currentHL_Color.g&&b_===currentHL_Color.b);
@@ -430,14 +443,21 @@ async function tryRestore(){
     document.querySelectorAll('.hl-lw-btn').forEach(b=>{
       b.classList.toggle('active',parseFloat(b.dataset.lw)===currentHL_LW);
     });
+    const hlwl207=document.getElementById('hlLwLabel');if(hlwl207)hlwl207.textContent=currentHL_LW; // V1_207
     document.querySelectorAll('.dim-color-btn').forEach(b=>{
       b.classList.toggle('active',b.dataset.color===currentDimColor);
     });
+    document.querySelectorAll('.er-btn').forEach(b=>{ // V1_207
+      b.classList.toggle('active',parseFloat(b.dataset.er)===ERASER_RADIUS_PX);
+    });
+    const erl207=document.getElementById('eraserSizeLabel');if(erl207)erl207.textContent=ERASER_RADIUS_PX; // V1_207
     if(d.scaleDenom)document.getElementById('scaleDenom').value=d.scaleDenom;
     if(typeof updateBwToggleBtn==='function') updateBwToggleBtn();
     document.querySelectorAll('.tool-btn').forEach(b=>{
       b.classList.toggle('active',b.dataset.tool===currentTool);
     });
+    {const mb207=document.getElementById('measureToggleBtn');if(mb207)mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+    if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
     [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     buildLayerModal();
     scheduleDraw();scheduleOverlay();updateUndoRedo();
