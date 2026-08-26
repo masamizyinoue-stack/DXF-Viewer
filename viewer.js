@@ -1301,6 +1301,17 @@ async function renderPdfPage(n){
   // 画像とずれて画面検索・テキスト読込が機能しなくなっていた。vpを渡し、実際にrenderPdfPage()
   // で使ったviewportと同じ変換をテキスト側にも適用することでこのずれを解消する
   pdfMoji=await _pdfPageTextItems(page,vp);
+  // V1_237: 「検索して開くで一致した黄色マークが、prev/next・ページ一覧クリック等で
+  // 他ページへ移動しても前ページの位置に残ったままになる」との指摘への対応。従来、
+  // 検索マーク(_searchMarks)の再計算は_markGoNext()（「次へ」ボタン）内でのみ明示的に
+  // 呼ばれており、それ以外のページ切替経路(前へ/次へボタン、ページ一覧クリック、
+  // ページ番号直接入力、タブ復元等)は全てこのrenderPdfPage()を経由するにも関わらず
+  // 再計算を呼んでいなかったため、_searchMarksが古いページのまま残っていた。
+  // ここで一括して呼ぶことで、どの経路でページが変わっても、_markKeywordが未設定なら
+  // 何もせず、設定されていれば新しいページのpdfMoji(直前行で再取得済み)を対象に
+  // マークが消える/正しく再表示されるようになる(_rebuildSearchMarksForCurrentPageは
+  // 呼び出し前に_searchMarks=[]で初期化するため、一致が無いページでは自動的に消える)
+  if(typeof _rebuildSearchMarksForCurrentPage==='function') _rebuildSearchMarksForCurrentPage();
   fit();scheduleDraw();
   if(typeof buildSearchIndex==='function') buildSearchIndex();
   if(typeof scheduleOverlay==='function') scheduleOverlay();

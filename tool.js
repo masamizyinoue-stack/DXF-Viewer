@@ -889,6 +889,15 @@ document.querySelectorAll('.dim-color-btn').forEach(btn=>{
     btn.classList.add('active');
     currentDimColor=btn.dataset.color;
     document.getElementById('colorOverlay').classList.remove('open');
+    // V1_239: 「計測ボタンで色を選んだ際にポップアップが閉じない」との指摘への対応。
+    // このボタン(.dim-color-btn)はV1_214で旧#colorOverlayの.co-dim-sectionから
+    // #measureToolPopupへ移設されたが、この行(colorOverlay.classList.remove('open'))は
+    // 移設前のまま残っており、実際に開いているのは#measureToolPopupの方のため
+    // 何も閉じていなかった。_closeMeasureToolPopup()(index.html)を呼んで実際に
+    // 開いているポップアップを閉じるようにする(計測ツール未選択のままでも色だけ
+    // 選べば閉じる。既存の「ツールを選ぶと閉じる」動作(tool.js側)とは別経路のため、
+    // 両方から独立してポップアップを閉じられる)
+    if(typeof _closeMeasureToolPopup==='function') _closeMeasureToolPopup();
     if(typeof updateToolColorDots==='function')updateToolColorDots();
     scheduleSave(); // V0_135: 寸法色変更を保存
   });
