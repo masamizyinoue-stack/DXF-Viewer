@@ -319,7 +319,7 @@ async function tryRestore(){
             bwMode=!!_d2.bwMode;
             currentTool=_d2.currentTool||'sketch';
             if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
-            if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化
+            if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
             if(_d2.currentColor)currentColor=_d2.currentColor;
             document.querySelectorAll('.color-btn').forEach(b=>{
               const[r,g,b_]=b.dataset.color.split(',').map(Number);
@@ -355,7 +355,7 @@ async function tryRestore(){
             document.querySelectorAll('.tool-btn').forEach(b=>{
               b.classList.toggle('active',b.dataset.tool===currentTool);
             });
-            {const _mb207=document.getElementById('measureToggleBtn');if(_mb207)_mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+            {const _mb207=document.getElementById('measureToggleBtn');if(_mb207)_mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim','lineLen'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
             if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
             if(_d2.dimensionTextMode&&_d2.dimensionTextMode!=='manual')dimensionTextMode=_d2.dimensionTextMode; // V0_154: manual廃止
             if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
@@ -420,7 +420,7 @@ async function tryRestore(){
     if(d.hiddenLayers)hiddenLayers=new Set(d.hiddenLayers);
     currentTool=d.currentTool||'sketch';
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
-    if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化
+    if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
     if(d.currentColor)currentColor=d.currentColor;
     document.querySelectorAll('.color-btn').forEach(b=>{
       const[r,g,b_]=b.dataset.color.split(',').map(Number);
@@ -456,7 +456,7 @@ async function tryRestore(){
     document.querySelectorAll('.tool-btn').forEach(b=>{
       b.classList.toggle('active',b.dataset.tool===currentTool);
     });
-    {const mb207=document.getElementById('measureToggleBtn');if(mb207)mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+    {const mb207=document.getElementById('measureToggleBtn');if(mb207)mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim','lineLen'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
     if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
     [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     buildLayerModal();
