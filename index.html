@@ -1093,7 +1093,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_01</span>
+    <span id="ver-label">V2_07</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1500,7 +1500,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      もしDXFが開けない場合は直ちにV1_08（accept属性なし）へ戻すこと -->
 <!-- V1_173: 実寸法師(.tdf)読込対応のため、既存のaccept指定に".tdf"を追記した
      （前述の経緯により.dxf側の並び・application/octet-streamのフォールバックは変更していない） -->
-<input type="file" id="file" accept=".dxf,.tdf,application/octet-stream" hidden>
+<!-- V2_02: 複数選択して一括で開けるようmultipleを追加。accept属性・並び順は
+     上記iOS対応の経緯があるため一切変更していない -->
+<input type="file" id="file" accept=".dxf,.tdf,application/octet-stream" multiple hidden>
 <input type="file" id="folderInput" webkitdirectory accept=".dxf,.tdf" hidden>
 <!-- V1_112: 検索結果1件だけインデックスを更新するための単一ファイル選択用input -->
 <input type="file" id="singleReindexInput" accept=".dxf,.tdf,.pdf,.xlsx,.xls,.csv" hidden>
@@ -1510,27 +1512,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=201"></script>
-<script src="viewer.js?v=201"></script>
-<script src="utils.js?v=201"></script>
-<script src="ui.js?v=201"></script>
-<script src="dialog.js?v=201"></script>
-<script src="storage.js?v=201"></script>
-<script src="fonts/NotoSansJP.js?v=201"></script>
-<script src="export.js?v=201"></script>
-<script src="tool.js?v=201"></script>
-<script src="verify.js?v=201"></script>
+<script src="layer.js?v=207"></script>
+<script src="viewer.js?v=207"></script>
+<script src="utils.js?v=207"></script>
+<script src="ui.js?v=207"></script>
+<script src="dialog.js?v=207"></script>
+<script src="storage.js?v=207"></script>
+<script src="fonts/NotoSansJP.js?v=207"></script>
+<script src="export.js?v=207"></script>
+<script src="tool.js?v=207"></script>
+<script src="verify.js?v=207"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=201"></script>
-<script src="stroke-text.js?v=201"></script>
+<script src="shxGlyphs.js?v=207"></script>
+<script src="stroke-text.js?v=207"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=201"></script>
+<script src="pc.js?v=207"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=201"></script>
+<script src="supabase-sync.js?v=207"></script>
 <script>
-const APP_VERSION = 'V2_01';
+const APP_VERSION = 'V2_07';
 
 // =========================================================
 // グローバル状態
@@ -2072,11 +2074,37 @@ document.getElementById('screenGuideCloseBtn').addEventListener('click',()=>{
 // 上書きしてしまう競合状態(race condition)がありえた。ファイルを開いている間は
 // タブ切替・タブを閉じる操作をブロックする共通フラグを追加した
 var _isOpeningFileBusy=false;
-fileInput.addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
+// V2_02: 複数選択して一括で開く対応。1ファイル分の処理は従来のまま一切変更せず
+// _openOneFile202として関数化し、外側のchangeハンドラでファイル配列をループして
+// 順次(直列で)呼び出す方式にした。既存の重複チェック・busyフラグ・非同期処理・
+// タブ登録ロジックはこの関数の中に無変更のまま残っているため、単一ファイル選択時の
+// 挙動は完全に従来通りとなる
+// V2_03: 「複数ファイルを一括で開くと、タブ名と実際に表示される内容が食い違う」との
+// 報告への対応。原因として最も可能性が高いのは、複数ファイルをループで開く際、
+// 1件ごとの_openOneFile202呼び出しが完了するたび(finally節)に_isOpeningFileBusyが
+// 一旦falseに戻り、次のファイルの処理が始まるまでのわずかな間、タブクリック
+// (switchToFile)やタブを閉じる操作がガードされずに実行できてしまうこと。この隙に
+// タブを操作されると、まだ処理中の別ファイルを開く処理が「その時点でたまたま
+// アクティブだったタブ」に対して表示状態などを書き込んでしまい、タブと中身の対応が
+// 崩れる可能性がある。第3引数_busyManagedByCallerにtrueを渡すと、この関数自身は
+// _isOpeningFileBusyの開始/終了管理を行わず、外側(複数ファイル用のループ)が処理
+// 全体を通して一括管理する。単一ファイル選択時(省略時)は従来通りこの関数が自分で
+// busyを管理し、挙動は完全に無変更のまま
+async function _openOneFile202(f, e, _busyManagedByCaller){
+  if(!f)return;
   // V0_148: 同名ファイルの二重オープン防止（気付かず2つ開いて別々に書き込む事故を防ぐ）
   // 状態を一切変更する前にチェックし、既に開いていればそのタブへ切り替えるだけ
-  {var _dupIdx=openFiles.findIndex(function(x){return (x.currentFileName||x.name)===f.name;});
+  // V2_04: 「複数選択で開くと、タブ名と実際の中身が食い違う」との再報告を受け調査した結果、
+  // 同名だが別工事の内容が違う図面(例:物件が違うだけの同じ部材符号のKBG-01.dxf)を、
+  // 1回の複数選択に含めて開いていたことが判明した。ユーザーへの確認の結果、「同じ
+  // ファイル名でもファイルサイズが違えば別タブとして開けるようにしてほしい」との要望
+  // だったため、同名判定を「ファイル名だけ」から「ファイル名とサイズの組み合わせ
+  // (fileKey)が完全に一致する場合のみ」に変更した。これにより、名前が同じでもサイズが
+  // 違う(=内容が異なる別ファイルとみなせる)場合は、この防止処理の対象から外れ、
+  // この後の共通処理で正しく新規タブとして登録される。名前・サイズとも完全に一致する
+  // 場合(=本当に同じファイルの重複オープン)は、従来通りブロックして既存タブへ切り替える
+  {var _fk148=_fileKey(f.name,f.size);
+  var _dupIdx=openFiles.findIndex(function(x){return x.fileKey===_fk148;});
   if(_dupIdx>=0){
     if(_dupIdx!==currentFileIdx) switchToFile(_dupIdx);
     document.body.classList.remove('settings-open');
@@ -2084,8 +2112,10 @@ fileInput.addEventListener('change',async e=>{
     e.target.value='';
     return;
   }}
-  if(_isOpeningFileBusy){e.target.value='';return;} // V1_40: 多重実行防止
-  _isOpeningFileBusy=true;
+  if(!_busyManagedByCaller){
+    if(_isOpeningFileBusy){e.target.value='';return;} // V1_40: 多重実行防止
+    _isOpeningFileBusy=true;
+  }
   try{
   verify('fileInput.change:start');
   resetToolStates(true); // V0_139: ファイル切替時に計測ツール状態をリセット / V1_234: 計測ツールは選択維持
@@ -2095,6 +2125,16 @@ fileInput.addEventListener('change',async e=>{
   if(currentFileIdx>=0&&currentFileIdx<openFiles.length){var _pf140fi=openFiles[currentFileIdx];_pf140fi.tx=tx;_pf140fi.ty=ty;_pf140fi.scale=scale;_pf140fi.fitScale=fitScale;_pf140fi.hiddenLayersArr=Array.from(hiddenLayers);_pf140fi.pdfDoc=pdfDoc;_pf140fi.pdfImage=pdfImage;_pf140fi.pdfPageNum=(typeof pdfPageNum!=='undefined'?pdfPageNum:1);}
   currentFileName=f.name;
   const buf=await f.arrayBuffer();
+  // V2_05: 複数ファイルを一括で開くと、選んだファイルとは別のファイルの内容が
+  // 開かれてしまう(名前は正しいがdocの中身が別ファイルのものになる)との報告があった。
+  // 再現テストでは単純な直列処理では再現できておらず、原因はブラウザ側のFile読込の
+  // タイミングに起因する可能性が高いと判断し、確実に検出できるよう、読み込んだ
+  // バイナリの実サイズがFileオブジェクト自身が申告するサイズ(f.size)と一致するかを
+  // 検証する。既存の処理・表示は一切変更せず、不一致の場合のみ警告を出す
+  if(typeof buf!=='undefined'&&buf&&buf.byteLength!==f.size){
+    console.warn('[V2_05] ファイル読込サイズ不一致の疑い: '+f.name+' 期待='+f.size+'byte 実際='+buf.byteLength+'byte');
+    showGuide('「'+f.name+'」の読込中に不整合を検知しました。内容をご確認ください',4000);
+  }
   doc=null;pdfDoc=null;pdfImage=null;pdfMoji=[]; // V1_51
   excelWb=null;renderExcelView(); // V1_76: 前のタブがExcelだった場合の表示を先に隠す
   document.getElementById('pdfPageCtrl').style.display='none';
@@ -2217,7 +2257,63 @@ fileInput.addEventListener('change',async e=>{
   if(typeof _diApplyStateFromFile==='function') _diApplyStateFromFile(); // V1_162: 新規に開いたファイルはインセット未設定(非表示)にする
   updateFileNavUI();// V0_112
   verify('fileInput.change:done');
-  }finally{_isOpeningFileBusy=false;e.target.value='';} // V1_40
+  }finally{ if(!_busyManagedByCaller){_isOpeningFileBusy=false;} e.target.value=''; } // V1_40 / V2_03
+}
+// V2_02: 複数ファイル選択時は_openOneFile202を1件ずつawaitして直列実行する。
+// 直列にすることで、既存のbusyフラグ・タブ登録処理が想定する「1件ずつ完了してから
+// 次を開始する」前提を崩さずに複数ファイルへ対応できる。ファイルの配列は
+// e.target.filesから最初にコピーしておくため、ループ途中で_openOneFile202が
+// e.target.value=''を呼んでも後続ファイルの読み込みには影響しない
+// V2_03: 2件以上選択した場合は、ループ全体を通して_isOpeningFileBusyをtrueに保つ
+// (_openOneFile202へbusyManagedByCaller=trueを渡し、内部での開始/終了管理をスキップさせる)。
+// これにより、複数ファイルを開いている間はタブクリック・タブを閉じる操作が最後まで
+// 無効化され、処理途中でタブ操作されることによる状態の食い違いを防ぐ。1件のみの
+// 選択時は従来通り_openOneFile202が自分でbusyを管理する(挙動は完全に無変更)
+fileInput.addEventListener('change',async e=>{
+  const _files202=Array.from(e.target.files||[]);
+  if(_files202.length===0){e.target.value='';return;}
+  if(_files202.length===1){
+    await _openOneFile202(_files202[0], e);
+    return;
+  }
+  if(_isOpeningFileBusy){e.target.value='';return;}
+  _isOpeningFileBusy=true;
+  // V2_06: 「Nを開くと、直前に開いたN-1のタブ名がNに書き換わる」という規則的な
+  // 症状から根本原因を特定した。scheduleSave()はclearTimeout+setTimeout(doSave,800)
+  // による800ms遅延のデバウンス保存で、doSave()内には
+  // 「openFiles[currentFileIdx].currentFileName = (グローバル変数)currentFileName」
+  // という同期処理がある(storage.js)。複数ファイルを連続して開く途中、あるファイルの
+  // オープン時にセットされた800ms後の保存タイマーが、次のファイルの読込中
+  // (=currentFileIdxはまだ前のファイルのタブを指しているが、currentFileNameは既に
+  // 次のファイルの名前に変わっている、というズレが生じる一瞬)に発火してしまうと、
+  // doSave()が前のファイルのタブへ次のファイルの名前を誤って書き込んでしまう。
+  // これが「直前のタブ名が次に開いたファイル名に変わる」現象の正体だった。
+  // 対策として、複数ファイルを連続オープンしている間はscheduleSave自体を一時的に
+  // no-op化し、doSave()がこの区間で実行されないようにする。storage.js自体は
+  // 一切変更せず、全ファイルの処理が完了した後にscheduleSaveを元に戻し、最後に
+  // 一度だけ呼んで最終状態を正しく保存する
+  var _origScheduleSave206=window.scheduleSave;
+  window.scheduleSave=function(){};
+  try{
+    for(let _i202=0;_i202<_files202.length;_i202++){
+      showGuide('ファイルを開いています('+(_i202+1)+'/'+_files202.length+') '+_files202[_i202].name,1200);
+      // V2_05: 「選んだ複数ファイルの中の、別のファイルの内容で開かれる」との報告を受け、
+      // 念のための安全策として、各ファイルの読込開始前に必ず1フレーム分待つ。
+      // これにより、前のファイルの読込・描画関連の非同期処理(rAF等)が確実に一段落
+      // してから次のファイルの読込(f.arrayBuffer())を開始するようにし、ブラウザ側の
+      // 内部状態が競合する余地を減らす
+      if(_i202>0) await new Promise(function(r){ if(typeof requestAnimationFrame==='function') requestAnimationFrame(function(){requestAnimationFrame(r);}); else setTimeout(r,16); });
+      // V2_03: 1件の読込失敗(想定外の例外)でループ全体が止まり、後続ファイルが
+      // 開かれなくなるのを防ぐ。DXF分岐が想定内で投げるエラーは従来通りalert()で
+      // 通知されるため、ここでは主にPDF/Excel分岐の未捕捉例外を想定した保険
+      try{ await _openOneFile202(_files202[_i202], e, true); }
+      catch(err202){ console.warn('[複数ファイルを開く] '+_files202[_i202].name+' の読込に失敗しました',err202); }
+    }
+  } finally {
+    window.scheduleSave=_origScheduleSave206;
+    _isOpeningFileBusy=false; e.target.value='';
+    scheduleSave(); // V2_06: 抑制していた間の保存を、最終状態でまとめて1回実行する
+  }
 });
 
 // V0_93: マルチファイル管理 ─────────────────────────────────────
@@ -2559,7 +2655,24 @@ function _updateVbmFitBtnVisibility(){
     if(pop&&pop.classList.contains('on')){pop.classList.remove('on');if(vb)_vbmToggleBtnUI(false);}
   }
 }
+// V2_07: 大容量DXFを何枚も同時に開いているとメモリ使用量が増え、フリーズ/再起動の
+// リスクが高まる。動作自体は変更せず、タブ数が一定枚数を超えたら注意喚起のみ行う。
+// updateFileNavUI()はタブの状態が変わるたびに必ず呼ばれるため、ここに集約する。
+// 枚数が閾値以下に戻れば再度超えた時にまた警告できるようフラグをリセットする。
+var _manyTabsWarnThreshold207=6;
+var _manyTabsWarned207=false;
+function _checkManyTabsWarning207(){
+  if(openFiles.length>_manyTabsWarnThreshold207){
+    if(!_manyTabsWarned207){
+      _manyTabsWarned207=true;
+      showGuide('タブが'+openFiles.length+'枚開いています。動作が重くなる場合は、使わないタブを閉じることをおすすめします',4000);
+    }
+  }else{
+    _manyTabsWarned207=false;
+  }
+}
 function updateFileNavUI(){
+  _checkManyTabsWarning207();
   _updateTdfWarnBanner();
   _updateWriteBackupBtnVisibility();
   _updateVbmFitBtnVisibility();
