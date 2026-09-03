@@ -89,6 +89,17 @@ function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(doSave,800)
 // localStorage へ保存（DXFバイナリはIndexedDBへ）
 // =========================================================
 function doSave(){
+  // V2_17: 複数/単一ファイルオープン処理中(_isOpeningFileBusy)は、currentFileIdxと
+  // currentFileNameが一時的に食い違う瞬間があるため、doSave()を実行するとタブへの
+  // 誤書込みが起こりうる(V2_06で対策したscheduleSave()のno-op化はscheduleSave経由の
+  // 呼び出ししか防げず、visibilitychange/pagehide/beforeunloadがdoSave()を直接
+  // 呼ぶ経路や、単一ファイルオープン中に既存タイマーが発火する経路は未対策だった)。
+  // ファイルオープン処理中は保存自体を1回スキップし、完了後にscheduleSave()が
+  // 改めて呼ばれることで最終状態を正しく保存する(既存のV2_06対策と矛盾しない)
+  if(typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy){
+    if(typeof verify==='function')verify('doSave:skipped(opening)');
+    return;
+  }
   if(typeof verify==='function')verify('doSave:start');
   try{
     // V0_140: saveCurrentFileState廃止 — openFiles[]は常に最新（参照エイリアス）
@@ -356,6 +367,10 @@ async function tryRestore(){
               b.classList.toggle('active',b.dataset.tool===currentTool);
             });
             {const _mb207=document.getElementById('measureToggleBtn');if(_mb207)_mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim','lineLen'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+              // V2_19: 【注意】計測ツールの種類をtool.js側(_MEASURE_TOOL_LABELS/_MEASURE_TOOL_ICON_INNER/
+              // _TOOL_COLOR_MODE等)で追加・変更した場合、この配列(および同じ配列を持つstorage.js内の
+              // もう1箇所)も必ず手動で追従させること。ここは自動連動していないため、更新を怠ると
+              // 復元直後だけ計測ボタンの枠ハイライトがずれる不具合が再発する(デバッグ計画での指摘事項)
             if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
             if(_d2.dimensionTextMode&&_d2.dimensionTextMode!=='manual')dimensionTextMode=_d2.dimensionTextMode; // V0_154: manual廃止
             if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
@@ -457,6 +472,10 @@ async function tryRestore(){
       b.classList.toggle('active',b.dataset.tool===currentTool);
     });
     {const mb207=document.getElementById('measureToggleBtn');if(mb207)mb207.classList.toggle('tool-active',['dxdy','diag','ll','lp','circDim','radDim','lineLen'].indexOf(currentTool)>=0);} // V1_207: tool.jsのconst _MEASURE_TOOL_LABELSは別scriptタグのためbareでは参照できず、ここでは同じ判定を直接書く
+              // V2_19: 【注意】計測ツールの種類をtool.js側(_MEASURE_TOOL_LABELS/_MEASURE_TOOL_ICON_INNER/
+              // _TOOL_COLOR_MODE等)で追加・変更した場合、この配列(および同じ配列を持つstorage.js内の
+              // もう1箇所)も必ず手動で追従させること。ここは自動連動していないため、更新を怠ると
+              // 復元直後だけ計測ボタンの枠ハイライトがずれる不具合が再発する(デバッグ計画での指摘事項)
     if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
     [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     buildLayerModal();

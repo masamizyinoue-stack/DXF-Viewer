@@ -733,7 +733,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #cbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:9px}
 .cb{height:52px;border-radius:11px;font-size:30px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;transition:transform .08s;border:1.5px solid;line-height:1;touch-action:manipulation}
 .cb:active{transform:scale(.93)}
-/* V2_16: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
+/* V2_20: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
    ボタンごとの色分け(cbn/cbo/cbeq/cbf)を維持したままfilter:brightnessで光らせるため、
    個別の背景色を上書きする必要がない */
 @keyframes cbFlash{
@@ -1101,7 +1101,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_16</span>
+    <span id="ver-label">V2_20</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1520,27 +1520,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=216"></script>
-<script src="viewer.js?v=216"></script>
-<script src="utils.js?v=216"></script>
-<script src="ui.js?v=216"></script>
-<script src="dialog.js?v=216"></script>
-<script src="storage.js?v=216"></script>
-<script src="fonts/NotoSansJP.js?v=216"></script>
-<script src="export.js?v=216"></script>
-<script src="tool.js?v=216"></script>
-<script src="verify.js?v=216"></script>
+<script src="layer.js?v=220"></script>
+<script src="viewer.js?v=220"></script>
+<script src="utils.js?v=220"></script>
+<script src="ui.js?v=220"></script>
+<script src="dialog.js?v=220"></script>
+<script src="storage.js?v=220"></script>
+<script src="fonts/NotoSansJP.js?v=220"></script>
+<script src="export.js?v=220"></script>
+<script src="tool.js?v=220"></script>
+<script src="verify.js?v=220"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=216"></script>
-<script src="stroke-text.js?v=216"></script>
+<script src="shxGlyphs.js?v=220"></script>
+<script src="stroke-text.js?v=220"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=216"></script>
+<script src="pc.js?v=220"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=216"></script>
+<script src="supabase-sync.js?v=220"></script>
 <script>
-const APP_VERSION = 'V2_16';
+const APP_VERSION = 'V2_20';
 
 // =========================================================
 // グローバル状態
@@ -4685,15 +4685,15 @@ function drawLPSnapMarker(ctx2,sx,sy,type){
 // ─ 寸法構築 ─────────────────────────────────────────
 // V2_12: 「2線間」(buildLLDim)と表現をそろえるため、「線と点」の寸法線・補助線の
 // 構築方法を変更した。footは常にptからlineへの実際の垂線の足(pArrowに依存しない)。
-// V2_16: 数値ラベルの位置だけpArrowに応じてスライドするようにした。
-// V2_16: V2_12/V2_16では寸法線自体(foot-pt)を固定していたが、ユーザーから
+// V2_13: 数値ラベルの位置だけpArrowに応じてスライドするようにした。
+// V2_14: V2_12/V2_13では寸法線自体(foot-pt)を固定していたが、ユーザーから
 // 「寸法線・数値を左右(line方向)に動かしたい」との要望を受けた。距離の値は常に
 // 実際の垂線の長さ(footとptから計算、pArrowに依存しない)を保ったまま、表示上の
 // 寸法線の位置(d1,d2)は、pArrowをline方向に投影したoffset分だけ、foot・ptの両方を
 // line方向へ平行移動して決める。pt側の補助線は、offsetがほぼゼロ(=pArrowが実質pt付近を
 // 指している、添付画像のケース)なら不要とし、pt自体から離れた位置に寸法線を
 // 動かした場合にのみ、pt自身から補助線を追加する。
-// V2_16: line側の補助線判定を、実際のfoot(pArrowに依存しない、常に同じ)基準から、
+// V2_15: line側の補助線判定を、実際のfoot(pArrowに依存しない、常に同じ)基準から、
 // オフセット後の表示位置(d1)がlineの範囲内かどうかの基準に変更。footが元々line範囲内
 // でも、寸法線をline方向へスライドさせてd1がlineの端点を超えたら、はみ出した側の
 // 端点からd1まで補助線を出す(2線間=buildLLDimと同じ考え方)。
@@ -4714,7 +4714,7 @@ function buildLinePtDim(line,pt,pArrow){
   var d1={x:foot.x+lux*offset,y:foot.y+luy*offset}; // 表示上の寸法線位置(line側)
   var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset}; // 表示上の寸法線位置(pt側)
   var lines=[{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y}]; // 寸法線本体
-  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_16)。
+  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_20)。
   // 範囲外ならはみ出した側の端点からd1まで補助線を伸ばす
   var tOff=t+offset/lineLen;
   if(tOff<-TOLR||tOff>1+TOLR){
@@ -4723,7 +4723,13 @@ function buildLinePtDim(line,pt,pArrow){
   }
   // pt側: offsetがほぼゼロ(寸法位置が点の位置にある)なら補助線なし。
   // 点を左右に動かした場合のみ、pt自体からd2まで補助線を足す
-  if(Math.abs(offset)>TOLR){
+  // V2_20: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
+  // (s2w変換のみ)からそのまま作られるため、TOLR=1e-6mmという閾値ではタッチ操作で
+  // 到達できる精度を大きく下回り、「点の位置を指定しても常にoffsetありと判定されて
+  // 補助線が消えない」という不具合があった。画面上で数ピクセル相当のワールド距離を
+  // 閾値にすることで、点の位置を大まかに狙うだけで意図通り補助線なしになるようにする
+  var TOLR_OFS=Math.max(TOLR,6/(scale||1));
+  if(Math.abs(offset)>TOLR_OFS){
     lines.push({x1:pt.x,y1:pt.y,x2:d2.x,y2:d2.y});
   }
   var screenAng=Math.atan2(-uy,ux);
@@ -6411,7 +6417,7 @@ decEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefaul
 
 document.querySelectorAll('.cb').forEach(function(btn){
   btn.addEventListener('click',function(){
-    // V2_16: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
+    // V2_20: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
     // 一度クラスを外してリフローさせてから付け直す
     btn.classList.remove('cb-flash');
     void btn.offsetWidth;
