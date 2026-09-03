@@ -733,6 +733,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #cbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:9px}
 .cb{height:52px;border-radius:11px;font-size:30px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;transition:transform .08s;border:1.5px solid;line-height:1;touch-action:manipulation}
 .cb:active{transform:scale(.93)}
+/* V2_16: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
+   ボタンごとの色分け(cbn/cbo/cbeq/cbf)を維持したままfilter:brightnessで光らせるため、
+   個別の背景色を上書きする必要がない */
+@keyframes cbFlash{
+  0%{filter:brightness(2.4);box-shadow:0 0 16px 3px rgba(255,255,255,.85);}
+  100%{filter:brightness(1);box-shadow:none;}
+}
+.cb.cb-flash{animation:cbFlash .3s ease-out;}
 .cbn{background:rgba(255,255,255,.05);color:var(--text);border-color:var(--border)}
 .cbo{background:rgba(0,212,255,.1);color:#00d4ff;border-color:rgba(0,212,255,.35)}
 .cbeq{background:#00a8d4;color:#fff;border-color:#00d4ff;box-shadow:0 0 14px rgba(0,212,255,.3)}
@@ -1093,7 +1101,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_07</span>
+    <span id="ver-label">V2_16</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1512,27 +1520,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=207"></script>
-<script src="viewer.js?v=207"></script>
-<script src="utils.js?v=207"></script>
-<script src="ui.js?v=207"></script>
-<script src="dialog.js?v=207"></script>
-<script src="storage.js?v=207"></script>
-<script src="fonts/NotoSansJP.js?v=207"></script>
-<script src="export.js?v=207"></script>
-<script src="tool.js?v=207"></script>
-<script src="verify.js?v=207"></script>
+<script src="layer.js?v=216"></script>
+<script src="viewer.js?v=216"></script>
+<script src="utils.js?v=216"></script>
+<script src="ui.js?v=216"></script>
+<script src="dialog.js?v=216"></script>
+<script src="storage.js?v=216"></script>
+<script src="fonts/NotoSansJP.js?v=216"></script>
+<script src="export.js?v=216"></script>
+<script src="tool.js?v=216"></script>
+<script src="verify.js?v=216"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=207"></script>
-<script src="stroke-text.js?v=207"></script>
+<script src="shxGlyphs.js?v=216"></script>
+<script src="stroke-text.js?v=216"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=207"></script>
+<script src="pc.js?v=216"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=207"></script>
+<script src="supabase-sync.js?v=216"></script>
 <script>
-const APP_VERSION = 'V2_07';
+const APP_VERSION = 'V2_16';
 
 // =========================================================
 // グローバル状態
@@ -4675,26 +4683,49 @@ function drawLPSnapMarker(ctx2,sx,sy,type){
 }
 
 // ─ 寸法構築 ─────────────────────────────────────────
+// V2_12: 「2線間」(buildLLDim)と表現をそろえるため、「線と点」の寸法線・補助線の
+// 構築方法を変更した。footは常にptからlineへの実際の垂線の足(pArrowに依存しない)。
+// V2_16: 数値ラベルの位置だけpArrowに応じてスライドするようにした。
+// V2_16: V2_12/V2_16では寸法線自体(foot-pt)を固定していたが、ユーザーから
+// 「寸法線・数値を左右(line方向)に動かしたい」との要望を受けた。距離の値は常に
+// 実際の垂線の長さ(footとptから計算、pArrowに依存しない)を保ったまま、表示上の
+// 寸法線の位置(d1,d2)は、pArrowをline方向に投影したoffset分だけ、foot・ptの両方を
+// line方向へ平行移動して決める。pt側の補助線は、offsetがほぼゼロ(=pArrowが実質pt付近を
+// 指している、添付画像のケース)なら不要とし、pt自体から離れた位置に寸法線を
+// 動かした場合にのみ、pt自身から補助線を追加する。
+// V2_16: line側の補助線判定を、実際のfoot(pArrowに依存しない、常に同じ)基準から、
+// オフセット後の表示位置(d1)がlineの範囲内かどうかの基準に変更。footが元々line範囲内
+// でも、寸法線をline方向へスライドさせてd1がlineの端点を超えたら、はみ出した側の
+// 端点からd1まで補助線を出す(2線間=buildLLDimと同じ考え方)。
 function buildLinePtDim(line,pt,pArrow){
   var sd=parseFloat(document.getElementById('scaleDenom').value)||1;
   var dx=line.x2-line.x1,dy=line.y2-line.y1;
   var lineLen=Math.hypot(dx,dy);
   if(lineLen<1e-9) return null;
   var lux=dx/lineLen,luy=dy/lineLen;
-  var foot=computeFoot(line,pt);
+  var t=((pt.x-line.x1)*dx+(pt.y-line.y1)*dy)/(lineLen*lineLen);
+  var foot={x:line.x1+t*dx,y:line.y1+t*dy};
   var perpX=pt.x-foot.x,perpY=pt.y-foot.y;
-  var dist=Math.hypot(perpX,perpY);
+  var dist=Math.hypot(perpX,perpY); // 実際の垂直距離(常にこの値を表示する)
   if(dist<1e-9) return null;
   var ux=perpX/dist,uy=perpY/dist;
+  var TOLR=1e-6;
   var offset=(pArrow.x-foot.x)*lux+(pArrow.y-foot.y)*luy;
-  var d1={x:foot.x+lux*offset,y:foot.y+luy*offset};
-  var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset};
-  var ext=8/scale,sig=offset>=0?1:-1;
-  var lines=[
-    {x1:foot.x,y1:foot.y,x2:d1.x+lux*sig*ext,y2:d1.y+luy*sig*ext},
-    {x1:pt.x,  y1:pt.y,  x2:d2.x+lux*sig*ext,y2:d2.y+luy*sig*ext},
-    {x1:d1.x,  y1:d1.y,  x2:d2.x,             y2:d2.y}
-  ];
+  var d1={x:foot.x+lux*offset,y:foot.y+luy*offset}; // 表示上の寸法線位置(line側)
+  var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset}; // 表示上の寸法線位置(pt側)
+  var lines=[{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y}]; // 寸法線本体
+  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_16)。
+  // 範囲外ならはみ出した側の端点からd1まで補助線を伸ばす
+  var tOff=t+offset/lineLen;
+  if(tOff<-TOLR||tOff>1+TOLR){
+    var end=(tOff<0)?{x:line.x1,y:line.y1}:{x:line.x2,y:line.y2};
+    lines.push({x1:end.x,y1:end.y,x2:d1.x,y2:d1.y});
+  }
+  // pt側: offsetがほぼゼロ(寸法位置が点の位置にある)なら補助線なし。
+  // 点を左右に動かした場合のみ、pt自体からd2まで補助線を足す
+  if(Math.abs(offset)>TOLR){
+    lines.push({x1:pt.x,y1:pt.y,x2:d2.x,y2:d2.y});
+  }
   var screenAng=Math.atan2(-uy,ux);
   var arrows=[
     {x:d1.x,y:d1.y,angle:screenAng+Math.PI},
@@ -4921,9 +4952,11 @@ window._lpCommitPoint=_lpCommitPoint; // V1_48: 「2線間の交点」(セクシ
 
 // ── D2. 2線間距離（平行線前提） ──────────────────────────────────────────
 // V0_153.1: 「2線間」ボタン新設。LP(線と点)と同じ「線選択→線選択→位置指定」の
-// 3段階状態機械。距離計算・寸法線の見た目はLPのbuildLinePtDim()をそのまま再利用
-// （平行な2線間の距離＝2本目の線上の任意の点(中点を採用)から1本目の線までの
-// 垂直距離、という数学的事実を利用し、新しい幾何計算を重複実装しない）。
+// 3段階状態機械。
+// V2_08: 寸法線の見た目は専用のbuildLLDim()で構築する（旧: LPのbuildLinePtDim()を
+// 「2本目の線の中点」を点として流用していたが、線の長さが左右で違うと中点の位置が
+// ずれ、常に線の途中から補助線が伸びて見にくいとの指摘を受け、line1・line2それぞれ
+// 個別に範囲内/範囲外を判定する専用ロジックに変更した）。
 ;(function(){
 
 var LL={
@@ -4943,6 +4976,93 @@ function resetLL(){
   LL.active=false; LL.phase=0;
   LL.selLine1=null; LL.selLine2=null;
   LL.penDown=false; LL.cur=null; LL._hoverLine=null; LL._hoverPos=null;
+}
+
+// V2_08: 「2線間」専用の寸法構築関数。従来はLP用のbuildLinePtDim()を「2本目の線の
+// 中点」を点として流用していたが、線の長さが左右で違うと中点の位置がずれ、常に
+// 線の途中から補助線が伸びて見にくいという指摘があった。line1・line2それぞれについて
+// 個別に「寸法位置(pArrow)がその線の範囲内かどうか」を判定し、範囲内なら補助線を
+// 省略、範囲外なら、はみ出した側の端点から補助線を伸ばす設計に変更する。
+// LP側のbuildLinePtDim()には一切手を入れず、LL専用としてここに新設する。
+// V2_09: 実機検証で、選んだ2本の線にごくわずかな非平行(製図上の丸め誤差程度)が
+// あったり、寸法位置(pArrow)が線の実際の範囲から大きく離れていたりすると、旧実装
+// (line1・line2それぞれ自身の方向でpArrowを独立に投影)では、離れた分だけ補助線の
+// 向きが法線方向から外れ、大きく斜めに広がる不具合があった。line1の方向とその法線
+// だけを基準にline2側の対応点を求める設計に改め、さらに、はみ出し量(範囲外の量)に
+// 「線の長さ分まで」という上限を設けて、寸法位置が極端に離れていても補助線が異常に
+// 長く伸びないようにした。
+// V2_10: V2_09でもなお、テーパー状(先細り)の部材のように、選んだ2本の線がわずかに
+// 非平行な場合に補助線が広がって見える不具合が残っていた。原因は、補助線を「端点→
+// (寸法線位置より少し外側の1点)」という1本の直線として描いていたため、寸法線を
+// 少し超えさせるための微小なオフセット(ext)が、端点からその点までの短い区間全体の
+// 角度を大きく変えてしまっていたこと。補助線を「端点→その線自身の延長線上の点(常に
+// 元の線と同じ角度)」「その点→寸法線位置より少し外側(短い橋渡し)」の2区間に分割し、
+// 元の線の傾きに沿った部分と、寸法線への短い接続部分を分離した。
+function buildLLDim(line1,line2,pArrow){
+  var sd=parseFloat(document.getElementById('scaleDenom').value)||1;
+  var dx1=line1.x2-line1.x1,dy1=line1.y2-line1.y1;
+  var len1=Math.hypot(dx1,dy1);
+  if(len1<1e-9) return null;
+  var ux1=dx1/len1,uy1=dy1/len1; // line1方向(正規化)
+  var nx=-uy1,ny=ux1; // line1の法線方向(左90度)
+  var dx2=line2.x2-line2.x1,dy2=line2.y2-line2.y1;
+  var len2=Math.hypot(dx2,dy2);
+  if(len2<1e-9) return null;
+  // line1からline2までの符号付きオフセット距離(line2の中点を基準に計算し、
+  // 端点付近の丸め誤差の影響を受けにくくする)
+  var l2mx=(line2.x1+line2.x2)/2,l2my=(line2.y1+line2.y2)/2;
+  var offN=(l2mx-line1.x1)*nx+(l2my-line1.y1)*ny;
+  var dist=Math.abs(offN);
+  if(dist<1e-9) return null;
+  var sig=offN>=0?1:-1;
+  // pArrowをline1方向に投影（無限直線として計算。t1rawが0〜1の範囲外＝延長線上＝
+  // 端点の外側を意味する）。はみ出し量は「線の長さ分」までに制限してから使う
+  var t1raw=((pArrow.x-line1.x1)*dx1+(pArrow.y-line1.y1)*dy1)/(len1*len1);
+  var t1=Math.max(-1,Math.min(2,t1raw));
+  var foot1={x:line1.x1+t1*dx1,y:line1.y1+t1*dy1};
+  // foot1からline1の法線方向にoffN分移動した点＝line1と同じオフセット位置にある、
+  // line2の無限直線上の点。line2自身の方向は使わないため、2線がわずかに非平行でも
+  // 補助線が法線方向から外れない
+  var foot2={x:foot1.x+nx*offN,y:foot1.y+ny*offN};
+  // foot2が実際のline2の範囲内にあるかどうかを、line2のローカル座標で判定
+  var t2=((foot2.x-line2.x1)*dx2+(foot2.y-line2.y1)*dy2)/(len2*len2);
+  var TOLR=1e-6;
+  var lines=[{x1:foot1.x,y1:foot1.y,x2:foot2.x,y2:foot2.y}]; // 寸法線本体
+  // line1側: 範囲内なら補助線なし。範囲外(延長線上)なら、はみ出した側の端点から
+  // 補助線を伸ばす（範囲外の判定はクランプ前のt1rawで行う）。
+  // V2_10: 「端点→foot1(line1自身の延長線上、常に元の線と同じ角度)」までとし、
+  // V2_11: 矢印(寸法線の端)から先へ余計に飛び出す見た目になるとの指摘を受け、
+  // 「寸法線を少し超えた位置までの短い橋渡し」は廃止し、foot1でぴったり止める
+  if(t1raw<-TOLR||t1raw>1+TOLR){
+    var end1=(t1raw<0)?{x:line1.x1,y:line1.y1}:{x:line1.x2,y:line1.y2};
+    lines.push({x1:end1.x,y1:end1.y,x2:foot1.x,y2:foot1.y});
+  }
+  // line2側も同様に、独立して判定する。foot2b(line2自身の延長線上でfoot2に対応する
+  // 点)を経由させることで、line2の傾きに沿った自然な部分だけを描画し、foot2b付近で
+  // ぴったり止める(V2_11: 寸法線を超える飛び出しは廃止)
+  if(t2<-TOLR||t2>1+TOLR){
+    var end2=(t2<0)?{x:line2.x1,y:line2.y1}:{x:line2.x2,y:line2.y2};
+    var foot2b={x:line2.x1+t2*dx2,y:line2.y1+t2*dy2};
+    lines.push({x1:end2.x,y1:end2.y,x2:foot2b.x,y2:foot2b.y});
+  }
+  var screenAng=Math.atan2(-ny*sig,nx*sig); // foot1→foot2方向(=寸法線方向)の角度
+  var arrows=[
+    {x:foot1.x,y:foot1.y,angle:screenAng+Math.PI},
+    {x:foot2.x,y:foot2.y,angle:screenAng}
+  ];
+  var tx2=(foot1.x+foot2.x)/2,ty2=(foot1.y+foot2.y)/2;
+  var tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+  var sd1=w2s(foot1.x,foot1.y),sd2=w2s(foot2.x,foot2.y);
+  var pxLen=Math.hypot(sd2[0]-sd1[0],sd2[1]-sd1[1]);
+  if(pxLen<60){
+    // 寸法線が短すぎて数値が収まらない場合、line1の方向へ数値を逃がす(既存LP版と同趣旨)
+    var refDir=(t1>=0.5)?1:-1,refLen=32/scale;
+    tx2=foot2.x+ux1*refDir*refLen; ty2=foot2.y+uy1*refDir*refLen;
+    lines.push({x1:foot2.x,y1:foot2.y,x2:tx2,y2:ty2});
+  }
+  return {lines,arrows,
+    text:formatDim(dist/sd),
+    tx:tx2,ty:ty2,tangle,worldFontH:17/(scale||1),color:currentDimColor||'#f39c12',page:_curPage()};
 }
 
 // 2本の線が平行かどうか判定（向きの正負は無視。約1度の誤差まで許容）
@@ -5006,10 +5126,9 @@ function drawLLOverlay(){
     ctx2.beginPath(); ctx2.moveTo(ls21[0],ls21[1]); ctx2.lineTo(ls22[0],ls22[1]); ctx2.stroke();
     ctx2.restore();
   }
-  // Phase2: プレビュー（2本目の中点を「点」としてbuildLinePtDimを再利用）
+  // Phase2: プレビュー（V2_08: LL専用のbuildLLDimで、線ごとの範囲内/範囲外を判定）
   if(LL.phase===2&&LL.cur&&LL.selLine1&&LL.selLine2){
-    var midPtPv={x:(LL.selLine2.x1+LL.selLine2.x2)/2, y:(LL.selLine2.y1+LL.selLine2.y2)/2};
-    drawLPPreview(ctx2,buildLinePtDim(LL.selLine1,midPtPv,LL.cur));
+    drawLPPreview(ctx2,buildLLDim(LL.selLine1,LL.selLine2,LL.cur));
   }
 
   ctx2.restore();
@@ -5073,8 +5192,7 @@ LL.handleUp=function(sx,sy){
   } else if(LL.phase===2){
     var wp2=s2w(sx,sy);
     var pArrow=LL.cur||{x:wp2[0],y:wp2[1]};
-    var midPt={x:(LL.selLine2.x1+LL.selLine2.x2)/2, y:(LL.selLine2.y1+LL.selLine2.y2)/2};
-    var dim=buildLinePtDim(LL.selLine1,midPt,pArrow);
+    var dim=buildLLDim(LL.selLine1,LL.selLine2,pArrow); // V2_08: 線ごとに範囲内/範囲外を判定
     if(dim){ snapshot(); dims.push(dim); doSave(); scheduleDraw(); } // V0_103と同様: 即時保存
     LL.selLine1=null; LL.selLine2=null; LL.phase=0; LL.cur=null;
     showGuide(LL_GUIDES.LINE1,0);
@@ -6293,6 +6411,13 @@ decEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefaul
 
 document.querySelectorAll('.cb').forEach(function(btn){
   btn.addEventListener('click',function(){
+    // V2_16: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
+    // 一度クラスを外してリフローさせてから付け直す
+    btn.classList.remove('cb-flash');
+    void btn.offsetWidth;
+    btn.classList.add('cb-flash');
+    setTimeout(function(){btn.classList.remove('cb-flash');},320);
+
     var num=btn.dataset.cnum,op=btn.dataset.cop,fn=btn.dataset.cfn;
 
     if(num!==undefined){
