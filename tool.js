@@ -656,7 +656,12 @@ ov.addEventListener('touchend',e=>{
     // あった。V1_27のコメント通り本来テキスト読込はダブルタップ全体表示より優先される
     // 設計のため、phase>0ガードはダブルタップ全体表示の判定にのみ適用し、テキスト読込
     // 側は独立してphase>0でも実行されるよう分離した
-    if(!isPen&&panning&&!sketching&&!(window.SW&&window.SW.active)&&_tapStartTime){
+    // V2_22: SWはDIM/LP/LL/LLENと異なりphase概念を持たないため、従来は「SW.activeで
+    // あるだけ」で無条件にダブルタップ全体表示をブロックしていた。ボタンを押した直後
+    // (まだドラッグを開始していない=penDown===false)でもブロックされてしまい、V2_22の
+    // 上記リセット漏れ修正と合わせ、実際に範囲ドラッグ中(penDown===true)の場合のみ
+    // ブロックするよう他の計測ツールと同等の粒度に揃える(防御的な二重対策)
+    if(!isPen&&panning&&!sketching&&!(window.SW&&window.SW.active&&window.SW.penDown)&&_tapStartTime){
       var _tapDt=Date.now()-_tapStartTime;
       var _tapDd=Math.hypot(lastMX-_tapStartX,lastMY-_tapStartY);
       if(_tapDt<300&&_tapDd<12){ // 短時間・小移動＝ドラッグではなくタップ
@@ -778,6 +783,15 @@ function _syncMeasureToggleBtnIcon(){
 }
 document.querySelectorAll('.tool-btn').forEach(btn=>{
   btn.addEventListener('click',(e)=>{
+    // V2_22: 「サブ窓」ボタンを押した(SW.active=true)後、範囲ドラッグを完了させずに
+    // 他のツールボタンへ切り替えると、SW.activeがリセットされる経路がどこにもなく
+    // trueのまま残り続けていた不具合の修正。ハンドラの一番最初で実行することで、
+    // 「既に選択中のツールの再タップ(下記のif分岐で色選択ポップアップだけ開いて
+    // 早期returnする経路)」でも確実にSWをリセットできるようにする。ペン等は初期状態で
+    // 既に.tool-btn.activeを持つため(サブ窓選択中もこのクラスは外れない)、サブ窓を
+    // 選んだ直後にペンボタンを押すと、まさにこの「既に選択中の再タップ」の分岐に
+    // 入ってしまい、それより後にリセット処理を置いても実行されなかった
+    if(window.SW&&window.SW.active&&typeof resetSW==='function'){resetSW();if(typeof _swUpdateBtnUI==='function')_swUpdateBtnUI(false);}
     const _mode=_TOOL_COLOR_MODE[btn.dataset.tool];
     if(btn.classList.contains('active')&&_mode){
       // 既に選択中のアイコンの再タップ：ツールの再選択・状態リセットは行わず、

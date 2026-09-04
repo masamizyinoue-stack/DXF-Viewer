@@ -733,7 +733,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #cbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:9px}
 .cb{height:52px;border-radius:11px;font-size:30px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;transition:transform .08s;border:1.5px solid;line-height:1;touch-action:manipulation}
 .cb:active{transform:scale(.93)}
-/* V2_20: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
+/* V2_22: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
    ボタンごとの色分け(cbn/cbo/cbeq/cbf)を維持したままfilter:brightnessで光らせるため、
    個別の背景色を上書きする必要がない */
 @keyframes cbFlash{
@@ -1101,7 +1101,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_20</span>
+    <span id="ver-label">V2_22</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1209,6 +1209,15 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <!-- V0_154: 開発者モードを削除 -->
   <!-- V0_143: 下部のバージョン表示（旧#ver-label）は削除。表示はsp-header内の上部spanに一本化 -->
+  <!-- V2_22: 容量診断(IndexedDB/localStorageの使用状況確認)。別ファイルの診断ツールを
+       別URLで開く必要があり使いにくいとの指摘を受け、設定パネル最下部に組み込んだ。
+       読み取り専用で、既存のDXFデータ・保存処理には一切書き込みも変更も行わない -->
+  <div class="sp-section">
+    <div class="sp-label">アプリ容量診断</div>
+    <div style="font-size:11px;color:#666;margin-bottom:6px;line-height:1.5">ファイル本体・書込み履歴・自動バックアップ・検索インデックス等が、この端末にどれくらい溜まっているか確認できます（読み取りのみ、削除等は行いません）</div>
+    <button id="diagRunBtn" class="sp-action-btn">診断を実行</button>
+    <div class="info-box" id="diagResultBox" style="font-size:12px;color:#888;background:#0a0c10;border:1px solid #2a3040;border-radius:8px;padding:8px;margin-top:8px;min-height:24px;line-height:1.7;white-space:pre-wrap">「診断を実行」を押してください</div>
+  </div>
 </div>
 
 <!-- V0_158: 計算機（M_Viewer V7.06仕様移植） -->
@@ -1520,27 +1529,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=220"></script>
-<script src="viewer.js?v=220"></script>
-<script src="utils.js?v=220"></script>
-<script src="ui.js?v=220"></script>
-<script src="dialog.js?v=220"></script>
-<script src="storage.js?v=220"></script>
-<script src="fonts/NotoSansJP.js?v=220"></script>
-<script src="export.js?v=220"></script>
-<script src="tool.js?v=220"></script>
-<script src="verify.js?v=220"></script>
+<script src="layer.js?v=222"></script>
+<script src="viewer.js?v=222"></script>
+<script src="utils.js?v=222"></script>
+<script src="ui.js?v=222"></script>
+<script src="dialog.js?v=222"></script>
+<script src="storage.js?v=222"></script>
+<script src="fonts/NotoSansJP.js?v=222"></script>
+<script src="export.js?v=222"></script>
+<script src="tool.js?v=222"></script>
+<script src="verify.js?v=222"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=220"></script>
-<script src="stroke-text.js?v=220"></script>
+<script src="shxGlyphs.js?v=222"></script>
+<script src="stroke-text.js?v=222"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=220"></script>
+<script src="pc.js?v=222"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=220"></script>
+<script src="supabase-sync.js?v=222"></script>
 <script>
-const APP_VERSION = 'V2_20';
+const APP_VERSION = 'V2_22';
 
 // =========================================================
 // グローバル状態
@@ -2937,6 +2946,116 @@ document.getElementById('sbAuthClearBtn').addEventListener('click',()=>{
   showGuide('クラウド同期の登録を解除しました',2000);
 });
 document.getElementById('settingsClose').addEventListener('click',()=>document.body.classList.remove('settings-open'));
+// V2_22: アプリ容量診断(設定パネル最下部)。IndexedDB各DB・localStorageの使用状況を
+// 読み取り専用で確認する。既存のdoSave/tryRestore等の保存・復元処理には一切触れず、
+// 完全に独立した関数群として追加する(既存グローバル変数・関数名との衝突を避けるため
+// 全て_diag21プレフィックスを付ける)
+function _diag21FmtBytes(n){
+  if(n<1024) return n+' B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+' KB';
+  return (n/1024/1024).toFixed(2)+' MB';
+}
+function _diag21ApproxSize(val){
+  try{
+    if(val==null) return 0;
+    if(val instanceof ArrayBuffer) return val.byteLength;
+    if(ArrayBuffer.isView(val)) return val.byteLength;
+    if(typeof Blob!=='undefined'&&val instanceof Blob) return val.size;
+    if(typeof val==='string') return val.length*2;
+    var total=0;
+    if(typeof val==='object'){
+      for(var k in val){
+        if(!Object.prototype.hasOwnProperty.call(val,k)) continue;
+        var v=val[k];
+        if(v instanceof ArrayBuffer) total+=v.byteLength;
+        else if(ArrayBuffer.isView(v)) total+=v.byteLength;
+        else if(typeof Blob!=='undefined'&&v instanceof Blob) total+=v.size;
+      }
+    }
+    try{
+      var s=JSON.stringify(val,function(k,v){
+        if(v instanceof ArrayBuffer||ArrayBuffer.isView(v)) return undefined;
+        return v;
+      });
+      if(s) total+=s.length;
+    }catch(e){}
+    return total;
+  }catch(e){ return 0; }
+}
+function _diag21OpenDb(name){
+  return new Promise(function(resolve){
+    try{
+      var req=indexedDB.open(name);
+      req.onsuccess=function(e){resolve({ok:true,db:e.target.result});};
+      req.onerror=function(){resolve({ok:false});};
+      req.onupgradeneeded=function(e){ e.target.transaction.abort(); }; // 未作成DBを新規作成しない
+      req.onblocked=function(){resolve({ok:false});};
+    }catch(e){resolve({ok:false});}
+  });
+}
+function _diag21ScanStore(db,storeName){
+  return new Promise(function(resolve){
+    try{
+      if(!db.objectStoreNames.contains(storeName)){resolve({exists:false,count:0,bytes:0});return;}
+      var tx=db.transaction(storeName,'readonly');
+      var store=tx.objectStore(storeName);
+      var count=0,bytes=0;
+      var countReq=store.count();
+      countReq.onsuccess=function(){count=countReq.result;};
+      var cursorReq=store.openCursor();
+      cursorReq.onsuccess=function(e){
+        var cursor=e.target.result;
+        if(cursor){ bytes+=_diag21ApproxSize(cursor.value); cursor.continue(); }
+      };
+      tx.oncomplete=function(){resolve({exists:true,count:count,bytes:bytes});};
+      tx.onerror=function(){resolve({exists:true,count:count,bytes:bytes});};
+    }catch(e){resolve({exists:false,count:0,bytes:0});}
+  });
+}
+async function _diag21ScanDb(name,stores){
+  var r=await _diag21OpenDb(name);
+  if(!r.ok) return {name:name,ok:false,stores:{}};
+  var out={name:name,ok:true,stores:{}};
+  for(var i=0;i<stores.length;i++) out.stores[stores[i]]=await _diag21ScanStore(r.db,stores[i]);
+  try{r.db.close();}catch(e){}
+  return out;
+}
+function _diag21LocalStorageInfo(){
+  var total=0;
+  for(var i=0;i<localStorage.length;i++){
+    var k=localStorage.key(i);
+    var v=localStorage.getItem(k)||'';
+    total+=(k.length+v.length)*2;
+  }
+  return total;
+}
+{var _diagBtn21=document.getElementById('diagRunBtn');
+if(_diagBtn21) _diagBtn21.addEventListener('click',async function(){
+  var box=document.getElementById('diagResultBox');
+  box.textContent='診断中です、しばらくお待ちください…';
+  var targets=[
+    {name:'dxfViewerFilesDB',label:'ファイル本体',stores:['dxfFiles']},
+    {name:'dxfViewerDxfviewDB',label:'書込み履歴',stores:['dv']},
+    {name:'dxfViewerBackupDB',label:'自動バックアップ',stores:['backups']},
+    {name:'dxfViewerDB',label:'検索インデックス',stores:['dxfIndex','dxfIndexProfiles','dxfIndexProfileRecords']},
+    {name:'dxfViewerSettingsDB',label:'設定',stores:['s']}
+  ];
+  var lines=[],grandTotal=0;
+  for(var t of targets){
+    var r=await _diag21ScanDb(t.name,t.stores);
+    if(!r.ok){ lines.push(t.label+'：未使用'); continue; }
+    var dbTotal=0,cnt=0;
+    for(var sn in r.stores){ var s=r.stores[sn]; if(s.exists){ dbTotal+=s.bytes; cnt+=s.count; } }
+    grandTotal+=dbTotal;
+    lines.push(t.label+'：'+cnt+'件 '+_diag21FmtBytes(dbTotal));
+  }
+  var lsBytes=_diag21LocalStorageInfo();
+  grandTotal+=lsBytes;
+  lines.push('その他設定データ：'+_diag21FmtBytes(lsBytes));
+  lines.push('─────────────');
+  lines.push('合計：'+_diag21FmtBytes(grandTotal));
+  box.textContent=lines.join('\n');
+});}
 // V0_129: Safari終了・バックグラウンド移行時に即時保存
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden'&&currentFileName)doSave();}); // V0_132: ガード追加
 window.addEventListener('pagehide',function(){if(currentFileName)doSave();}); // V0_132: ガード追加
@@ -4714,7 +4833,7 @@ function buildLinePtDim(line,pt,pArrow){
   var d1={x:foot.x+lux*offset,y:foot.y+luy*offset}; // 表示上の寸法線位置(line側)
   var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset}; // 表示上の寸法線位置(pt側)
   var lines=[{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y}]; // 寸法線本体
-  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_20)。
+  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_22)。
   // 範囲外ならはみ出した側の端点からd1まで補助線を伸ばす
   var tOff=t+offset/lineLen;
   if(tOff<-TOLR||tOff>1+TOLR){
@@ -4723,7 +4842,7 @@ function buildLinePtDim(line,pt,pArrow){
   }
   // pt側: offsetがほぼゼロ(寸法位置が点の位置にある)なら補助線なし。
   // 点を左右に動かした場合のみ、pt自体からd2まで補助線を足す
-  // V2_20: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
+  // V2_22: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
   // (s2w変換のみ)からそのまま作られるため、TOLR=1e-6mmという閾値ではタッチ操作で
   // 到達できる精度を大きく下回り、「点の位置を指定しても常にoffsetありと判定されて
   // 補助線が消えない」という不具合があった。画面上で数ピクセル相当のワールド距離を
@@ -5670,6 +5789,12 @@ window.resetSW=resetSW;
 
 // ─ サブ窓ボタン ────────────────────────────────────────────
 function _swUpdateBtnUI(on){
+  // V2_22: このIIFE内のローカル関数のままではwindow._swUpdateBtnUIとして
+  // 外部(resetToolStates/tool.js)から参照できず、「typeof _swUpdateBtnUI==='function'」
+  // による呼び出しガードが常にfalseになり、ボタンの見た目リセットが無視されていた
+  // (SW.active自体はresetSW()でfalseに戻るが見た目だけ選択中のまま残るバグの真因)。
+  // 関数宣言のすぐ後段でwindowに公開して解決する。
+
   var b=document.getElementById('subWinBtn');
   if(!b)return;
   // V1_59: 選択解除時にborderColorを空にすると、V1_54で付けた枠色（緑）まで
@@ -5677,6 +5802,7 @@ function _swUpdateBtnUI(on){
   if(on){b.style.background='rgba(0,212,255,.22)';b.style.borderColor='#00d4ff';b.style.color='#00d4ff';}
   else{b.style.background='';b.style.borderColor='#2ecc71';b.style.color='';}
 }
+window._swUpdateBtnUI=_swUpdateBtnUI;
 document.getElementById('subWinBtn').addEventListener('click',function(){
   if(SW.active){ // 選択中に再度押した場合はキャンセル
     resetSW();hideGuide();_swUpdateBtnUI(false);return;
@@ -6417,7 +6543,7 @@ decEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefaul
 
 document.querySelectorAll('.cb').forEach(function(btn){
   btn.addEventListener('click',function(){
-    // V2_20: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
+    // V2_22: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
     // 一度クラスを外してリフローさせてから付け直す
     btn.classList.remove('cb-flash');
     void btn.offsetWidth;
