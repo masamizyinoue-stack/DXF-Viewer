@@ -679,7 +679,11 @@ async function exportDxfviewManual(){
     return false; // V0_145: 保存失敗時は閉じない（データ消失防止）
   }
 }
-document.getElementById('writeBackupBtn').addEventListener('click',exportDxfviewManual);
+// V2_30: ヘッダー「バックアップ」ボタン(writeBackupBtn)は廃止。
+// V2_34: 「現在開いている1ファイルだけ」を対象にしたバックアップとして、
+// 新しいid「fileBackupBtn234」(ラベル:ファイルBackup)で復活させる
+{var _fileBackupBtn234=document.getElementById('fileBackupBtn234');
+if(_fileBackupBtn234) _fileBackupBtn234.addEventListener('click',exportDxfviewManual);}
 
 // =========================================================
 // V1_183: 複数ファイル一括書出(HD-PDF書出/バックアップ)用の共通保存処理。
@@ -823,6 +827,284 @@ async function exportDxfviewManualBatch183(indices){
   if(typeof _abMarkSaved==='function') _abMarkSaved();
   return {count:included, skipped:skipped};
 }
+
+// =========================================================
+// V2_23: 全書込みデータ一括バックアップ(設定パネル)
+// dxfViewerDxfviewDB(dv)に保存されている全レコード(タブを閉じて既にopenFilesに
+// 存在しないファイルの分も含む)をまとめて1つのZIPに書き出す。既存のヘッダー
+// 「バックアップ」ボタン/複数選択一括バックアップ(exportDxfviewManualBatch183)は
+// いずれも「現在タブとして開いているファイル」のみが対象で、既に閉じてしまった
+// ファイルの書込みまでは保護できなかったための追加。
+// dvストアはreadonlyでgetAll()するだけで、既存の保存・復元処理には一切触れない。
+// 元DXF/PDF本体は含めない(容量が大きくなりすぎるため。本体はiPad「ファイル」App側に
+// 別途あるので、書込み履歴だけ保護すれば十分という前提)。
+// =========================================================
+async function exportAllDvBackup223(){
+  try{
+    if(typeof JSZip==='undefined'){
+      if(typeof showGuide==='function') showGuide('ZIP機能が読み込まれていません',2000);
+      return;
+    }
+    var recs=await new Promise(function(resolve){
+      try{
+        var r=indexedDB.open('dxfViewerDxfviewDB',1);
+        r.onupgradeneeded=function(e){ if(!e.target.result.objectStoreNames.contains('dv')) e.target.result.createObjectStore('dv',{keyPath:'fk'}); };
+        r.onsuccess=function(e){
+          try{
+            var db=e.target.result;
+            if(!db.objectStoreNames.contains('dv')){ resolve([]); return; }
+            var tx=db.transaction('dv','readonly');
+            var gr=tx.objectStore('dv').getAll();
+            gr.onsuccess=function(){resolve(gr.result||[]);};
+            gr.onerror=function(){resolve([]);};
+          }catch(er){resolve([]);}
+        };
+        r.onerror=function(){resolve([]);};
+      }catch(e){resolve([]);}
+    });
+    if(!recs||recs.length===0){
+      if(typeof showGuide==='function') showGuide('保存されている書込みデータがありません',2000);
+      return;
+    }
+    var zip223=new JSZip();
+    var usedNames223={};
+    recs.forEach(function(rec){
+      var base223=String(rec.fileName||rec.fk||'file').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]/g,'_');
+      // V2_25: 「ファイル名_サイズ(KB整数)」形式に変更(例:1C-03(X4Y1)_915.dxfview)。
+      // fileSizeはバイト単位で保存されているため1024で割って整数に丸める
+      var sizeKB225=Math.round((rec.fileSize||0)/1024);
+      var baseWithSize225=base223+'_'+sizeKB225;
+      var name223=baseWithSize225+'.dxfview';
+      var n223=usedNames223[baseWithSize225];
+      if(n223){ usedNames223[baseWithSize225]=n223+1; name223=baseWithSize225+'_'+(n223+1)+'.dxfview'; }
+      else usedNames223[baseWithSize225]=1;
+      var payload223=Object.assign({},rec,{appVersion:(typeof APP_VERSION!=='undefined'?APP_VERSION:''),exportedAt:new Date().toISOString()});
+      zip223.file(name223, JSON.stringify(payload223));
+    });
+    if(typeof showGuide==='function') showGuide('ZIP作成中…('+recs.length+'件)',2000);
+    var blob223=await zip223.generateAsync({type:'blob'});
+    // V2_25: ZIPファイル名を「YYMMDD_全書込みデータ_N件」形式に変更(例:260904_全書込みデータ_283件)。
+    // 西暦は下2桁から始める
+    var d225=new Date();
+    var dateStr223=String(d225.getFullYear()).slice(-2)+String(d225.getMonth()+1).padStart(2,'0')+String(d225.getDate()).padStart(2,'0');
+    var fname223=dateStr223+'_全書込みデータ_'+recs.length+'件.zip';
+    await _saveBlobWithFallback183(blob223, fname223, '全書込みデータ(ZIP)');
+    if(typeof showGuide==='function') showGuide('全書込みデータをZIPに保存しました('+recs.length+'件)',2500);
+  }catch(e){
+    console.warn('[all dv backup] failed',e);
+    if(typeof showGuide==='function') showGuide('一括バックアップに失敗しました',2000);
+  }
+}
+{var _allDvBtn223=document.getElementById('allDvBackupBtn');
+if(_allDvBtn223) _allDvBtn223.addEventListener('click',exportAllDvBackup223);}
+
+// =========================================================
+// V2_24: 開いていないファイルの本体データ一括削除(設定パネル)
+// dxfViewerFilesDB(dxfFiles)に保存されているファイル本体のうち、現在どのタブにも
+// 開かれていない(openFilesに存在しない)ものだけをまとめて削除する。
+// V2_24以降、タブを閉じた時点で該当ファイルの本体は自動的に削除されるように
+// なった(index.htmlのdoCloseTab参照)ため、このボタンは主にV2_23以前から
+// 溜まっている過去分をまとめて整理するためのもの。
+// 書込み履歴(dv)・自動バックアップ(backups)・検索インデックスには一切触れない
+// (本体のみ削除。同じファイルをもう一度開けば書込み履歴は自動的に復元される)。
+// 削除前に対象件数・合計容量を表示し、確認を取ってから実行する。
+// =========================================================
+async function purgeUnopenedFileBodies224(){
+  try{
+    var scan=await new Promise(function(resolve){
+      try{
+        var r=indexedDB.open('dxfViewerFilesDB',1);
+        r.onupgradeneeded=function(e){ if(!e.target.result.objectStoreNames.contains('dxfFiles')) e.target.result.createObjectStore('dxfFiles',{keyPath:'name'}); };
+        r.onsuccess=function(e){
+          try{
+            var db=e.target.result;
+            if(!db.objectStoreNames.contains('dxfFiles')){ resolve({db:db,list:[]}); return; }
+            var tx=db.transaction('dxfFiles','readonly');
+            var store=tx.objectStore('dxfFiles');
+            var out=[];
+            var req=store.openCursor();
+            req.onsuccess=function(ev){
+              var cur=ev.target.result;
+              if(cur){
+                var v=cur.value;
+                var sz=0;
+                try{ sz=(v&&v.buf&&v.buf.byteLength)||0; }catch(e2){}
+                out.push({name:v&&v.name,size:sz});
+                cur.continue();
+              } else {
+                resolve({db:db,list:out});
+              }
+            };
+            req.onerror=function(){ resolve({db:db,list:out}); };
+          }catch(er){ resolve({db:null,list:[]}); }
+        };
+        r.onerror=function(){ resolve({db:null,list:[]}); };
+      }catch(e){ resolve({db:null,list:[]}); }
+    });
+    if(!scan.list||scan.list.length===0){
+      if(typeof showGuide==='function') showGuide('保存されているファイル本体がありません',2000);
+      return;
+    }
+    var openKeys224={};
+    if(typeof openFiles!=='undefined') openFiles.forEach(function(f){ if(f.fileKey) openKeys224[f.fileKey]=true; });
+    var targets=scan.list.filter(function(r){ return r.name && !openKeys224[r.name]; });
+    if(targets.length===0){
+      if(typeof showGuide==='function') showGuide('削除対象(今開いていないファイル)がありません',2500);
+      return;
+    }
+    var totalBytes=targets.reduce(function(a,r){return a+(r.size||0);},0);
+    var mb=(totalBytes/1024/1024).toFixed(1);
+    if(!confirm('今開いていないファイルの本体データ '+targets.length+'件('+mb+'MB)を削除します。\n書込み履歴・自動バックアップは削除されません。\nよろしいですか？')){
+      return;
+    }
+    var db=scan.db;
+    if(!db){
+      if(typeof showGuide==='function') showGuide('削除に失敗しました',2000);
+      return;
+    }
+    await new Promise(function(resolve){
+      try{
+        var tx=db.transaction('dxfFiles','readwrite');
+        var store=tx.objectStore('dxfFiles');
+        targets.forEach(function(r){ try{ store.delete(r.name); }catch(e){} });
+        tx.oncomplete=function(){ resolve(); };
+        tx.onerror=function(){ resolve(); };
+      }catch(e){ resolve(); }
+    });
+    try{ db.close(); }catch(e){}
+    if(typeof showGuide==='function') showGuide('本体データを削除しました('+targets.length+'件、'+mb+'MB)',3000);
+  }catch(e){
+    console.warn('[purge file bodies] failed',e);
+    if(typeof showGuide==='function') showGuide('一括削除に失敗しました',2000);
+  }
+}
+{var _purgeBtn224=document.getElementById('purgeUnopenedBtn224');
+if(_purgeBtn224) _purgeBtn224.addEventListener('click',purgeUnopenedFileBodies224);}
+
+// =========================================================
+// V2_32: 全バックアップ復元。
+// 「全バックアップ」(exportAllDvBackup223)で作った、複数ファイル分の書込み履歴が
+// まとまったZIPを1つまたは複数選択して復元する。既存の「バックアップ復元」
+// (importDxfviewManual)は1ファイル分(元図面+その.dxfview)専用で、全バックアップの
+// ZIP(元図面を含まず、.dxfviewが多数入っている)を渡すと最初の1件しか反映されず
+// 残りが無視されてしまう不具合があったための追加(既存の「バックアップ復元」自体は
+// 変更しない)。
+//
+// 【想定用途】Safariが一定期間より古いデータを消してしまう場合に備え、定期的に
+// 取っていた「全バックアップ」ZIP(例:1年前・今日)を全部まとめて読み込み、
+// 抜け漏れなく書込み履歴を集約したい、というもの。
+//
+// 【マージ方針】
+// 各ZIP内の.dxfviewは、dvストアのレコード(fk,fileName,fileSize,savedAt,dims,strokes等)
+// をそのままJSON化したもの(exportAllDvBackup223参照)。同じfk(ファイル名+サイズ)の
+// レコードが、複数のZIP・現在端末に既にあるデータの間で重複していた場合、
+// savedAt(保存日時)が最も新しいものだけを残す。内容が完全に同じであれば結果的に
+// どれを採用しても同じなので「全く同じデータは消して1つにする」動作にもなるし、
+// 現在端末のデータより古い内容で誤って上書きされることもない(常に一番新しいものが残る)。
+// 既存のIndexedDB(dv)の内容を書き足す/更新するだけで、ファイル本体・自動バックアップ・
+// 検索インデックスには一切触れない。異なるfkのレコードは全て保持されるため、
+// 実質的に複数回分のバックアップに含まれる全ファイルの書込み履歴が集約される。
+// =========================================================
+function _dvGetAll232(){
+  return new Promise(function(resolve){
+    try{
+      var r=indexedDB.open('dxfViewerDxfviewDB',1);
+      r.onupgradeneeded=function(e){ if(!e.target.result.objectStoreNames.contains('dv')) e.target.result.createObjectStore('dv',{keyPath:'fk'}); };
+      r.onsuccess=function(e){
+        try{
+          var db=e.target.result;
+          if(!db.objectStoreNames.contains('dv')){ resolve([]); return; }
+          var tx=db.transaction('dv','readonly');
+          var gr=tx.objectStore('dv').getAll();
+          gr.onsuccess=function(){resolve(gr.result||[]);};
+          gr.onerror=function(){resolve([]);};
+        }catch(er){resolve([]);}
+      };
+      r.onerror=function(){resolve([]);};
+    }catch(e){resolve([]);}
+  });
+}
+function _dvPutAll232(recs){
+  return new Promise(function(resolve,reject){
+    try{
+      var r=indexedDB.open('dxfViewerDxfviewDB',1);
+      r.onupgradeneeded=function(e){ if(!e.target.result.objectStoreNames.contains('dv')) e.target.result.createObjectStore('dv',{keyPath:'fk'}); };
+      r.onsuccess=function(e){
+        var db=e.target.result;
+        var tx=db.transaction('dv','readwrite');
+        recs.forEach(function(rec){ tx.objectStore('dv').put(rec); });
+        tx.oncomplete=function(){resolve();};
+        tx.onerror=function(ev){reject(ev.target.error);};
+      };
+      r.onerror=function(e){reject(e.target.error);};
+    }catch(e){reject(e);}
+  });
+}
+async function importAllDvBackup232(){
+  if(typeof JSZip==='undefined'){
+    if(typeof showGuide==='function') showGuide('ZIP機能が読み込まれていません',2000);
+    return;
+  }
+  var input=document.createElement('input');
+  input.type='file';
+  input.accept='.zip';
+  input.multiple=true;
+  input.onchange=async function(e){
+    var files=Array.from(e.target.files||[]);
+    if(files.length===0) return;
+    if(!confirm(files.length+'個のZIPを読み込み、書込み履歴をまとめて復元します。同じファイルのデータが複数ある場合は、保存日時が新しい方を残します。よろしいですか？'))return;
+    if(typeof showGuide==='function') showGuide('復元中…',2000);
+    try{
+      // 現在端末にあるデータも比較対象に含める(古いバックアップで誤って上書きしない)
+      var allRecs=await _dvGetAll232();
+      var zipFileCount=0, zipRecCount=0;
+      for(var fi=0; fi<files.length; fi++){
+        var f=files[fi];
+        if(!f.name.toLowerCase().endsWith('.zip')) continue;
+        try{
+          var zipObj=await JSZip.loadAsync(f);
+          var names=Object.keys(zipObj.files);
+          for(var ni=0; ni<names.length; ni++){
+            var nm=names[ni];
+            if(!nm.toLowerCase().endsWith('.dxfview')) continue;
+            var txt=await zipObj.files[nm].async('string');
+            try{
+              var rec=JSON.parse(txt);
+              if(rec&&rec.fk){ allRecs.push(rec); zipRecCount++; }
+            }catch(pe){ console.warn('[all dv restore] parse error',nm,pe); }
+          }
+          zipFileCount++;
+        }catch(ze){
+          console.warn('[all dv restore] zip read error',f.name,ze);
+          alert('『'+f.name+'』の読み込みに失敗しました。他のZIPの処理は続けます。');
+        }
+      }
+      if(zipFileCount===0){
+        alert('有効なZIPファイルがありませんでした');
+        return;
+      }
+      // fk(ファイル名+サイズ)ごとにグループ化し、savedAtが最も新しいものだけ残す
+      var byFk={};
+      allRecs.forEach(function(rec){
+        var cur=byFk[rec.fk];
+        if(!cur){ byFk[rec.fk]=rec; return; }
+        var curT=Date.parse(cur.savedAt||0)||0;
+        var newT=Date.parse(rec.savedAt||0)||0;
+        if(newT>curT) byFk[rec.fk]=rec;
+      });
+      var mergedRecs=Object.keys(byFk).map(function(k){return byFk[k];});
+      await _dvPutAll232(mergedRecs);
+      if(typeof showGuide==='function') showGuide('全バックアップ復元が完了しました('+zipFileCount+'個のZIP、'+zipRecCount+'件読込→'+mergedRecs.length+'件に統合)',3500);
+      if(typeof verify==='function') verify('全バックアップ復元',{zipFileCount:zipFileCount,zipRecCount:zipRecCount,mergedCount:mergedRecs.length});
+    }catch(err){
+      console.warn('[all dv restore] failed',err);
+      alert('全バックアップ復元に失敗しました: '+err.message);
+    }
+  };
+  input.click();
+}
+{var _allDvRestoreBtn232=document.getElementById('allDvRestoreBtn232');
+if(_allDvRestoreBtn232) _allDvRestoreBtn232.addEventListener('click',importAllDvBackup232);}
 
 // =========================================================
 // V0_136: バックアップ復元（設定パネルボタン、旧名称:書込復元）

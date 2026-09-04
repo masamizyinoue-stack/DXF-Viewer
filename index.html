@@ -690,7 +690,10 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.02);
   bottom:20px;right:16px;
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  overflow:hidden;
+  /* V2_33: PCでウィンドウの高さが低い場合、max-height(75vh)に収まりきらない下部
+     (主にボタン群の下段)がoverflow:hiddenで見切れて操作できなくなっていた。
+     縦方向のみスクロール可能にして、隠れた部分にもアクセスできるようにする */
+  overflow-y:auto;overflow-x:hidden;
 }
 #calc.on{display:flex}
 #ctb{
@@ -698,6 +701,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   cursor:grab;border-bottom:1px solid rgba(0,212,255,.2);
   touch-action:none;-webkit-user-select:none;user-select:none;
   background:linear-gradient(180deg,rgba(0,212,255,.12) 0%,rgba(0,212,255,.03) 100%);
+  /* V2_33: #calcが縦スクロール可能になったため、スクロールしてもヘッダー
+     (閉じる・履歴・読込ボタン)が隠れないよう上部に固定する */
+  position:sticky;top:0;z-index:1;
 }
 #ctb span{font-size:13px;font-weight:800;color:#00d4ff;letter-spacing:.08em}
 #cclose,#chist-btn,#calcPickBtn{
@@ -733,7 +739,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #cbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:9px}
 .cb{height:52px;border-radius:11px;font-size:30px;font-weight:600;cursor:pointer;-webkit-user-select:none;user-select:none;transition:transform .08s;border:1.5px solid;line-height:1;touch-action:manipulation}
 .cb:active{transform:scale(.93)}
-/* V2_22: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
+/* V2_27: 計算機ボタンを押した際、押下が分かりやすいよう一瞬明るく光らせる。
    ボタンごとの色分け(cbn/cbo/cbeq/cbf)を維持したままfilter:brightnessで光らせるため、
    個別の背景色を上書きする必要がない */
 @keyframes cbFlash{
@@ -747,6 +753,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 .cbf{background:rgba(255,255,255,.03);color:var(--text-dim);font-size:24px;border-color:var(--border)}
 .cbw{grid-column:span 2}
 .cbrs{grid-row:span 2}
+/* V2_33: 「=」ボタン(cbeq cbrs)は2行分のセルを占有する指定だが、.cbのheight:52px
+   固定値がstretchを無効化し、ボタン自体は1行分の高さのままでセルの下半分が
+   空白に見えていた。heightをautoに戻し、grid itemのデフォルト(align-self:stretch)
+   で2行分いっぱいに広がるようにする */
+.cb.cbrs{height:auto}
 @media(pointer:coarse){.cb{height:54px}}
 /* V1_78: PC(マウス操作可能な環境)向けのホバー表示。(hover:hover)かつ(pointer:fine)の
    環境でのみ適用され、iPad(タッチのみ)では条件を満たさず一切発火しない */
@@ -907,12 +918,16 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <span class="tb-tool-label">HD-PDF書出</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 </button>
-  <!-- V1_180: 設定パネルからヘッダー(HD-PDF書出の右)へ移動し「バックアップ」に改名。
-       表示はDXFを開いている時だけ(_updateWriteBackupBtnVisibility/updateFileNavUIから呼出) -->
-  <button class="tb-btn" id="writeBackupBtn" title="元のDXF/PDFと書込みデータ(.dxfview)を1つのZIPにまとめてバックアップ保存" style="border:2px solid #fff">
-  <span class="tb-tool-label">バックアップ</span>
+  <!-- V2_34: 「現在開いている1ファイルだけ」を対象にしたバックアップ(旧writeBackupBtn
+       と同じ機能=exportDxfviewManual)を、ヘッダーに復活させたいとの依頼への対応。
+       表示条件も旧writeBackupBtnと同じ(DXF/PDFを開いている時のみ、_updateWriteBackupBtnVisibility
+       /viewer.jsのExcel非表示処理の対象をこのidに変更して復活させた) -->
+  <button class="tb-btn" id="fileBackupBtn234" title="現在開いているファイルの本体データと書込みデータを1つのZIPにまとめてバックアップ保存" style="border:2px solid #fff">
+  <span class="tb-tool-label">ファイル<br>Backup</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
 </button>
+  <!-- V2_35: 「全書込Backup」(id="allDvBackupBtn")は設定パネル(開発者用ボタンの
+       上)へ移動したため、ここからは削除 -->
   <!-- V1_238: 「計算機ボタンをヘッダーの一番右に配置移動して。また、移動すると左が
        『バックアップ』ボタンになりますが、この間に仕切りを入れて間隔をあけて」との
        依頼への対応。計算機ボタン自体は元の位置(検索群の手前)から移動しただけで、
@@ -946,7 +961,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
            （LP/LLと同様に線と線の近くにペンを当てて探索→離して確定、その後もう1点で
            寸法線の位置を指定）。アイコンは水平な両矢印(ものさし風)で、選ぶ線の実際の
            角度に関わらず固定形状（斜めアイコンが常に45°固定なのと同じ扱い） -->
-      <button class="tb-tool-btn tool-btn" data-tool="lineLen" title="線の長さ（既存の線を選ぶだけで全長を計測）"><span class="tb-tool-label">線長</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="lineLen" title="線の長さ（既存の線・円弧を選ぶだけで長さを計測）"><span class="tb-tool-label">線長</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/></svg></button>
     </div>
   </div>
   <!-- V1_214: 計測線の色選択。旧#colorOverlayの.co-dim-sectionから移設(class名は
@@ -1101,7 +1116,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_22</span>
+    <span id="ver-label">V2_36</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1141,37 +1156,29 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <!-- V0_154: 「サイズ指定」モードを削除 -->
     </div>
   </div>
-  <!-- V1_70: タブの並び順（名前順/開いた順）を選べるようにする。名前順のままだと
-       検索して新しいファイルを開いた時、タブがどこに挿入されるか予測できず
-       見失いやすいとの指摘への対応の一つ -->
+  <!-- V2_28: 設定パネルの「タブの並び順」を削除。ファイル一覧パネル(dialog.jsの
+       _showOpenFilesListMenu内、sortRow)に同じ4択(名前順/開いた順/アクセス順/任意/
+       種類順)が既にあり、_tabSortMode状態を共有しているため、設定パネル側は不要との
+       指摘への対応。ラジオボタン自体(tabSortName等のid)はdialog.js/index.htmlの他の
+       JSから参照されていないことを確認済み(並び順の変更はファイル一覧側のsortRowが
+       担い、_tabSortModeの読み取り専用参照のみ) -->
+  <!-- V2_35: 「全書込Backup」(タブを閉じたファイルも含む全ての書込み履歴をZIPに
+       書き出す機能、旧ヘッダー配置)を開発者用ボタンの上へ移動。全ファイル対象の
+       グローバル機能のため、開発者用ボタンを押さなくても常時表示する -->
   <div class="sp-section">
-    <div class="sp-label">タブの並び順</div>
-    <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="tabSortMode" id="tabSortName" value="name" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>ファイル名順<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">従来通り。名前の五十音・数字順で並ぶ</small></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="tabSortMode" id="tabSortOpened" value="opened" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>開いた順<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">新しく開いたファイルが末尾に追加される</small></span>
-      </label>
-      <!-- V1_71: アクセス順・任意（ドラッグ並び替え）を追加 -->
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="tabSortMode" id="tabSortAccess" value="access" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>アクセス順<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">最後に表示したファイルほど左側に来る</small></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="tabSortMode" id="tabSortManual" value="manual" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>任意（ドラッグで並び替え）<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">タブを長押ししてつかむと、動かして好きな順番に並び替えられる</small></span>
-      </label>
-      <!-- V1_104: ファイル形式(DXF/PDF/エクセル)ごとにまとめる並び順を追加 -->
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="tabSortMode" id="tabSortType" value="type" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>ファイル形式順<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">DXF→PDF→エクセルの順にまとまり、同じ種類の中は名前順で並ぶ</small></span>
-      </label>
-    </div>
+    <button id="allDvBackupBtn" class="sp-action-btn" title="タブを閉じたファイルも含め、この端末に保存されている全ての書込み履歴をまとめてZIPに書き出します（元DXF/PDF本体は含まれません）">全書込Backup</button>
   </div>
-
+  <!-- V2_28: 「開発者用ボタン」を新設。押すまで縮尺分母以降の項目(縮尺分母・レイヤ設定・
+       バックアップ復元・クラウド関連・容量診断・一括バックアップ・本体データ削除等)を
+       すべて隠す。普段の現場作業では使わない設定項目が並んでいて分かりにくいとの
+       指摘への対応。表示状態はJS変数のみで保持し(次回設定パネルを開いた時は毎回
+       非表示に戻る)、既存のボタン・入力欄自体・そのイベントリスナーは一切変更しない
+       (単に親要素の表示/非表示を切り替えるだけ) -->
+  <div class="sp-section">
+    <button id="devToolsToggleBtn" class="sp-action-btn" style="background:#5a1f1f;color:#ff9d9d;border:1px solid #8a2f2f">開発者用ボタン</button>
+    <div style="font-size:11px;color:#888;margin-top:6px;line-height:1.5">※基本的には触らないで下さい</div>
+  </div>
+  <div id="devToolsWrap" style="display:none">
   <div class="sp-section">
     <div class="sp-label">縮尺分母</div>
     <input type="number" id="scaleDenom" value="1" min="1" class="sp-input">
@@ -1183,6 +1190,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <!-- V1_180: PDF書出はHD-PDF書出と機能重複のため削除。書込バックアップはヘッダーへ移動(「バックアップ」に改名) -->
   <div class="sp-section">
     <button id="importDxfviewBtn" class="sp-action-btn" title="ZIPバックアップを選択し、中のDXFを開いた上で書込みデータ(.dxfview)も復元(旧形式.dxfview単体にも対応)">バックアップ復元</button> <!-- V0_136: .dxfview保存→書込復元に変更 / V1_176: ZIP対応 / V1_177: ZIP内のDXFも開くよう変更しボタン名を「バックアップ復元」に -->
+    <!-- V2_32: 「全バックアップ」(ヘッダーの全バックアップボタン)で作ったZIPを
+         1つまたは複数選択し、書込み履歴をまとめて復元する。同じファイルのデータが
+         複数のZIP・現在端末のデータ間で重複していた場合は保存日時が新しい方だけ残す
+         ため、古い内容で誤って上書きされることはない -->
+    <button id="allDvRestoreBtn232" class="sp-action-btn" style="margin-top:8px" title="『全バックアップ』のZIPを1つまたは複数選択し、書込み履歴をまとめて復元します。同じファイルのデータが複数ある場合は保存日時が新しい方を残すため、現在のデータより古い内容で上書きされることはありません">全バックアップ復元</button>
+    <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.5">複数の『全バックアップ』ZIP(例:1年前と今日)をまとめて選択できます。同じファイルの書込みが複数見つかった場合は、保存日時が新しい方だけを残します</div>
   </div>
   <div class="sp-section"> <!-- V1_03: クラウド保存状況（Supabaseの保存件数・使用サイズ） -->
     <div class="sp-label">クラウド保存状況（Supabase）</div>
@@ -1209,7 +1222,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <!-- V0_154: 開発者モードを削除 -->
   <!-- V0_143: 下部のバージョン表示（旧#ver-label）は削除。表示はsp-header内の上部spanに一本化 -->
-  <!-- V2_22: 容量診断(IndexedDB/localStorageの使用状況確認)。別ファイルの診断ツールを
+  <!-- V2_27: 容量診断(IndexedDB/localStorageの使用状況確認)。別ファイルの診断ツールを
        別URLで開く必要があり使いにくいとの指摘を受け、設定パネル最下部に組み込んだ。
        読み取り専用で、既存のDXFデータ・保存処理には一切書き込みも変更も行わない -->
   <div class="sp-section">
@@ -1218,6 +1231,19 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <button id="diagRunBtn" class="sp-action-btn">診断を実行</button>
     <div class="info-box" id="diagResultBox" style="font-size:12px;color:#888;background:#0a0c10;border:1px solid #2a3040;border-radius:8px;padding:8px;margin-top:8px;min-height:24px;line-height:1.7;white-space:pre-wrap">「診断を実行」を押してください</div>
   </div>
+  <!-- V2_30: 「全書込みデータの一括バックアップ」は一時ヘッダーへ移動していたが、
+       V2_35で開発者用ボタンの上(このsp-section群より前)へ再度移動済み -->
+  <!-- V2_27: 開いていないファイルの本体データを一括削除。書込み履歴・自動バックアップ・
+       検索インデックスは対象外(本体のみ削除)。実行前に対象件数・容量を表示して確認を取る。
+       なおV2_27以降、タブを閉じた時点で該当ファイルの本体は自動的に削除されるようになった
+       ため(index.htmlのdoCloseTab参照)、このボタンは主にV2_27以前から溜まっている
+       過去分をまとめて整理するためのもの -->
+  <div class="sp-section">
+    <div class="sp-label">開いていないファイルの本体データを削除</div>
+    <div style="font-size:11px;color:#666;margin-bottom:6px;line-height:1.5">今どのタブにも開かれていないファイルの元データ(DXF/PDF本体)だけをまとめて削除し、容量を減らします。書込み履歴・自動バックアップは削除されません（元データを消しても、同じファイルをもう一度開けば書込みは自動的に復元されます）</div>
+    <button id="purgeUnopenedBtn224" class="sp-action-btn">本体データを一括削除</button>
+  </div>
+  </div><!-- /devToolsWrap -->
 </div>
 
 <!-- V0_158: 計算機（M_Viewer V7.06仕様移植） -->
@@ -1529,27 +1555,27 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=222"></script>
-<script src="viewer.js?v=222"></script>
-<script src="utils.js?v=222"></script>
-<script src="ui.js?v=222"></script>
-<script src="dialog.js?v=222"></script>
-<script src="storage.js?v=222"></script>
-<script src="fonts/NotoSansJP.js?v=222"></script>
-<script src="export.js?v=222"></script>
-<script src="tool.js?v=222"></script>
-<script src="verify.js?v=222"></script>
+<script src="layer.js?v=236"></script>
+<script src="viewer.js?v=236"></script>
+<script src="utils.js?v=236"></script>
+<script src="ui.js?v=236"></script>
+<script src="dialog.js?v=236"></script>
+<script src="storage.js?v=236"></script>
+<script src="fonts/NotoSansJP.js?v=236"></script>
+<script src="export.js?v=236"></script>
+<script src="tool.js?v=236"></script>
+<script src="verify.js?v=236"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=222"></script>
-<script src="stroke-text.js?v=222"></script>
+<script src="shxGlyphs.js?v=236"></script>
+<script src="stroke-text.js?v=236"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=222"></script>
+<script src="pc.js?v=236"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=222"></script>
+<script src="supabase-sync.js?v=236"></script>
 <script>
-const APP_VERSION = 'V2_22';
+const APP_VERSION = 'V2_36';
 
 // =========================================================
 // グローバル状態
@@ -2650,7 +2676,7 @@ function _updateTdfWarnBanner(){
 // から生バイトを取得するだけ)、復元(importDxfviewManual→openDxfFromDb)も拡張子で
 // DXF/PDFを自動判定する実装のため、表示条件をここで広げるだけで両方向とも対応できる
 function _updateWriteBackupBtnVisibility(){
-  var btn=document.getElementById('writeBackupBtn');
+  var btn=document.getElementById('fileBackupBtn234'); // V2_34: 「ファイルBackup」ボタン(旧writeBackupBtn)として復活
   if(!btn) return;
   var isDxf=(currentFileName||'').toLowerCase().endsWith('.dxf');
   var isPdf191=(currentFileName||'').toLowerCase().endsWith('.pdf');
@@ -2836,6 +2862,28 @@ function doCloseTab(idx){
   var _closedFk160=openFiles[idx]?openFiles[idx].fileKey:null;
   openFiles.splice(idx,1);
   if(typeof openFilesBufs!=='undefined') openFilesBufs.splice(idx,1); // V0_138: インデックスずれ修正
+  // V2_27: マーク(旧称:お気に入り、dialog.jsの_favToggle217)は「今開いている
+  // ファイルを見つけやすくする一時的な目印」に位置づけを変更したため、タブを
+  // 閉じたらそのファイルのマークも一緒に消す。従来はSafari内に保存された時点の
+  // 古いコピーを「再度開く」ことができる仕組みも兼ねていたが、iPad本体側で図面が
+  // 更新されていても気づけない危険があるため、その仕組みごと廃止した
+  if(_closedFk160&&typeof _favLoadAll217==='function'&&typeof _favSaveAll217==='function'){
+    try{
+      var _favMap223=_favLoadAll217();
+      if(_favMap223[_closedFk160]){ delete _favMap223[_closedFk160]; _favSaveAll217(_favMap223); }
+    }catch(e){}
+  }
+  // V2_27: 閉じたファイルの本体データ(dxfViewerFilesDB)も、他のタブでまだ
+  // 同じfileKeyが開かれていない場合に限り自動的に削除する。書込み履歴(dv)・
+  // 自動バックアップ(backups)には一切触れない(本体のみ削除。同じファイルを
+  // もう一度開けば、書込み履歴は今まで通り自動的に復元される)。
+  // 「他のタブでまだ開かれていないか」を確認するのは、fileKeyベースの重複判定
+  // (V2_04)により通常は同じfileKeyのタブは1つにまとまるはずだが、万一の
+  // 多重オープンに備えた安全策
+  if(_closedFk160&&typeof _lsIdbDelete==='function'){
+    var _stillOpen224=openFiles.some(function(f){return f.fileKey===_closedFk160;});
+    if(!_stillOpen224) _lsIdbDelete(_closedFk160);
+  }
   if(_closedFk160&&typeof savedViews!=='undefined'){
     var _svCleared160=false;
     for(var _si160=0;_si160<savedViews.length;_si160++){
@@ -2946,7 +2994,7 @@ document.getElementById('sbAuthClearBtn').addEventListener('click',()=>{
   showGuide('クラウド同期の登録を解除しました',2000);
 });
 document.getElementById('settingsClose').addEventListener('click',()=>document.body.classList.remove('settings-open'));
-// V2_22: アプリ容量診断(設定パネル最下部)。IndexedDB各DB・localStorageの使用状況を
+// V2_27: アプリ容量診断(設定パネル最下部)。IndexedDB各DB・localStorageの使用状況を
 // 読み取り専用で確認する。既存のdoSave/tryRestore等の保存・復元処理には一切触れず、
 // 完全に独立した関数群として追加する(既存グローバル変数・関数名との衝突を避けるため
 // 全て_diag21プレフィックスを付ける)
@@ -3029,6 +3077,23 @@ function _diag21LocalStorageInfo(){
   }
   return total;
 }
+{var _devBtn228=document.getElementById('devToolsToggleBtn');
+var _devWrap228=document.getElementById('devToolsWrap');
+if(_devBtn228&&_devWrap228) _devBtn228.addEventListener('click',function(){
+  var show=_devWrap228.style.display==='none';
+  _devWrap228.style.display=show?'':'none';
+});
+// V2_29: 設定パネルを閉じたら(body.settings-openが外れたら)開発者用ボタンの
+// 展開状態をリセットし、次に設定を開いた時は必ず再度「開発者用ボタン」を
+// 押さないと展開しないようにする。settings-openを外す箇所は複数あり全てを
+// 個別に変更するのはリスクが高いため、bodyのclass変化をMutationObserverで
+// 監視する方式にした(既存の閉じる処理は一切変更していない)
+if(_devWrap228){
+  var _devMo229=new MutationObserver(function(){
+    if(!document.body.classList.contains('settings-open')) _devWrap228.style.display='none';
+  });
+  _devMo229.observe(document.body,{attributes:true,attributeFilter:['class']});
+}}
 {var _diagBtn21=document.getElementById('diagRunBtn');
 if(_diagBtn21) _diagBtn21.addEventListener('click',async function(){
   var box=document.getElementById('diagResultBox');
@@ -4070,6 +4135,16 @@ function drawDimEntity(ctx,d){
     ctx.beginPath();ctx.moveTo(cmx-cml,cmy);ctx.lineTo(cmx+cml,cmy);ctx.stroke();
     ctx.beginPath();ctx.moveTo(cmx,cmy-cml);ctx.lineTo(cmx,cmy+cml);ctx.stroke();
   }
+  // V2_27: 端点マーカー（円弧の長さ寸法。矢印の代わりに、実物の弧の両端点を
+  // 小さい丸で示す）。他の寸法タイプはd.dotsを持たないため描画に影響しない
+  if(d.dots){
+    ctx.strokeStyle=col;ctx.lineWidth=1.5*PS*fixedRatio;
+    var dr2=5*PS*fixedRatio;
+    for(const p of d.dots){
+      const[dsx,dsy]=w2s(p.x,p.y);
+      ctx.beginPath();ctx.arc(dsx,dsy,dr2,0,Math.PI*2);ctx.stroke();
+    }
+  }
 }
 
 // =========================================================
@@ -4833,7 +4908,7 @@ function buildLinePtDim(line,pt,pArrow){
   var d1={x:foot.x+lux*offset,y:foot.y+luy*offset}; // 表示上の寸法線位置(line側)
   var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset}; // 表示上の寸法線位置(pt側)
   var lines=[{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y}]; // 寸法線本体
-  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_22)。
+  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_27)。
   // 範囲外ならはみ出した側の端点からd1まで補助線を伸ばす
   var tOff=t+offset/lineLen;
   if(tOff<-TOLR||tOff>1+TOLR){
@@ -4842,7 +4917,7 @@ function buildLinePtDim(line,pt,pArrow){
   }
   // pt側: offsetがほぼゼロ(寸法位置が点の位置にある)なら補助線なし。
   // 点を左右に動かした場合のみ、pt自体からd2まで補助線を足す
-  // V2_22: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
+  // V2_27: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
   // (s2w変換のみ)からそのまま作られるため、TOLR=1e-6mmという閾値ではタッチ操作で
   // 到達できる精度を大きく下回り、「点の位置を指定しても常にoffsetありと判定されて
   // 補助線が消えない」という不具合があった。画面上で数ピクセル相当のワールド距離を
@@ -4894,6 +4969,14 @@ function drawLPPreview(ctx2,dim){
     ctx2.textAlign='center';ctx2.textBaseline='bottom';
     ctx2.fillText(dim.text,0,-5); // V0_75: drawDimEntityと同一(-5px offset)
     ctx2.restore();
+  }
+  // V2_27: 端点マーカー（円弧の長さ寸法のプレビュー）。drawDimEntityのd.dots描画と同じ見た目
+  if(dim.dots){
+    ctx2.strokeStyle=dim.color||'#f39c12'; ctx2.lineWidth=1.5;
+    for(var k=0;k<dim.dots.length;k++){
+      var dp=w2s(dim.dots[k].x,dim.dots[k].y);
+      ctx2.beginPath();ctx2.arc(dp[0],dp[1],5,0,Math.PI*2);ctx2.stroke();
+    }
   }
 }
 
@@ -5141,9 +5224,14 @@ function buildLLDim(line1,line2,pArrow){
   if(dist<1e-9) return null;
   var sig=offN>=0?1:-1;
   // pArrowをline1方向に投影（無限直線として計算。t1rawが0〜1の範囲外＝延長線上＝
-  // 端点の外側を意味する）。はみ出し量は「線の長さ分」までに制限してから使う
+  // 端点の外側を意味する）。
+  // V2_36: 以前は「線の長さ分」までにクランプしていたが、寸法位置を線の外側へ
+  // 大きく動かそうとすると、その上限に達した時点で補助線・寸法線の位置がそれ以上
+  // 追従しなくなり「途中で引っかかって伸ばせない」という指摘を受けた。ペンの動きに
+  // そのまま追従させるため、クランプを撤廃する(異常に長く伸びる懸念より、意図した
+  // 位置まで自由に動かせないことの方が実用上の支障が大きいと判断)
   var t1raw=((pArrow.x-line1.x1)*dx1+(pArrow.y-line1.y1)*dy1)/(len1*len1);
-  var t1=Math.max(-1,Math.min(2,t1raw));
+  var t1=t1raw;
   var foot1={x:line1.x1+t1*dx1,y:line1.y1+t1*dy1};
   // foot1からline1の法線方向にoffN分移動した点＝line1と同じオフセット位置にある、
   // line2の無限直線上の点。line2自身の方向は使わないため、2線がわずかに非平行でも
@@ -5535,6 +5623,12 @@ if(_ipxBtn){
 // いるものをそのまま再利用し、寸法の見た目・幾何計算は「斜め」(diag)と全く同じ
 // （2点間のオフセット寸法線）ため、そのために新しい計算式を実装せず、A節で定義
 // 済みのbuildDim(p1,p2,pArrow,'diag')をそのまま呼び出して再利用する
+// V2_27: 「円弧(途中で切れている円弧含む)に沿った長さも測れるようにして下さい」
+// との依頼への対応。直線(doc.sen)に加えて円弧(doc.enko)も探索対象に含め、選んだ
+// のが直線か円弧かをselLine.typeで判別して長さの計算方法を分岐する
+// （直線=2点間の直線距離(従来通り)、円弧=弧に沿った長さ）。既存の直線側の処理・
+// 見た目(buildDim/drawDimEntity/drawLPPreview/dims配列の構造)は一切変更せず、
+// 円弧用の新しい構築関数(buildArcLenDim226)を追加するだけにとどめている
 ;(function(){
 
 var LLEN={
@@ -5545,7 +5639,7 @@ var LLEN={
 };
 
 var LLEN_GUIDES={
-  LINE:'測る線の近くにペンを当てて選択（離して確定）',
+  LINE:'測る線・円弧の近くにペンを当てて選択（離して確定）',
   POS: '寸法位置を指定（移動→離して確定）',
 };
 
@@ -5555,8 +5649,113 @@ function resetLLEN(){
   LLEN.penDown=false; LLEN.cur=null; LLEN._hoverLine=null; LLEN._hoverPos=null;
 }
 
+// V2_27: 円弧探索。doc.enkoの各円弧について、角度範囲内なら円周までの距離、
+// 範囲外なら両端点までの距離の近い方を判定に使う(直線のdistToSegが線分の
+// 範囲外で端点距離になるのと同じ考え方)。tilt/rx≠ryの楕円弧は稀なケースのため
+// 真円として近似判定する(選択の当たり判定のみ。長さ計算は_llenArcPoints226で
+// tilt/楕円にも正しく対応する)
+function _llenFindNearestEnko226(wx,wy){
+  if(!doc||!doc.enko) return null;
+  var sr=30/scale,best=null,bestDist=sr;
+  for(var i=0;i<doc.enko.length;i++){
+    var e=doc.enko[i];
+    if(hiddenLayers.has(e.layer)) continue;
+    var ang=Math.atan2(wy-e.cy,wx-e.cx)*180/Math.PI;
+    ang=((ang%360)+360)%360;
+    var a1=e.a1,a2=e.a2;
+    var inRange=(a1<=a2)?(ang>=a1&&ang<=a2):(ang>=a1||ang<=a2);
+    var d;
+    if(inRange){
+      d=Math.abs(Math.hypot(wx-e.cx,wy-e.cy)-e.r);
+    } else {
+      var p1x=e.cx+e.r*Math.cos(a1*Math.PI/180),p1y=e.cy+e.r*Math.sin(a1*Math.PI/180);
+      var p2x=e.cx+e.r*Math.cos(a2*Math.PI/180),p2y=e.cy+e.r*Math.sin(a2*Math.PI/180);
+      d=Math.min(Math.hypot(wx-p1x,wy-p1y),Math.hypot(wx-p2x,wy-p2y));
+    }
+    if(d<bestDist){bestDist=d;best=e;}
+  }
+  return best;
+}
+
+// V2_27: 直線(findNearestSen)と円弧(_llenFindNearestEnko226)の両方を探索し、
+// 近い方をLLEN._hoverLineにセットする。typeタグ(sen/enko)を付けて後段の分岐に使う
 function _updateHoverLineLLEN(wx,wy){
-  LLEN._hoverLine=window.findNearestSen(wx,wy); // D節で公開済み(LP用と共用)
+  var senHit=window.findNearestSen(wx,wy); // D節で公開済み(LP用と共用)
+  var enkoHit=_llenFindNearestEnko226(wx,wy);
+  if(senHit&&enkoHit){
+    var senDist=distToSeg(wx,wy,senHit.x1,senHit.y1,senHit.x2,senHit.y2);
+    var enkoDist=Math.abs(Math.hypot(wx-enkoHit.cx,wy-enkoHit.cy)-enkoHit.r);
+    LLEN._hoverLine=(senDist<=enkoDist)?Object.assign({type:'sen'},senHit):Object.assign({type:'enko'},enkoHit);
+  } else if(senHit){
+    LLEN._hoverLine=Object.assign({type:'sen'},senHit);
+  } else if(enkoHit){
+    LLEN._hoverLine=Object.assign({type:'enko'},enkoHit);
+  } else {
+    LLEN._hoverLine=null;
+  }
+}
+
+// V2_27: 円弧をN分割した頂点列(ワールド座標)を返す。tilt(回転)・rx/ry(楕円)にも
+// 対応した汎用計算(drawArc()の変換ロジックと同じ考え方)。この頂点列を線分として
+// つなげたものを長さ計算・寸法線描画の両方にそのまま使う
+function _llenArcPoints226(e,n){
+  var a1=e.a1,a2=e.a2;
+  var sweepDeg=(a2-a1+360)%360; if(sweepDeg===0) sweepDeg=360;
+  var tiltRad=(e.tilt||0)*Math.PI/180;
+  var rx=e.rx||e.r,ry=e.ry||e.r;
+  var ct=Math.cos(tiltRad),st=Math.sin(tiltRad);
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var ang=(a1+sweepDeg*i/n)*Math.PI/180;
+    var lx=rx*Math.cos(ang),ly=ry*Math.sin(ang);
+    pts.push({x:e.cx+lx*ct-ly*st,y:e.cy+lx*st+ly*ct});
+  }
+  return pts;
+}
+
+// V2_27: 円弧の長さの寸法オブジェクトを構築する。既存のbuildDim(diag)と同じ
+// {lines,arrows,text,tx,ty,tangle,color,worldFontH,page}構造に、円弧専用の
+// d.dots(端点マーカー、drawDimEntity/drawLPPreviewにV2_27で追加)を加えて返す。
+// 見た目は「2線間」「線と点」と同じ考え方: 実物の弧(元の半径)はそのまま残し、
+// pArrowで指定した半径だけ違う同心の弧を寸法線として描き、実物の弧の両端点から
+// 寸法線の弧の両端点まで放射状の補助線を伸ばす。矢印は使わず、実物の弧の両端点に
+// 丸マーカーを置く(円弧は端で接線方向が変わるため、直線寸法のような矢印よりも
+// 「どこからどこまでか」が丸のほうが分かりやすいとの実機確認結果を反映)
+function buildArcLenDim226(e,pArrow){
+  var sd=parseFloat(document.getElementById('scaleDenom').value)||1;
+  var n=48;
+  // 実物の弧(元の半径)の頂点列。寸法値=実際の弧長の算出と、補助線の始点(丸マーカー位置)に使う
+  var origPts=_llenArcPoints226(e,n);
+  var len=0;
+  for(var i=1;i<origPts.length;i++) len+=Math.hypot(origPts[i].x-origPts[i-1].x,origPts[i].y-origPts[i-1].y);
+  if(len<1e-9) return null;
+
+  // pArrowと中心の距離を、寸法線側の弧の半径として使う(circDim/radDimと同じ考え方)。
+  // 距離が取れない/ほぼ0の場合は元の半径より少し外側にデフォルト表示する
+  var baseR=e.r||Math.max(e.rx||0,e.ry||0)||1;
+  var distP=(pArrow&&pArrow.x!=null)?Math.hypot(pArrow.x-e.cx,pArrow.y-e.cy):NaN;
+  var r2=(isFinite(distP)&&distP>1e-6)?distP:(baseR+50/(scale||1));
+  var ratio=r2/baseR;
+  var offsetEnt={cx:e.cx,cy:e.cy,r:r2,rx:(e.rx||e.r||baseR)*ratio,ry:(e.ry||e.r||baseR)*ratio,a1:e.a1,a2:e.a2,tilt:e.tilt||0};
+  var offPts=_llenArcPoints226(offsetEnt,n);
+
+  var lines=[];
+  for(var j=1;j<offPts.length;j++) lines.push({x1:offPts[j-1].x,y1:offPts[j-1].y,x2:offPts[j].x,y2:offPts[j].y});
+  // 補助線: 実物の弧の両端点→寸法線の弧の両端点(放射状=中心から見て同じ角度のまま半径だけ違う)
+  lines.push({x1:origPts[0].x,y1:origPts[0].y,x2:offPts[0].x,y2:offPts[0].y});
+  lines.push({x1:origPts[origPts.length-1].x,y1:origPts[origPts.length-1].y,x2:offPts[offPts.length-1].x,y2:offPts[offPts.length-1].y});
+
+  var dots=[{x:origPts[0].x,y:origPts[0].y},{x:origPts[origPts.length-1].x,y:origPts[origPts.length-1].y}];
+
+  var midIdx=Math.floor(offPts.length/2);
+  var mid=offPts[midIdx];
+  var midPrev=offPts[Math.max(0,midIdx-1)];
+  var dtx=mid.x-midPrev.x,dty=mid.y-midPrev.y;
+  var screenAngle=(Math.abs(dtx)<1e-9&&Math.abs(dty)<1e-9)?0:Math.atan2(-dty,dtx);
+  var tangle=(screenAngle>Math.PI/2)?screenAngle-Math.PI:(screenAngle<-Math.PI/2)?screenAngle+Math.PI:screenAngle;
+
+  return {lines:lines,arrows:[],dots:dots,text:formatDim(len/sd),tx:mid.x,ty:mid.y,tangle:tangle,
+    color:currentDimColor||'#f39c12',worldFontH:17/(scale||1),fixedTextPx:17,page:_curPage()};
 }
 
 // ─ drawOverlay フック ─────────────────────────────────
@@ -5568,28 +5767,43 @@ function drawLLENOverlay(){
   var ctx2=octx;
   ctx2.save(); ctx2.scale(dpr,dpr);
 
-  // Phase0: ホバー中の線（再検索しない＝表示=確定を保証。LP/LLと同じ原則）
+  // Phase0: ホバー中の線/円弧（再検索しない＝表示=確定を保証。LP/LLと同じ原則）
   if(LLEN.phase===0&&LLEN._hoverLine){
     var hl=LLEN._hoverLine;
-    var hs1=w2s(hl.x1,hl.y1),hs2=w2s(hl.x2,hl.y2);
     ctx2.save();
     ctx2.strokeStyle='#ff8c00'; ctx2.lineWidth=5; ctx2.globalAlpha=0.85;
-    ctx2.beginPath(); ctx2.moveTo(hs1[0],hs1[1]); ctx2.lineTo(hs2[0],hs2[1]); ctx2.stroke();
+    if(hl.type==='enko'){
+      ctx2.beginPath(); drawArc(ctx2,hl); ctx2.stroke(); // viewer.js既存のdrawArc()を再利用(tilt/楕円も正しく描ける)
+    } else {
+      var hs1=w2s(hl.x1,hl.y1),hs2=w2s(hl.x2,hl.y2);
+      ctx2.beginPath(); ctx2.moveTo(hs1[0],hs1[1]); ctx2.lineTo(hs2[0],hs2[1]); ctx2.stroke();
+    }
     ctx2.restore();
   }
-  // 確定済み線ハイライト(Phase1)
+  // 確定済み線/円弧ハイライト(Phase1)
   if(LLEN.selLine&&LLEN.phase>=1){
-    var ls1=w2s(LLEN.selLine.x1,LLEN.selLine.y1),ls2=w2s(LLEN.selLine.x2,LLEN.selLine.y2);
+    var sl=LLEN.selLine;
     ctx2.save();
     ctx2.strokeStyle='#ff8c00'; ctx2.lineWidth=5; ctx2.globalAlpha=0.9;
-    ctx2.beginPath(); ctx2.moveTo(ls1[0],ls1[1]); ctx2.lineTo(ls2[0],ls2[1]); ctx2.stroke();
+    if(sl.type==='enko'){
+      ctx2.beginPath(); drawArc(ctx2,sl); ctx2.stroke();
+    } else {
+      var ls1=w2s(sl.x1,sl.y1),ls2=w2s(sl.x2,sl.y2);
+      ctx2.beginPath(); ctx2.moveTo(ls1[0],ls1[1]); ctx2.lineTo(ls2[0],ls2[1]); ctx2.stroke();
+    }
     ctx2.restore();
   }
-  // Phase1: 位置指定プレビュー（斜め寸法(diag)と同じ幾何計算をbuildDimで再利用）
+  // Phase1: 位置指定プレビュー（直線=斜め寸法(diag)と同じ幾何計算、円弧=buildArcLenDim226）
   if(LLEN.phase===1&&LLEN.cur&&LLEN.selLine){
-    var p1={x:LLEN.selLine.x1,y:LLEN.selLine.y1};
-    var p2={x:LLEN.selLine.x2,y:LLEN.selLine.y2};
-    window.drawLPPreview(ctx2,buildDim(p1,p2,LLEN.cur,'diag')); // D節で公開済みのプレビュー描画を共用
+    var sl2=LLEN.selLine,previewDim=null;
+    if(sl2.type==='enko'){
+      previewDim=buildArcLenDim226(sl2,LLEN.cur);
+    } else {
+      var p1={x:sl2.x1,y:sl2.y1};
+      var p2={x:sl2.x2,y:sl2.y2};
+      previewDim=buildDim(p1,p2,LLEN.cur,'diag');
+    }
+    if(previewDim) window.drawLPPreview(ctx2,previewDim); // D節で公開済みのプレビュー描画を共用
   }
 
   ctx2.restore();
@@ -5639,9 +5853,14 @@ LLEN.handleUp=function(sx,sy){
   } else if(LLEN.phase===1){
     var wp2=s2w(sx,sy);
     var pArrow=LLEN.cur||{x:wp2[0],y:wp2[1]};
-    var p1={x:LLEN.selLine.x1,y:LLEN.selLine.y1};
-    var p2={x:LLEN.selLine.x2,y:LLEN.selLine.y2};
-    var dim=buildDim(p1,p2,pArrow,'diag');
+    var dim;
+    if(LLEN.selLine.type==='enko'){
+      dim=buildArcLenDim226(LLEN.selLine,pArrow); // V2_27: 円弧の場合は弧の長さを計測
+    } else {
+      var p1={x:LLEN.selLine.x1,y:LLEN.selLine.y1};
+      var p2={x:LLEN.selLine.x2,y:LLEN.selLine.y2};
+      dim=buildDim(p1,p2,pArrow,'diag');
+    }
     if(dim){ snapshot(); dims.push(dim); doSave(); scheduleDraw(); } // V0_103と同様: 即時保存
     LLEN.selLine=null; LLEN.phase=0; LLEN.cur=null;
     showGuide(LLEN_GUIDES.LINE,0);
@@ -5789,7 +6008,7 @@ window.resetSW=resetSW;
 
 // ─ サブ窓ボタン ────────────────────────────────────────────
 function _swUpdateBtnUI(on){
-  // V2_22: このIIFE内のローカル関数のままではwindow._swUpdateBtnUIとして
+  // V2_27: このIIFE内のローカル関数のままではwindow._swUpdateBtnUIとして
   // 外部(resetToolStates/tool.js)から参照できず、「typeof _swUpdateBtnUI==='function'」
   // による呼び出しガードが常にfalseになり、ボタンの見た目リセットが無視されていた
   // (SW.active自体はresetSW()でfalseに戻るが見た目だけ選択中のまま残るバグの真因)。
@@ -6543,7 +6762,7 @@ decEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefaul
 
 document.querySelectorAll('.cb').forEach(function(btn){
   btn.addEventListener('click',function(){
-    // V2_22: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
+    // V2_27: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
     // 一度クラスを外してリフローさせてから付け直す
     btn.classList.remove('cb-flash');
     void btn.offsetWidth;

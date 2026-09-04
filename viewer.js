@@ -1674,7 +1674,7 @@ function _updateTopbarForExcel(isExcel){
   // V1_121: 書込バックアップ(.dxfview書出)はスケッチ・寸法・保存ビューが対象のため、
   // Excel/CSVデータには適用できない。dxfToolGroup/excelToolGroupいずれの外にある
   // 常設ボタンのため、ここで個別に非表示にする
-  var writeBackupBtn=document.getElementById('writeBackupBtn');
+  var writeBackupBtn=document.getElementById('fileBackupBtn234'); // V2_34: 「ファイルBackup」ボタン(旧writeBackupBtn)として復活
   if(writeBackupBtn) writeBackupBtn.style.display=isExcel?'none':'';
   // V1_122: ヘッダーの「画面検索」(#searchOverlay)は、Excel/CSV表示中はシート下の
   // 検索欄(#excelFilterBar)と役割が重複し、画面上でも重なって見えるとの指摘のため、

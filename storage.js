@@ -46,6 +46,21 @@ function _lsIdbPut(name,buf){
   });
 }
 
+// V2_24: ファイル本体(dxfFiles)を明示的に削除する。タブを閉じた時の自動削除
+// (index.htmlのdoCloseTab)、設定パネルの一括削除機能から使う独立した追加関数。
+// 既存のput/get処理(自動保存・復元)には一切影響しない
+function _lsIdbDelete(name,cb){
+  _lsIdbOpen(function(err,db){
+    if(err){ if(cb)cb(err); return; }
+    try{
+      var tx=db.transaction(_LS_IDB_STORE,'readwrite');
+      tx.objectStore(_LS_IDB_STORE).delete(name);
+      tx.oncomplete=function(){ if(cb)cb(null); };
+      tx.onerror=function(e){ if(cb)cb(e.target.error); };
+    }catch(e){ if(cb)cb(e); }
+  });
+}
+
 // IDB優先→localStorageフォールバック。cb(ArrayBuffer|null)
 function _lsIdbGet(name,lsKey,cb){
   _lsIdbOpen(function(err,db){
