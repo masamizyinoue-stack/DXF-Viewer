@@ -146,6 +146,39 @@ function _showPdfHdExportPageDialog190(anchorEl,onConfirm){
   });},10);
 }
 
+// =========================================================
+// V2_38: DXFの「HD-PDF書出」で「全体書出」か「範囲指定書出」かを選ぶダイアログ。
+// 既存の_showPdfHdExportPageDialog190と同じ配色・構造に合わせている。
+// 「全体書出」を選んだ場合は従来通りexportHybridPDF()を引数無しで呼ぶだけなので
+// 既存の全体書出の挙動は一切変わらない。「範囲指定書出」を選んだ場合のみ、
+// 呼び出し側(export.js)がサブ窓と同じ矩形ドラッグの仕組み(SW、purpose='hdpdf')を
+// 起動する。
+// =========================================================
+function _showHdPdfScopeDialog238(anchorEl,onChoice){
+  var existing=document.getElementById('_hdPdfScopeMenu238');
+  if(existing){existing.remove();return;}
+  var menu=document.createElement('div');
+  menu.id='_hdPdfScopeMenu238';
+  menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:240px;box-shadow:0 4px 20px rgba(0,0,0,.7);';
+  var r=anchorEl.getBoundingClientRect();
+  menu.style.top=(r.bottom+6)+'px';
+  menu.style.right=Math.max(4,window.innerWidth-r.right)+'px';
+  menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center;">HD-PDF書出</div>'
+    +'<button type="button" id="_hdPdfAll238" style="background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:10px 8px;font-size:13px;cursor:pointer;text-align:left;">'
+    +'<div>全体書出</div><div style="font-size:10px;color:#888;margin-top:2px;font-weight:400">図面全体を1枚のPDFにします（従来通り）</div></button>'
+    +'<button type="button" id="_hdPdfRange238" style="background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:10px 8px;font-size:13px;cursor:pointer;text-align:left;">'
+    +'<div>範囲指定書出</div><div style="font-size:10px;color:#888;margin-top:2px;font-weight:400">対角2点をドラッグして選んだ範囲だけをPDFにします</div></button>'
+    +'<button id="_hdPdfCnl238" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer;">キャンセル</button>';
+  document.body.appendChild(menu);
+  function closeMenu(){if(document.getElementById('_hdPdfScopeMenu238'))menu.remove();}
+  document.getElementById('_hdPdfAll238').onclick=function(){closeMenu();onChoice('all');};
+  document.getElementById('_hdPdfRange238').onclick=function(){closeMenu();onChoice('range');};
+  document.getElementById('_hdPdfCnl238').onclick=closeMenu;
+  setTimeout(function(){document.addEventListener('click',function _dc(ev){
+    if(!menu.contains(ev.target)&&ev.target!==anchorEl){closeMenu();document.removeEventListener('click',_dc);}
+  });},10);
+}
+
 // V1_190: ページ範囲文字列("1, 1-5, 1,3,5-8"形式)を解析してページ番号配列を返す。
 // M_Viewer(参考実装)と同じ記法・仕様(範囲外・不正値は無視、重複除去、昇順ソート)
 function _parsePageRange190(str,total){
@@ -620,7 +653,10 @@ function _showOpenFilesListMenu(anchorEl){
   // V1_80: 並び順選択（設定パネルの「タブの並び順」と同じ4択・同じ状態を共有する）
   var sortRow=document.createElement('div');
   sortRow.style.cssText='display:flex;flex-wrap:wrap;gap:4px;padding:2px 0 6px;justify-content:center;flex-shrink:0;';
-  var _sortOptions=[['name','名前順'],['opened','開いた順'],['access','アクセス順'],['manual','任意'],['type','種類順']]; // V1_104: 種類順(DXF/PDF/エクセル)を追加
+  // V2_37: 「任意」(ドラッグ並び替え)を中止し、「マーク優先」(マーク済みファイルを
+  // 左側に優先表示)に置き換えた。ドラッグ並び替え自体のコード(_tabItemPointerDown等)
+  // は後方互換のため残しているが、この選択肢が無くなったことで通常は呼ばれなくなる
+  var _sortOptions=[['name','名前順'],['opened','開いた順'],['access','アクセス順'],['markFirst','マーク優先'],['type','種類順']]; // V1_104: 種類順(DXF/PDF/エクセル)を追加
   var _sortBtns={};
   _sortOptions.forEach(function(opt){
     var b=document.createElement('button');
