@@ -1682,36 +1682,27 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // ── 1. バウンディングボックス（現行PDFと同じロジック）──
     var _hMnX=Infinity,_hMnY=Infinity,_hMxX=-Infinity,_hMxY=-Infinity;
     function _hExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_hMnX)_hMnX=x;if(y<_hMnY)_hMnY=y;if(x>_hMxX)_hMxX=x;if(y>_hMxY)_hMxY=y;}
-    // V2_43: 「範囲指定書出しの線が太すぎる(全体書出と同じ太さにしたい)」との要望
-    // により、線幅・手書き太さ・寸法線太さの基準スケールとして「データ全体を用紙に
-    // 収めた場合の倍率」が必要になった。そのためrangeRect238の有無に関わらず、
-    // 常にデータ全体のバウンディングボックス(_allMnX等)も計算しておく
-    var _allMnX=Infinity,_allMnY=Infinity,_allMxX=-Infinity,_allMxY=-Infinity;
-    function _allExp(x,y){if(!isFinite(x)||!isFinite(y))return;if(x<_allMnX)_allMnX=x;if(y<_allMnY)_allMnY=y;if(x>_allMxX)_allMxX=x;if(y>_allMxY)_allMxY=y;}
-    if(doc){
-      for(const e of doc.sen){_allExp(e.x1,e.y1);_allExp(e.x2,e.y2);}
-      for(const e of doc.enko){const r=e.rx||e.r||0;_allExp(e.cx-r,e.cy-r);_allExp(e.cx+r,e.cy+r);}
-      for(const e of (doc.ten||[])){_allExp(e.x,e.y);}
-      for(const e of (doc.moji||[])){_allExp(e.x,e.y);}
-      for(const e of (doc.solid||[])){for(const p of e.pts)_allExp(p.x,p.y);}
-    }
-    if(typeof pdfImage!=='undefined'&&pdfImage){_allExp(pdfImage.wx,pdfImage.wy);_allExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
-    for(const img of (typeof images!=='undefined'?images:[])){_allExp(img.wx,img.wy);_allExp(img.wx+img.ww,img.wy-img.wh);}
-    for(const s of strokes)for(const p of s.pts)_allExp(p.x,p.y);
-    for(const d of dims){
-      for(const l of(d.lines||[])){_allExp(l.x1,l.y1);_allExp(l.x2,l.y2);}
-      if(d.tx!=null&&d.ty!=null)_allExp(d.tx,d.ty);
-    }
-
     // V2_38: 「範囲指定書出」の場合、ユーザーがドラッグで指定した矩形(rangeRect238=
     // {x1,y1,x2,y2}、ワールド座標)をそのままバウンディングボックスとして使う。
-    // 「全体書出」は_allMnX等(上で計算したデータ全体の値)をそのまま使うので、
-    // 計算結果はV2_42までと完全に同一(数式・走査ロジックは一切変更していない)
+    // データ全体を走査する従来ロジックは通さない(=「全体書出」は完全に従来通り)
     if(rangeRect238){
       _hMnX=rangeRect238.x1; _hMnY=rangeRect238.y1;
       _hMxX=rangeRect238.x2; _hMxY=rangeRect238.y2;
     }else{
-      _hMnX=_allMnX; _hMnY=_allMnY; _hMxX=_allMxX; _hMxY=_allMxY;
+      if(doc){
+        for(const e of doc.sen){_hExp(e.x1,e.y1);_hExp(e.x2,e.y2);}
+        for(const e of doc.enko){const r=e.rx||e.r||0;_hExp(e.cx-r,e.cy-r);_hExp(e.cx+r,e.cy+r);}
+        for(const e of (doc.ten||[])){_hExp(e.x,e.y);}
+        for(const e of (doc.moji||[])){_hExp(e.x,e.y);}
+        for(const e of (doc.solid||[])){for(const p of e.pts)_hExp(p.x,p.y);}
+      }
+      if(typeof pdfImage!=='undefined'&&pdfImage){_hExp(pdfImage.wx,pdfImage.wy);_hExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
+      for(const img of (typeof images!=='undefined'?images:[])){_hExp(img.wx,img.wy);_hExp(img.wx+img.ww,img.wy-img.wh);}
+      for(const s of strokes)for(const p of s.pts)_hExp(p.x,p.y);
+      for(const d of dims){
+        for(const l of(d.lines||[])){_hExp(l.x1,l.y1);_hExp(l.x2,l.y2);}
+        if(d.tx!=null&&d.ty!=null)_hExp(d.tx,d.ty);
+      }
     }
     if(!isFinite(_hMnX)){showGuide('描画データがありません',2000);return true;} // V1_169: 閉じる連携用(データなし=出力不要なので閉じる処理は継続)
 
@@ -1727,19 +1718,6 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     const aspect=extW/extH;
     // V1_153: 「A4版ではなくA3版にして」との要望により、長辺を297mm(A4)→420mm(A3)に変更
     const PDF_LONG_MM=420;
-
-    // V2_43: 線幅・手書き太さ・寸法線太さの基準スケール。「データ全体を用紙(A3長辺
-    // 420mm基準)に収めた場合の倍率」を常に使うことで、範囲指定書出でも全体書出と
-    // 同じ物理的な太さ(用紙上のmm数)になるようにする。全体書出時はこの値が
-    // pdfScale*_sx(通常の実効倍率)と完全に一致するため、_lwScale242を使っても
-    // 使わなくても全体書出の結果は変わらない
-    let _lwScale242=1;
-    if(isFinite(_allMnX)){
-      const allEW=_allMxX-_allMnX, allEH=_allMxY-_allMnY;
-      const allExtW=allEW*(1+2*PAD), allExtH=allEH*(1+2*PAD);
-      const allAspect=allExtW/allExtH;
-      _lwScale242 = allAspect>=1 ? PDF_LONG_MM/allExtW : PDF_LONG_MM/allExtH;
-    }
 
     // V2_40修正: _sx/_syはページサイズ決定ブロックの外(このexportHybridPDF関数の
     // 後方、線幅・文字サイズ計算など多数箇所)で参照されるため、if/elseのブロック内で
@@ -1813,22 +1791,8 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     }
 
     // 線幅ヘルパー（現行canvas算出式と同じ: max(0.8, lw*scale*1.4) px → mm変換）
-    // V2_43: 範囲指定書出時は、範囲を拡大表示するpdfScaleの代わりに_lwScale242
-    // (全体書出相当のスケール)を使い、全体書出と同じ物理的な太さに揃える
-    // V2_44: 「DXFの線が異様に太い」バグを修正。下限値0.8は本来「全体書出の
-    // 仮想キャンバス(LONG_PX=6500px)上でのpx単位」を意図した値で、全体書出では
-    // Math.max(0.8, ...)の後に_sx(px→mm変換, 通常0.06程度)を掛けるため実質約0.05mm
-    // 相当になっていた。しかし範囲指定書出(A3固定)は仮想キャンバスを経由せず
-    // _sx=1固定のため、0.8がそのまま「0.8mm」という極太の下限として使われて
-    // しまっていた(これが「異様に太い」の直接の原因)。範囲指定書出時は、0.8px
-    // 相当を全体書出と同じ比率でmmに換算した値(_minLwMM244)を下限として使う
-    const _minLwMM244 = 0.8*(PDF_LONG_MM/6500);
     function _lwMM(lw){
-      if(rangeRect238){
-        return Math.max(0.1, Math.max(_minLwMM244,(lw||0)*_lwScale242*1.4));
-      }else{
-        return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx); // 全体書出: 計算式は一切変更していない
-      }
+      return Math.max(0.1, Math.max(0.8,(lw||0)*pdfScale*1.4)*_sx);
     }
 
     // V1_153: 線種(点線・一点鎖線等)のダッシュパターンをmm単位に変換するヘルパー。
@@ -1836,8 +1800,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // いるが、旧HD-PDF実装(V0_123〜V0_153)にはこの処理が無く、全て実線になっていた
     function _dashMM(dashArr){
       if(!dashArr||dashArr.length===0) return [];
-      const sc=rangeRect238?_lwScale242:pdfScale; // V2_43
-      return dashArr.map(function(d){ return Math.max(0.05, d*sc*_sx); });
+      return dashArr.map(function(d){ return Math.max(0.05, d*pdfScale*_sx); });
     }
 
     // V1_170: 手書き（ペン・蛍光ペン）ベクター描画をfilterModeで絞り込めるよう関数化。
@@ -1868,8 +1831,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         // (図面全体をLONG_PXへ収めるための固定スケールpdfScale)で計算しているため、
         // 太さだけscale基準のままだと現在のズーム状態次第で細くなったり太くなったりして
         // いた。DXF線の太さ(_lwMM)と同じくpdfScale基準に統一する。
-        const _strokeSc242=rangeRect238?_lwScale242:pdfScale; // V2_43: 範囲指定書出は全体書出相当スケールで太さを揃える
-        const lwPx=s.hl?(s.lw*(_strokeSc242/lwRef155)):Math.max(1,s.lw*(_strokeSc242/lwRef155));
+        const lwPx=s.hl?(s.lw*(pdfScale/lwRef155)):Math.max(1,s.lw*(pdfScale/lwRef155));
         pdf.setDrawColor(col.r,col.g,col.b);
         pdf.setLineWidth(Math.max(0.05,lwPx*_sx));
         pdf.setLineCap('round'); pdf.setLineJoin('round');
@@ -2161,18 +2123,12 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         pdf.setDrawColor(dr,dg,db); pdf.setFillColor(dr,dg,db); pdf.setTextColor(dr,dg,db);
         // V1_156: 画面表示(dimensionTextMode='fixed')の比率(17px基準)をmmへ換算
         const worldH=d.worldFontH||(17/(scale||1));
-        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5); // 文字サイズ(表示用、変更なし)
-        // V2_43: 「範囲指定書出しの線が太すぎる」との要望により、寸法線・矢印・
-        // センターマークの太さ/サイズは、範囲指定書出時のみ全体書出相当の
-        // スケール(_lwScale242)を基準にする。文字サイズ(fsMM)・文字との間隔(gapMM)
-        // は従来通り拡大表示のまま(全体書出時はlwBaseMM===fsMMとなり計算結果は不変)
-        const _dimLwSc242=rangeRect238?_lwScale242:pdfScale;
-        const lwBaseMM=Math.max(DIM_MIN_TEXT_MM, worldH*_dimLwSc242*_sx*1.5);
-        const lineMM=Math.max(0.05, lwBaseMM/17);
-        const arrowLenMM=lwBaseMM*(10/(17*1.5));
-        const arrowWMM=lwBaseMM*(4/(17*1.5));
+        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5);
+        const lineMM=Math.max(0.05, fsMM/17);
+        const arrowLenMM=fsMM*(10/(17*1.5));
+        const arrowWMM=fsMM*(4/(17*1.5));
         const gapMM=fsMM*(8/(17*1.5));
-        const centerMarkMM=lwBaseMM*(8/(17*1.5));
+        const centerMarkMM=fsMM*(8/(17*1.5));
         pdf.setLineWidth(lineMM);
         pdf.setLineCap('butt'); pdf.setLineJoin('miter');
         for(const l of (d.lines||[])){
