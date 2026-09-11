@@ -21,6 +21,10 @@ var currentFileName='';
 var tx=0,ty=0,scale=1;
 var fitScale=1;       // V0_83: 全体表示時のscaleを記録（drawAnnotation lineWidth基準用）
 var bwMode=true;  // false=黒背景
+// V2_48: 画面ボタンを「白黒→カラー(背景黒)→カラー(背景白)」の3状態に拡張するための
+// 追加フラグ。bwMode=falseの時だけ意味を持ち、trueなら「カラー表示だが背景は白」。
+// bwMode=true(白黒)の時は常にfalse扱いとする(白黒モードの意味は変えていない)
+var colorLightBg=false;
 var dimensionTextMode='fixed'; // 'auto' | 'fixed'  寸法文字サイズモード（V0_154: 「サイズ指定」(manual)は廃止）
 var DIM_TEXT_MIN_PX=11;  // autoモード: 最小スクリーンpx
 var DIM_TEXT_MAX_PX=30;  // autoモード: 最大スクリーンpx
@@ -909,7 +913,19 @@ function convertOne(P,si,layerMap,ltypeMap,blockMap,depth){
           return {x:ix+lx*sx*cos-ly*sy*sin,y:iy+lx*sx*sin+ly*sy*cos};
         }
         for(const e of block.ents){
-          const ne=JSON.parse(JSON.stringify(e));
+          // V2_51: 「小さいDXFファイルでも開くのに数秒かかる」件の対応。INSERTは
+          // 参照先BLOCKの全エンティティをこの座標変換のために複製する必要があるが、
+          // 従来はJSON.parse(JSON.stringify(e))でディープクローンしていた。ネストした
+          // BLOCK(部品の中に部品、最大12階層)を多数箇所に配置する図面(ボルト・溶接
+          // 記号等の繰返しが多い鉄骨図面で典型的)では、この複製が数千〜数万回発生し、
+          // JSONの文字列化+再パースは1件ずつは軽くても積み重なると顕著に遅い。
+          // ここで変換後に書き換えるのはx1/y1/x2/y2/cx/cy/rx/ry/r/tilt/x/y/pts(solidのみ、
+          // 常にmap()で新しい配列に差し替えるため元配列は書き換わらない)だけで、color/dash
+          // 等のネストしたプロパティ自体を書き換える箇所は無い(colorはconvertOneで
+          // エンティティ毎に新規生成される・dashも同様で他所から書き換えられることも無い)。
+          // そのため実体としてはトップレベルのプロパティだけ複製すれば十分で、
+          // Object.assignによる浅いコピーで安全に高速化できる
+          const ne=Object.assign({},e);
           if(ne.type==='sen'){
             const p1=transform(ne.x1,ne.y1),p2=transform(ne.x2,ne.y2);
             ne.x1=p1.x;ne.y1=p1.y;ne.x2=p2.x;ne.y2=p2.y;
@@ -928,7 +944,9 @@ function convertOne(P,si,layerMap,ltypeMap,blockMap,depth){
   } else if(type==='DIMENSION'){
     const bname=gv(2,'')||'';
     if(bname&&blockMap[bname]&&depth<12){
-      for(const e of blockMap[bname].ents) result.push(JSON.parse(JSON.stringify(e)));
+      // V2_51: INSERTと同じ理由で浅いコピーに変更(このブロックでは座標変換すら
+      // 行わないため、複製自体は元々別インスタンス化のためだけの目的だった)
+      for(const e of blockMap[bname].ents) result.push(Object.assign({},e));
     }
   }
   return result;
@@ -964,7 +982,27 @@ function zoomAt(cx,cy,factor){tx=(tx-cx)*factor+cx;ty=(ty-cy)*factor+cy;scale*=f
 function rgbCss(c,darkBg){
   if(bwMode) return '#000';
   if(darkBg&&c.r<20&&c.g<20&&c.b<20) return '#ffffff';
-  if(!darkBg&&c.r>235&&c.g>235&&c.b>235) return '#000000';
+  // V2_48: 「カラー(背景白)」で白い線が見えなくなる件の対応。従来は(r,g,b)全てが
+  // 235超という「ほぼ純白」しか黒へ変換しておらず、ACI9(192,192,192)やグレー系
+  // 250番台(228等)のような「白っぽいがやや暗いグレー」は変換されず、白背景上で
+  // 非常に見えにくいままだった。彩度(最大値と最小値の差)が小さい=グレー系の色に限り、
+  // 明るさの基準を150まで緩めて黒に変換するようにした。彩度のある色(赤・黄・シアン等)は
+  // 従来通り変換しない(意図的に使い分けている色を誤って黒くしないため)
+  if(!darkBg){
+    const mx=Math.max(c.r,c.g,c.b),mn=Math.min(c.r,c.g,c.b);
+    if(mx>=150&&(mx-mn)<=40) return '#000000';
+    // V2_49: 「カラー(背景白)」で黄色っぽい色・明るい緑っぽい色が白背景に埋もれて
+    // 見にくいとの指摘の対応。上のグレー系判定だけでは、彩度のある黄色(255,255,0)や
+    // 明るい緑(0,255,0)のような「グレーではないが人の目には明るく見える」色は
+    // 素通りしてしまっていた。人の目の感度に近い輝度(YIQ輝度: 緑を最も重く見る式)を
+    // 計算し、輝度が高い(明るく見える)色は同じ色味を保ったまま全体を暗く縮小する。
+    // 赤・青・マゼンタ等はこの式では輝度が低く出るため対象外(従来通り)。
+    const lum=0.299*c.r+0.587*c.g+0.114*c.b;
+    if(lum>=140){
+      const f=105/lum;
+      return `rgb(${Math.round(c.r*f)},${Math.round(c.g*f)},${Math.round(c.b*f)})`;
+    }
+  }
   return `rgb(${c.r},${c.g},${c.b})`;
 }
 
@@ -1059,11 +1097,14 @@ function draw(){
   ctx.save();
   ctx.scale(dpr,dpr);
   const W=cv.width/dpr, H=cv.height/dpr;
-  const darkBg=!bwMode;
+  // V2_48: 「カラー(背景白)」モード(colorLightBg)追加に伴い、背景が白になるのは
+  // bwMode(白黒)だけでなくcolorLightBgの時も含めるよう拡張。どちらでもない場合
+  // (カラー・背景黒)のみdarkBg=trueとする
+  const darkBg=!bwMode&&!colorLightBg;
   // V1_60: PDF表示時は白/黒背景切替(bwMode)の影響を受けず常に濃色背景にする。
   // PDF自体が白いページとして描画されるため、白背景モードのままだとページの
   // 余白と背景が同化して「余白が無限」に見えてしまっていた
-  ctx.fillStyle=(bwMode&&!pdfImage)?'#ffffff':'#1e2430';
+  ctx.fillStyle=((bwMode||colorLightBg)&&!pdfImage)?'#ffffff':'#1e2430';
   ctx.fillRect(0,0,W,H);
   if(!doc&&!pdfImage){ctx.restore();return;}
   if(pdfImage){

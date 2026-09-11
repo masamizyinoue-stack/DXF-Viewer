@@ -835,7 +835,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="tb-sep"></div>
 
   <button class="tb-btn" id="bwToggleBtn" title="白/黒背景切替" style="font-size:12px;min-width:36px;padding:0 6px;">
-  <span class="tb-tool-label">画面</span>
+  <span class="tb-tool-label" id="bwToggleLabel">画面</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/></svg>
 </button>
   <button class="tb-btn" id="subWinBtn" title="サブ窓（範囲を拡大表示する独立ウィンドウ）" style="border:2px solid #2ecc71"> <!-- V0_154: 画面ボタンの右に移動 / V1_54: 緑枠 -->
@@ -1116,7 +1116,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="sp-header">
     <span class="sp-title">設定</span>
     <!-- V0_143: バージョン表示はここに一本化。id="ver-label"でJSがAPP_VERSIONを自動反映（下部の重複表示は削除済み） -->
-    <span id="ver-label">V2_46</span>
+    <span id="ver-label">V2_57</span>
     <button class="sp-close" id="settingsClose">✕</button>
   </div>
   <button id="openFileBtnMain">
@@ -1555,27 +1555,37 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
-<script src="layer.js?v=246"></script>
-<script src="viewer.js?v=246"></script>
-<script src="utils.js?v=246"></script>
-<script src="ui.js?v=246"></script>
-<script src="dialog.js?v=246"></script>
-<script src="storage.js?v=246"></script>
-<script src="fonts/NotoSansJP.js?v=246"></script>
-<script src="export.js?v=246"></script>
-<script src="tool.js?v=246"></script>
-<script src="verify.js?v=246"></script>
+<script src="layer.js?v=257"></script>
+<script src="viewer.js?v=257"></script>
+<script src="utils.js?v=257"></script>
+<script src="ui.js?v=257"></script>
+<script src="dialog.js?v=257"></script>
+<script src="storage.js?v=257"></script>
+<!-- V2_57: 「ページを開いてすぐファイルを開くと遅い(特にネットワークが遅いホスティング先で顕著)」
+     の対応。このNotoSansJP.js(約3MB、HD-PDF書出でのみ使用するフォントデータ)を他の全スクリプトより
+     前で同期読み込みしていたため、ダウンロードが遅い環境ではこのファイル1つのせいで、後続の
+     export.js/tool.js/verify.js/shxGlyphs.js/stroke-text.js/pc.js/supabase-sync.jsや、
+     ファイルを開く操作を受け付けるイベントリスナー登録(下のscriptタグ)まで丸ごとブロックされ、
+     ページを開いた直後にファイルを開こうとすると「開くのが遅い」ように見えていた。
+     このフォントは元々export.js内の_loadJPFont()でHD-PDF書出時にオンデマンド読み込みする
+     仕組みが既にあり、通常のファイル表示(DXF/PDFを開くだけ)では一切使われないため、
+     ここでの先読みは不要と判断し削除した。HD-PDF書出機能自体は_loadJPFont()により
+     初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
+     呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
+<script src="export.js?v=257"></script>
+<script src="tool.js?v=257"></script>
+<script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
-<script src="shxGlyphs.js?v=246"></script>
-<script src="stroke-text.js?v=246"></script>
+<script src="shxGlyphs.js?v=257"></script>
+<script src="stroke-text.js?v=257"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=246"></script>
+<script src="pc.js?v=257"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-sync.js?v=246"></script>
+<script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V2_46';
+const APP_VERSION = 'V2_57';
 
 // =========================================================
 // グローバル状態
@@ -2204,21 +2214,47 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
     // V1_57: PDF自身のfileKeyに紐づく書込みデータ(dxfViewerDxfviewDB)があれば復元する
     // （従来DXF分岐にはあったが、PDF分岐には無く、同じPDFを開き直しても書込みが
     // 復元されなかった）
+    // V2_57: 「ファイルを開くのが遅い」の対応。ここは従来、ファイルを開くたびに
+    // indexedDB.open('dxfViewerDxfviewDB',1)で新規接続を開いており、storage.js側で
+    // 既に接続キャッシュ化された_dvOpenIdb()(同じDBを指す)を使わず、毎回フルの
+    // 接続確立(onupgradeneeded判定含む)コストがかかっていた。他の2箇所(DXF分岐・
+    // 検索して開くのopenDxfFromDb)も同じ書き方だったため、3箇所とも_dvOpenIdb()を
+    // 使うよう統一し、2回目以降のファイルオープンでは接続確立を省略できるようにした
     {var _fkP57=_fileKey(f.name,f.size);
     var _dvP57=await new Promise(function(resolve){
-      try{
-        var _rP57=indexedDB.open('dxfViewerDxfviewDB',1);
-        _rP57.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
-        _rP57.onsuccess=function(e){try{var _txP57=e.target.result.transaction('dv','readonly');var _grP57=_txP57.objectStore('dv').get(_fkP57);_grP57.onsuccess=function(){resolve(_grP57.result||null);};_grP57.onerror=function(){resolve(null);};}catch(e2){resolve(null);}};
-        _rP57.onerror=function(){resolve(null);};
-      }catch(e3){resolve(null);}
+      _dvOpenIdb(function(err,db){
+        if(err){resolve(null);return;}
+        try{
+          var _txP57=db.transaction('dv','readonly');
+          var _grP57=_txP57.objectStore('dv').get(_fkP57);
+          _grP57.onsuccess=function(){resolve(_grP57.result||null);};
+          _grP57.onerror=function(){resolve(null);};
+        }catch(e2){resolve(null);}
+      });
     });
     if(_dvP57){if(_dvP57.dims&&_dvP57.dims.length>0)dims=_dvP57.dims;if(_dvP57.strokes&&_dvP57.strokes.length>0)strokes=_dvP57.strokes;}}
+    // V2_57: 「ファイルを開くのが実機で数秒〜7秒かかる」の実測で、原因はここ(Supabaseへの
+    // 注記復元問い合わせ)だったと判明。氏名・合言葉でクラウド同期を有効にしている場合、
+    // ローカルに注記が無い図面を開くたびにこの通信(_sbPullAnnotations)が完了するまで
+    // 画面表示全体を待たせていたため、通信が遅い時に「開くのが遅い」体感になっていた。
+    // 表示自体はローカルの内容だけで先に完了させ、Supabase側の結果は非同期(await無し)で
+    // 待ち、届いた時点で(まだ他のファイルに切り替わっておらず、かつローカル注記が
+    // 依然として空の場合のみ)反映して再描画する。表示までの体感速度からは完全に切り離される
     if(strokes.length===0&&dims.length===0&&typeof _sbPullAnnotations==='function'){
-      try{
-        var _sbP57=await _sbPullAnnotations(_fkP57);
-        if(_sbP57){if(_sbP57.strokes&&_sbP57.strokes.length>0)strokes=_sbP57.strokes;if(_sbP57.dims&&_sbP57.dims.length>0)dims=_sbP57.dims;}
-      }catch(e){}
+      (function(_fkP57ForSb){
+        _sbPullAnnotations(_fkP57ForSb).then(function(_sbP57){
+          if(!_sbP57) return;
+          if(typeof currentFileName==='undefined'||_fileKey(currentFileName,currentFileSize)!==_fkP57ForSb) return; // 別ファイルに切替済みなら反映しない
+          var _changed=false;
+          if(_sbP57.strokes&&_sbP57.strokes.length>0&&strokes.length===0){strokes=_sbP57.strokes;_changed=true;}
+          if(_sbP57.dims&&_sbP57.dims.length>0&&dims.length===0){dims=_sbP57.dims;_changed=true;}
+          // V2_57: openFiles[]はstrokes/dimsを参照エイリアスで保持している(V0_140)ため、
+          // ここでグローバルのstrokes/dimsを新しい配列に差し替えただけではopenFiles側が
+          // 古い(空の)配列を指したままになり、タブ切替後に注記が消えて見える不具合になる。
+          // そのため現在のタブのopenFiles[currentFileIdx]側にも同じ参照を反映しておく
+          if(_changed){if(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}scheduleDraw();}
+        }).catch(function(){});
+      })(_fkP57);
     }
     // V1_68: 上記のstrokes/dims復元（IndexedDB・Supabaseいずれも非同期）は、直前の
     // loadPDF()内renderPdfPage()によるscheduleDraw()実行（1261行目付近、strokesが
@@ -2260,23 +2296,42 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
       _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
       // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
       // ※SAVE_KEY復元は廃止（異ファイル間でデータが混入するバグを修正）
+      // V2_57: PDF分岐と同じ理由でindexedDB.open()の都度接続をやめ、_dvOpenIdb()
+      // (storage.js、接続キャッシュ済み)を使うよう統一
       {var _fkR=_fileKey(f.name,f.size);
       var _dvR=await new Promise(function(resolve){
-        try{
-          var _r=indexedDB.open('dxfViewerDxfviewDB',1);
-          _r.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
-          _r.onsuccess=function(e){try{var _tx2=e.target.result.transaction('dv','readonly');var _gr2=_tx2.objectStore('dv').get(_fkR);_gr2.onsuccess=function(){resolve(_gr2.result||null);};_gr2.onerror=function(){resolve(null);};}catch(e2){resolve(null);}};
-          _r.onerror=function(){resolve(null);};
-        }catch(e3){resolve(null);}
+        _dvOpenIdb(function(err,db){
+          if(err){resolve(null);return;}
+          try{
+            var _tx2=db.transaction('dv','readonly');
+            var _gr2=_tx2.objectStore('dv').get(_fkR);
+            _gr2.onsuccess=function(){resolve(_gr2.result||null);};
+            _gr2.onerror=function(){resolve(null);};
+          }catch(e2){resolve(null);}
+        });
       });
       if(_dvR){if(_dvR.dims&&_dvR.dims.length>0)dims=_dvR.dims;if(_dvR.strokes&&_dvR.strokes.length>0)strokes=_dvR.strokes;}}
-      // V1_01: ローカルに注記が無い場合のみSupabaseから自動復元を試みる（既存のローカル
-      // 復元結果を上書きしないよう、strokes/dimsが両方とも空の時だけ実行する）
+      // V2_57: 「ファイルを開くのが実機で数秒〜7秒かかる」という報告を実測したところ、
+      // 原因はここ(Supabaseへの注記復元問い合わせ)だった(実測でクラウド同期だけで7070ms)。
+      // 氏名・合言葉でクラウド同期を有効にしている場合、ローカルに注記が無い図面を開くたびに
+      // この通信(_sbPullAnnotations)の完了を待ってから画面表示・検索インデックス構築等の
+      // 残り全部を始めていたため、通信が遅い時に「開くのが遅い」体感になっていた。
+      // 表示・以降の処理はローカルの内容だけで先に完了させ、Supabase側の結果は非同期
+      // (await無し)で待ち、届いた時点で(まだ他のファイルに切り替わっておらず、かつローカル
+      // 注記が依然として空の場合のみ)反映して再描画する。表示までの体感速度から完全に
+      // 切り離される
       if(strokes.length===0&&dims.length===0&&typeof _sbPullAnnotations==='function'){
-        try{
-          var _sbA=await _sbPullAnnotations(_fkR);
-          if(_sbA){if(_sbA.strokes&&_sbA.strokes.length>0)strokes=_sbA.strokes;if(_sbA.dims&&_sbA.dims.length>0)dims=_sbA.dims;}
-        }catch(e){}
+        (function(_fkRForSb){
+          _sbPullAnnotations(_fkRForSb).then(function(_sbA){
+            if(!_sbA) return;
+            if(typeof currentFileName==='undefined'||_fileKey(currentFileName,currentFileSize)!==_fkRForSb) return; // 別ファイルに切替済みなら反映しない
+            var _changed=false;
+            if(_sbA.strokes&&_sbA.strokes.length>0&&strokes.length===0){strokes=_sbA.strokes;_changed=true;}
+            if(_sbA.dims&&_sbA.dims.length>0&&dims.length===0){dims=_sbA.dims;_changed=true;}
+            // V2_57: openFiles[]の参照エイリアス(V0_140)を保つため、こちらにも同期する
+            if(_changed){if(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}scheduleDraw();}
+          }).catch(function(){});
+        })(_fkR);
       }
       // V1_94: 単独で開いたDXFを検索して開くのインデックスへ自動追加する処理(旧:
       // buildSearchIndex()直後の_idbSave呼び出し)は、「個別に開いたファイル」が
@@ -3141,27 +3196,43 @@ window.addEventListener('pagehide',function(){if(currentFileName)doSave();}); //
 window.addEventListener('beforeunload',function(){if(currentFileName)doSave();}); // V0_135: beforeunload追加（強制終了対策）// V0_144: ガード追加（ファイル未読込時にdoSaveすると復元前の保存データを空で上書きし消失するため）
 document.getElementById('settingsOverlay').addEventListener('click',()=>document.body.classList.remove('settings-open'));
 // layerBtn/layerClose/layerModal イベントリスナー → layer.js
+// V2_57: 画面ボタンを「白黒→カラー(背景黒)→カラー(背景白)」の3状態切替に拡張。
+// 状態はbwMode/colorLightBgの組み合わせで表す(白黒=bwMode:true、
+// カラー背景黒=bwMode:false&colorLightBg:false、カラー背景白=bwMode:false&colorLightBg:true)
 function updateBwToggleBtn(){
   var btn=document.getElementById('bwToggleBtn');
   if(!btn)return;
+  var label=document.getElementById('bwToggleLabel');
   var asrClear=document.getElementById('asrInputClearBtn');
   var idxClear=document.getElementById('allSearchClearBtn');
+  // V1_234: 「全体」ボタンはヘッダー(#fitBtn、固定色のtb-btn)へ移動したため、
+  // キャンバス背景色に応じた黒/白の枠・文字の切替は不要になり削除した
+  // V0_109 / V2_57: 画面(canvas)背景が白になるのはbwMode(白黒)とcolorLightBg
+  // (カラー背景白)のどちらの時も同じなので、フォルダ検索✕・インデックスをクリアの
+  // 色もこの2状態でまとめて黒にする
+  var isWhiteCanvas=bwMode||colorLightBg;
+  if(asrClear){asrClear.style.color=isWhiteCanvas?'#000':'';}
+  if(idxClear){idxClear.style.color=isWhiteCanvas?'#000':'';idxClear.style.borderColor=isWhiteCanvas?'#000':'';}
   if(bwMode){
-    btn.style.background='#e8e8e8';btn.style.color='#222';btn.title='白背景（タップで黒へ）';
-    // V1_234: 「全体」ボタンはヘッダー(#fitBtn、固定色のtb-btn)へ移動したため、
-    // キャンバス背景色に応じた黒/白の枠・文字の切替は不要になり削除した
-    // V0_109: 白背景時はフォルダ検索✕・インデックスをクリアを黒に
-    if(asrClear){asrClear.style.color='#000';}
-    if(idxClear){idxClear.style.color='#000';idxClear.style.borderColor='#000';}
+    btn.style.background='#e8e8e8';btn.style.color='#222';btn.style.border='';
+    btn.title='白黒（タップでカラー・背景黒へ）';
+    if(label)label.textContent='白黒';
+  } else if(!colorLightBg){
+    btn.style.background='#222';btn.style.color='#fff';btn.style.border='';
+    btn.title='カラー・背景黒（タップでカラー・背景白へ）';
+    if(label)label.textContent='色/黒';
   } else {
-    btn.style.background='#222';btn.style.color='#fff';btn.title='黒背景（タップで白へ）';
-    // V0_109: 黒背景時は元に戻す
-    if(asrClear){asrClear.style.color='';}
-    if(idxClear){idxClear.style.color='';idxClear.style.borderColor='';}
+    // カラー・背景白：白黒モードと背景色が同じになるため、枠を付けて見た目上も区別する
+    btn.style.background='#e8e8e8';btn.style.color='#222';btn.style.border='2px solid #4a90d9';
+    btn.title='カラー・背景白（タップで白黒へ）';
+    if(label)label.textContent='色/白';
   }
 }
 document.getElementById('bwToggleBtn').addEventListener('click',()=>{
-  bwMode=!bwMode;
+  // 白黒 → カラー(背景黒) → カラー(背景白) → 白黒 … の順で循環
+  if(bwMode){ bwMode=false; colorLightBg=false; }
+  else if(!colorLightBg){ colorLightBg=true; }
+  else { bwMode=true; colorLightBg=false; }
   updateBwToggleBtn();
   scheduleDraw();scheduleSave();
 });
@@ -6143,7 +6214,7 @@ function createSubWindow(rectWorld){
 
   var body=document.createElement('div');
   // V1_60: メイン画面同様、PDF表示中は白/黒背景切替(bwMode)の影響を受けず常に濃色背景にする
-  body.style.cssText='position:relative;flex:1;overflow:hidden;background:'+((bwMode&&!pdfImage)?'#ffffff':'#1e2430')+';';
+  body.style.cssText='position:relative;flex:1;overflow:hidden;background:'+(((bwMode||colorLightBg)&&!pdfImage)?'#ffffff':'#1e2430')+';'; // V2_57: カラー(背景白)も白背景扱いに
 
   var cvEl=document.createElement('canvas');
   var acEl=document.createElement('canvas');
@@ -6698,7 +6769,7 @@ window._renderAllSubWindows=function(){
    _justOp   : 演算子押下直後フラグ（次の数字で入力リセット） */
 let leftVal='',pendingOp='',curInput='0';
 let _afterEq=false,_justOp=false;
-let _lastOp='',_lastOperand=''; // V2_46: 「=」連続押しの定数計算用(直前に実際に使った演算子・右辺値)
+let _lastOp='',_lastOperand=''; // V2_57: 「=」連続押しの定数計算用(直前に実際に使った演算子・右辺値)
 let _dispExpr=''; // 式表示用。=後も保持し新規入力開始時にクリア
 let _dispTokens=[]; // 表示用トークン（内部計算から分離）
 
@@ -6842,7 +6913,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
 
       if(fn==='C'){
         leftVal='';pendingOp='';curInput='0';_afterEq=false;_justOp=false;
-        _lastOp='';_lastOperand=''; // V2_46: 定数計算の記憶もクリア
+        _lastOp='';_lastOperand=''; // V2_57: 定数計算の記憶もクリア
         _dispExpr='';_dispTokens=[];
       }else if(fn==='⌫'){
         if(!_afterEq&&!_justOp) curInput=curInput.length>1?curInput.slice(0,-1):'0';
@@ -6857,7 +6928,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
         curInput=parseFloat(Math.pow(cur,2).toFixed(d)).toString();
       }else if(fn==='='){
         if(pendingOp&&leftVal!==''){
-          // V2_46: 定数計算用に、今回実際に使った演算子・右辺値を記憶しておく
+          // V2_57: 定数計算用に、今回実際に使った演算子・右辺値を記憶しておく
           _lastOp=pendingOp;_lastOperand=curInput;
           var toks=_dispTokens.slice();
           if(toks.length&&toks[toks.length-1].type==='op')
@@ -6870,7 +6941,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
           _dispExpr=dispForHist+' =';
           _dispTokens=[];
         }else if(_afterEq&&_lastOp){
-          // V2_46: 「=」を演算子を挟まず連続で押した場合、直前の演算子・右辺値を
+          // V2_57: 「=」を演算子を挟まず連続で押した場合、直前の演算子・右辺値を
           // 使って同じ計算を繰り返す(一般的な電卓の定数計算)
           var toks2=[{type:'num',val:curInput},{type:'op',val:_lastOp},{type:'num',val:_lastOperand}];
           var dispForHist2=_tokensToStr(toks2);
@@ -7528,6 +7599,7 @@ function _idbTx(mode,cb){
 // されたファイルかをレコードに持たせる（folder引数省略時は個別に開いたファイル
 // 扱いとして''を入れる）
 function _idbSave(name,buf,texts,folder){
+  _dxfIdxCache=null; // V2_57: 内容が変わるので検索キャッシュを破棄
   _idbTx('readwrite',function(err,tx){
     if(err)return;
     var req=tx.objectStore(_IDB_STORE).put({name:name,buf:buf,texts:texts,ts:Date.now(),folder:folder||''});
@@ -7594,6 +7666,7 @@ function _idbGetAll(cb){
   });
 }
 function _idbClear(){
+  _dxfIdxCache=null; // V2_57: 内容が変わるので検索キャッシュを破棄
   _idbTx('readwrite',function(err,tx){
     if(err)return;
     tx.objectStore(_IDB_STORE).clear();
@@ -7701,7 +7774,7 @@ function _idbLoadProfile(name,cb){
             var store=tx.objectStore(_IDB_STORE);
             store.clear();
             (prof.records||[]).forEach(function(r){store.put(r);});
-            tx.oncomplete=function(){cb&&cb(null);};
+            tx.oncomplete=function(){_dxfIdxCache=null;cb&&cb(null);}; // V2_57: 検索キャッシュ破棄
             tx.onerror=function(e3){cb&&cb(e3.target.error);};
           } else {
             // V1_75: 新形式。dxfIndexProfileRecordsからカーソルで1件ずつ読み出し、
@@ -7718,7 +7791,7 @@ function _idbLoadProfile(name,cb){
                 cur.continue();
               }
             };
-            tx2.oncomplete=function(){cb&&cb(null);};
+            tx2.oncomplete=function(){_dxfIdxCache=null;cb&&cb(null);}; // V2_57: 検索キャッシュ破棄
             tx2.onerror=function(e4){cb&&cb(e4.target.error);};
           }
         }catch(e4){cb&&cb(e4);}
@@ -7780,7 +7853,7 @@ function _idbLoadProfiles(names,cb){
             }
           }
           loadNext();
-          tx.oncomplete=function(){cb&&cb(null);};
+          tx.oncomplete=function(){_dxfIdxCache=null;cb&&cb(null);}; // V2_57: 検索キャッシュ破棄
           tx.onerror=function(e3){cb&&cb(e3.target.error);};
         }catch(e4){cb&&cb(e4);}
       }
@@ -7825,7 +7898,17 @@ function _idbGetOne(name,cb){
 // bufも一時的にデシリアライズされるが、そのレコード自体を保持しないため（v.bufへ
 // 参照を残さない）、V1_23で修正した「全ファイルのbufを同時に保持し続けて重い・
 // 落ちる」問題を再発させない
+// V2_57: 「検索して開く」「全図面検索」とも、パネルを開くたび・1文字入力するたびに
+// 本関数を呼んでいたため（openFileSearchInputは150msデバウンス、allSearchInputは
+// デバウンス無し）、キーワード入力中に毎回dxfIndexストア全件のカーソル走査が発生し、
+// インデックス件数が多いフォルダほど入力のたびに固まって感じられる一因になっていた。
+// texts/nameだけとはいえ全件を都度IndexedDBから読み直す必要は無く、インデックスの
+// 中身が変わる操作（_idbSave/_idbClear/_idbLoadProfile/_idbLoadProfiles）は限られて
+// いるため、それらの完了時にだけ無効化するメモリキャッシュを追加した。キャッシュが
+// 有効な間はIndexedDBへ触れず、直前の走査結果（配列）をそのまま返す。
+var _dxfIdxCache=null;
 function _idbGetAllNameTexts(cb){
+  if(_dxfIdxCache){ setTimeout(function(){cb(_dxfIdxCache);},0); return; } // 元々非同期のAPIなので同期呼び出しにはしない
   _idbTx('readonly',function(err,tx){
     if(err){cb([]);return;}
     var out=[];
@@ -7837,6 +7920,7 @@ function _idbGetAllNameTexts(cb){
         out.push({name:v.name,texts:v.texts||[],ts:v.ts||0,folder:v.folder||''}); // V1_75: doAllSearch()をgetAll()から移行するためfolderも追加
         cursor.continue();
       } else {
+        _dxfIdxCache=out; // V2_57: 次回以降はこの結果を使い回す（更新操作側でnullに戻す）
         cb(out);
       }
     };
@@ -8028,20 +8112,18 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
     } else {
       // ⑦ 新規タブ: まず空初期化、次にIDB復元を試みる（F-1）
       hiddenLayers.clear(); strokes=[]; dims=[]; images=[]; // V0_160: savedViewsはグローバルのためリセットしない
+      // V2_57: 他2箇所と同じ理由でindexedDB.open()の都度接続をやめ、_dvOpenIdb()
+      // (storage.js、接続キャッシュ済み)を使うよう統一
       var _dvR=await new Promise(function(resolve){
-        try{
-          var _r=indexedDB.open('dxfViewerDxfviewDB',1);
-          _r.onupgradeneeded=function(e){e.target.result.createObjectStore('dv',{keyPath:'fk'});};
-          _r.onsuccess=function(e){
-            try{
-              var _tx2=e.target.result.transaction('dv','readonly');
-              var _gr2=_tx2.objectStore('dv').get(_fk);
-              _gr2.onsuccess=function(){resolve(_gr2.result||null);};
-              _gr2.onerror=function(){resolve(null);};
-            }catch(e2){resolve(null);}
-          };
-          _r.onerror=function(){resolve(null);};
-        }catch(e3){resolve(null);}
+        _dvOpenIdb(function(err,db){
+          if(err){resolve(null);return;}
+          try{
+            var _tx2=db.transaction('dv','readonly');
+            var _gr2=_tx2.objectStore('dv').get(_fk);
+            _gr2.onsuccess=function(){resolve(_gr2.result||null);};
+            _gr2.onerror=function(){resolve(null);};
+          }catch(e2){resolve(null);}
+        });
       });
       // 保存データが存在する場合のみ上書き（存在しない場合は空配列のまま）
       if(_dvR){
@@ -8049,11 +8131,22 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
         if(_dvR.dims&&_dvR.dims.length>0) dims=_dvR.dims;
       }
       // V1_01: ローカルに注記が無い場合のみSupabaseから自動復元を試みる
+      // V2_57: 「検索して開く」から新規タブで開いた時だけ、他2箇所(通常のファイルを開く/PDF)を
+      // V2_57で直した際に見落としていたため、ここでも同じ理由でSupabase問い合わせを
+      // awaitせず非同期化する。画面表示・以降の処理はローカルの内容だけで即座に完了させ、
+      // 結果は後から(まだ同じファイルを開いたままで、ローカル注記が依然として空の場合のみ)反映する
       if(strokes.length===0&&dims.length===0&&typeof _sbPullAnnotations==='function'){
-        try{
-          var _sbA2=await _sbPullAnnotations(_fk);
-          if(_sbA2){if(_sbA2.strokes&&_sbA2.strokes.length>0)strokes=_sbA2.strokes;if(_sbA2.dims&&_sbA2.dims.length>0)dims=_sbA2.dims;}
-        }catch(e){}
+        (function(_fkForSb){
+          _sbPullAnnotations(_fkForSb).then(function(_sbA2){
+            if(!_sbA2) return;
+            if(typeof currentFileName==='undefined'||_fileKey(currentFileName,currentFileSize)!==_fkForSb) return; // 別ファイルに切替済みなら反映しない
+            var _changed=false;
+            if(_sbA2.strokes&&_sbA2.strokes.length>0&&strokes.length===0){strokes=_sbA2.strokes;_changed=true;}
+            if(_sbA2.dims&&_sbA2.dims.length>0&&dims.length===0){dims=_sbA2.dims;_changed=true;}
+            // V2_57: openFiles[]の参照エイリアス(V0_140)を保つため、こちらにも同期する
+            if(_changed){if(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}scheduleDraw();}
+          }).catch(function(){});
+        })(_fk);
       }
       // ⑧ openFilesへ登録
       openFiles.push({name:name,fileKey:_fk,folder:folder||''}); // V1_70: folderは開いているファイル一覧の表示用

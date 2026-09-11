@@ -154,7 +154,11 @@ function _drawFingerCursor(){
   var sx=sc[0],sy=sc[1];
   var dpr=window.devicePixelRatio||1;
   var r=11;
-  var haloColor=(typeof bwMode!=='undefined'&&bwMode)?'rgba(255,255,255,0.95)':'rgba(0,0,0,0.6)';
+  // V2_48: 「カラー(背景白)」(colorLightBg)追加に伴い、白背景かどうかの判定に
+  // bwModeだけでなくcolorLightBgも含めるよう拡張(白背景時は従来のbwMode相当の
+  // ハロー色にする)
+  var _isLightBg48=(typeof bwMode!=='undefined'&&bwMode)||(typeof colorLightBg!=='undefined'&&colorLightBg);
+  var haloColor=_isLightBg48?'rgba(255,255,255,0.95)':'rgba(0,0,0,0.6)';
   octx.save();
   octx.scale(dpr,dpr);
   octx.lineCap='round';

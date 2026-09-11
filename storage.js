@@ -142,7 +142,7 @@ function doSave(){
     const _insetSv162=(typeof currentFileIdx!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])?(openFiles[currentFileIdx].insetState||null):null;
     localStorage.setItem(SAVE_KEY,JSON.stringify({
       strokes,dims,savedViews,tx,ty,scale,fitScale,
-      bwMode,scaleDenom:sd,hiddenLayers:[...hiddenLayers],
+      bwMode,colorLightBg:(typeof colorLightBg!=='undefined'?colorLightBg:false),scaleDenom:sd,hiddenLayers:[...hiddenLayers], // V2_48: カラー(背景白)状態も保存
       currentTool,currentColor,currentLW,currentFileName,fileSize:currentFileSize,
       fileKey:(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null),
       currentHL_Color,currentHL_LW,currentDimColor,
@@ -353,6 +353,7 @@ async function tryRestore(){
           if(_raw2){
             const _d2=JSON.parse(_raw2);
             bwMode=!!_d2.bwMode;
+            colorLightBg=!!_d2.colorLightBg; // V2_48: カラー(背景白)状態を復元
             currentTool=_d2.currentTool||'sketch';
             if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
             if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
@@ -457,6 +458,7 @@ async function tryRestore(){
     tx=d.tx||0;ty=d.ty||0;scale=d.scale||1;
     if(d.fitScale) fitScale=d.fitScale;
     bwMode=!!d.bwMode;
+    colorLightBg=!!d.colorLightBg; // V2_48: カラー(背景白)状態を復元
     if(d.hiddenLayers)hiddenLayers=new Set(d.hiddenLayers);
     currentTool=d.currentTool||'sketch';
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';

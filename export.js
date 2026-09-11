@@ -311,7 +311,7 @@ async function _runPdfExport(_dlgSel){
       pdfComp=document.createElement('canvas'); pdfComp.width=CW; pdfComp.height=CH;
       _rComp=pdfComp;
       const pctx=pdfComp.getContext('2d');
-      pctx.fillStyle=bwMode?'#fff':'#1e2430';
+      pctx.fillStyle=(bwMode||(typeof colorLightBg!=='undefined'&&colorLightBg))?'#fff':'#1e2430'; // V2_48: カラー(背景白)も白背景扱いに
       pctx.fillRect(0,0,CW,CH);
 
       // ①' 蛍光ペンのみ先行描画（V1_170: DXF/文字より下に敷くことで、印刷時に黒文字が
@@ -2285,6 +2285,12 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
 // 「たまたまその瞬間どれだけ拡大して見ていたか」には左右されなくなる。
 async function exportPdfMergedHybrid190(pageNums){
   if(typeof PDFLib==='undefined'){showGuide('pdf-libが読み込まれていません',2000);return false;}
+  // V2_53: index.html側でNotoSansJP.js(約3MB)の先読み<script>タグを廃止し、
+  // exportHybridPDF()と同じ_loadJPFont()によるオンデマンド読み込みに一本化した。
+  // この関数は従来_loadJPFont()を呼んでおらず、先読みタグが無くなった状態で
+  // window._notoSansJPBase64を直接参照すると未読込のまま(日本語フォント埋込なし)に
+  // なってしまうため、他の使用箇所より前に読み込みを保証するここで追加した
+  await _loadJPFont();
   var origBuf190=(typeof openFilesBufs!=='undefined'&&typeof currentFileIdx!=='undefined'&&currentFileIdx>=0)?openFilesBufs[currentFileIdx]:null;
   if(!origBuf190){showGuide('元のPDFデータが見つかりません',2000);return false;}
   if(!pageNums||!pageNums.length){showGuide('ページが指定されていません',2000);return false;}
