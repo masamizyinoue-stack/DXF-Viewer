@@ -32,6 +32,7 @@ var FINGER_CURSOR_OFFSET_Y=60;
 function _fingerMeasureActive(){
   return (window.DIM&&window.DIM.active)||(window.LP&&window.LP.active)||(window.LL&&window.LL.active)
       ||(window.LLEN&&window.LLEN.active) // V1_240: 線の長さ
+      ||(window.ANG&&window.ANG.active) // V2_63: 角度
       ||currentTool==='dx'||currentTool==='dy'||currentTool==='dxdy'||currentTool==='diag';
 }
 function _fingerMeasureDown(sx,sy){
@@ -39,6 +40,7 @@ function _fingerMeasureDown(sx,sy){
   else if(window.LP&&window.LP.active) window.LP.handleDown(sx,sy);
   else if(window.LL&&window.LL.active) window.LL.handleDown(sx,sy);
   else if(window.LLEN&&window.LLEN.active) window.LLEN.handleDown(sx,sy); // V1_240
+  else if(window.ANG&&window.ANG.active) window.ANG.handleDown(sx,sy); // V2_63
   else handlePointerDown(sx,sy,true); // dx/dy/dxdy/diag: ペン相当のダウン→ムーブ→アップで確定
 }
 function _fingerMeasureMove(sx,sy){
@@ -46,6 +48,7 @@ function _fingerMeasureMove(sx,sy){
   else if(window.LP&&window.LP.active) window.LP.handleMove(sx,sy);
   else if(window.LL&&window.LL.active) window.LL.handleMove(sx,sy);
   else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(sx,sy); // V1_240
+  else if(window.ANG&&window.ANG.active) window.ANG.handleMove(sx,sy); // V2_63
   else handlePointerMove(sx,sy,true);
 }
 function _fingerMeasureUp(sx,sy){
@@ -53,6 +56,7 @@ function _fingerMeasureUp(sx,sy){
   else if(window.LP&&window.LP.active) window.LP.handleUp(sx,sy);
   else if(window.LL&&window.LL.active) window.LL.handleUp(sx,sy);
   else if(window.LLEN&&window.LLEN.active) window.LLEN.handleUp(sx,sy); // V1_240
+  else if(window.ANG&&window.ANG.active) window.ANG.handleUp(sx,sy); // V2_63
   else handlePointerUp(sx,sy,true);
 }
 
@@ -132,6 +136,12 @@ function _fingerCursorInfo(){
     if(Z.phase===1) return Z._hoverPos?{wx:Z._hoverPos.x,wy:Z._hoverPos.y}:null;
     return null;
   }
+  if(window.ANG&&window.ANG.active){ // V2_63: 角度
+    var A=window.ANG;
+    if(A.phase===0||A.phase===1) return A._hoverLine?null:(A._hoverPos?{wx:A._hoverPos.x,wy:A._hoverPos.y}:null);
+    if(A.phase===2) return A._hoverPos?{wx:A._hoverPos.x,wy:A._hoverPos.y}:null;
+    return null;
+  }
   if(window.IPX&&window.IPX.active){
     var X=window.IPX;
     return X._hoverLine?null:(X._hoverPos?{wx:X._hoverPos.x,wy:X._hoverPos.y}:null);
@@ -197,6 +207,7 @@ function handlePointerDown(sx,sy,isPenInput){
   if(window.LP&&window.LP.active)return;
   if(window.LL&&window.LL.active)return; // V0_153: 2線間
   if(window.LLEN&&window.LLEN.active)return; // V1_240: 線の長さ
+  if(window.ANG&&window.ANG.active)return; // V2_63: 角度
   if(window.SW&&window.SW.active){window.SW.handleDown(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   const[wx,wy]=s2w(sx,sy);
   // V0_102: dim text drag (水・鉛/斜めツール)
@@ -245,6 +256,7 @@ function handlePointerMove(sx,sy,isPenInput){
   if(window.LP&&window.LP.active)return;
   if(window.LL&&window.LL.active)return; // V0_153: 2線間
   if(window.LLEN&&window.LLEN.active)return; // V1_240: 線の長さ
+  if(window.ANG&&window.ANG.active)return; // V2_63: 角度
   if(window.SW&&window.SW.active){window.SW.handleMove(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   const[wx,wy]=s2w(sx,sy);
   currentCursorWorld={x:wx,y:wy}; // 寸法プレビュー用カーソル世界座標を更新
@@ -285,6 +297,7 @@ function handlePointerUp(sx,sy,isPenInput){
   if(window.LP&&window.LP.active)return;
   if(window.LL&&window.LL.active)return; // V0_153: 2線間
   if(window.LLEN&&window.LLEN.active)return; // V1_240: 線の長さ
+  if(window.ANG&&window.ANG.active)return; // V2_63: 角度
   if(window.SW&&window.SW.active){window.SW.handleUp(sx,sy);return;} // V0_150: サブ窓 矩形範囲選択
   if(dimPendingDown&&isPenInput){
     dimPendingDown=false;
@@ -358,6 +371,8 @@ ov.addEventListener('mousedown',e=>{
     window.LL.handleDown(p.x,p.y);
   } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
     window.LLEN.handleDown(p.x,p.y);
+  } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+    window.ANG.handleDown(p.x,p.y);
   } else { handlePointerDown(p.x,p.y,false); }
 });
 window.addEventListener('mousemove',e=>{
@@ -376,6 +391,8 @@ window.addEventListener('mousemove',e=>{
     window.LL.handleMove(p.x,p.y);
   } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
     window.LLEN.handleMove(p.x,p.y);
+  } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+    window.ANG.handleMove(p.x,p.y);
   } else { handlePointerMove(p.x,p.y,false); }
   lastMX=p.x;lastMY=p.y;
 });
@@ -406,6 +423,8 @@ window.addEventListener('mouseup',e=>{
     window.LL.handleUp(p.x,p.y);
   } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
     window.LLEN.handleUp(p.x,p.y);
+  } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+    window.ANG.handleUp(p.x,p.y);
   } else { handlePointerUp(p.x,p.y,false); }
 });
 ov.addEventListener('wheel',e=>{
@@ -454,6 +473,8 @@ ov.addEventListener('touchstart',e=>{
         window.LL.handleDown(sx,sy);
       } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
         window.LLEN.handleDown(sx,sy);
+      } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+        window.ANG.handleDown(sx,sy);
       } else { handlePointerDown(sx,sy,true); }
     }
   } else if(fingers.length>=2){
@@ -476,6 +497,7 @@ ov.addEventListener('touchstart',e=>{
     if(window.LP) window.LP.penDown=false;
     if(window.LL) window.LL.penDown=false;
     if(window.LLEN) window.LLEN.penDown=false; // V1_240: 線の長さ
+    if(window.ANG) window.ANG.penDown=false; // V2_63: 角度
     mouseDown=false;panning=false;
     // V1_101: 2本指が揃った時点で「このタッチセッションはジェスチャー(ピンチ/パン)
     // である」ことを示すセッション全体フラグを立てる。従来(V1_99/V1_100)の
@@ -542,6 +564,8 @@ ov.addEventListener('touchmove',e=>{
       window.LL.handleMove(sx,sy);
     } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
       window.LLEN.handleMove(sx,sy);
+    } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+      window.ANG.handleMove(sx,sy);
     } else { handlePointerMove(sx,sy,true); }
     lastMX=sx;lastMY=sy;
   } else if(fingers.length>=2&&pinchDist!==null){
@@ -612,6 +636,8 @@ ov.addEventListener('touchend',e=>{
       window.LL.handleUp(lastMX,lastMY);
     } else if(window.LLEN&&window.LLEN.active){ // V1_240: 線の長さ
       window.LLEN.handleUp(lastMX,lastMY);
+    } else if(window.ANG&&window.ANG.active){ // V2_63: 角度
+      window.ANG.handleUp(lastMX,lastMY);
     } else { handlePointerUp(lastMX,lastMY,true); }
     mouseDown=false;isPen=false;
     if(remFing.length>=2){
@@ -677,7 +703,8 @@ ov.addEventListener('touchend',e=>{
         } else if(!(window.DIM&&window.DIM.active&&window.DIM.phase>0)
             &&!(window.LP&&window.LP.active&&window.LP.phase>0)
             &&!(window.LL&&window.LL.active&&window.LL.phase>0)
-            &&!(window.LLEN&&window.LLEN.active&&window.LLEN.phase>0)){ // V1_240: 線の長さ
+            &&!(window.LLEN&&window.LLEN.active&&window.LLEN.phase>0) // V1_240: 線の長さ
+            &&!(window.ANG&&window.ANG.active&&window.ANG.phase>0)){ // V2_63: 角度
           var _tapNow=Date.now();
           if(_tapNow-_lastTapTime<400&&Math.hypot(lastMX-_lastTapX,lastMY-_lastTapY)<40){
             fit();scheduleDraw();scheduleSave(); // V0_74のfitBtnと同じ処理
@@ -736,13 +763,13 @@ ov.addEventListener('touchend',e=>{
 // 維持する(下のクリックハンドラでこの値を見て「状態リセットをしない」保護を掛けている
 // ため)が、色選択が#measureToolPopupに常時表示されるようになったので、再タップ時に
 // 別ポップアップを開く処理自体は行わない(下のif(_mode==='dim')分岐を参照)
-const _TOOL_COLOR_MODE={sketch:'sketch',hl:'hl',eraser:'eraser',dxdy:'dim',diag:'dim',ll:'dim',lp:'dim',circDim:'dim',radDim:'dim',lineLen:'dim'}; // V1_240: 線の長さ追加
+const _TOOL_COLOR_MODE={sketch:'sketch',hl:'hl',eraser:'eraser',dxdy:'dim',diag:'dim',ll:'dim',lp:'dim',circDim:'dim',radDim:'dim',lineLen:'dim',ang:'dim'}; // V2_63: 角度追加
 // V1_205: 計測ツール選択ポップアップ(#measureToolPopup、index.html)用。6つの計測ツールの
 // うちどれかが新たに選択された時、ヘッダーの計測ボタン(#measureCurrentLabel、3段表示の
 // 3段目)に選択中のツール名を表示し、ポップアップを閉じる。すでに選択中のツールの
 // アイコンを再タップした場合(下のstopImmediatePropagation分岐)はこの処理には来ない
 // (色/太さポップアップが開くだけで、選択自体は変わらないため表示更新も不要)
-const _MEASURE_TOOL_LABELS={dxdy:'水・鉛',diag:'斜め',ll:'2線間',lp:'線と点',circDim:'直径',radDim:'半径',lineLen:'線長'}; // V1_240: 線の長さ追加
+const _MEASURE_TOOL_LABELS={dxdy:'水・鉛',diag:'斜め',ll:'2線間',lp:'線と点',circDim:'直径',radDim:'半径',lineLen:'線長',ang:'角度'}; // V2_63: 角度追加
 // V1_219: 「計測ボタンのアイコンを、選択中の計測ツールのアイコンにしてほしい」との
 // 依頼への対応。ヘッダーの計測ボタン(#measureToolIcon)は従来ずっと定規アイコン固定
 // だったが、計測ツールが選択されている間はそのツール専用のアイコン(下記、
@@ -761,7 +788,8 @@ var _MEASURE_TOOL_ICON_INNER={
   lp:'<line x1="3" y1="21" x2="21" y2="3"/><circle cx="17" cy="17" r="3"/><line x1="17" y1="14" x2="12" y2="9" stroke-dasharray="2,2"/>',
   circDim:'<circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/>',
   radDim:'<circle cx="12" cy="12" r="8"/><line x1="12" y1="12" x2="20" y2="12"/><text x="14" y="11" font-size="5" fill="currentColor" stroke="none">R</text>',
-  lineLen:'<line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/>' // V1_240: 線の長さ追加(#measureToolPopup内の.dimToolIconと同一形状)
+  lineLen:'<line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/>', // V1_240: 線の長さ追加(#measureToolPopup内の.dimToolIconと同一形状)
+  ang:'<line x1="4" y1="20" x2="21" y2="20"/><line x1="4" y1="20" x2="15" y2="4"/><path d="M11 20 A7 7 0 0 0 8.1 13.8" fill="none"/>' // V2_63: 角度追加(#measureToolPopup内の.dimToolIconと同一形状)
 };
 // V1_227: 「計測ボタンの3段目ラベル(#measureCurrentLabel)は、ペン等へ切り替えた後も
 // 前回選んでいた計測ツール名(例:水・鉛)が表示されたままなのに、アイコンだけ定規に

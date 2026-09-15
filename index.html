@@ -224,7 +224,12 @@ tr.excel-sort-row td{font-weight:700;background:#ffd6e8;border-top:2px solid #d8
   padding:10px 8px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   box-shadow:0 8px 32px rgba(0,0,0,.65)}
 #vbmPop.on{display:flex}
-.vbm-lbl{font-size:9px;color:#aac8e8;font-weight:800;letter-spacing:.06em;text-align:center;line-height:1.25;white-space:nowrap}
+/* V2_60: 「記憶VIEW」ラベル部分を掴んでポップアップ枠自体を任意の位置へ移動できるようにする。
+   ラベルだけをドラッグハンドルにすることで、スロットボタン(1〜5)・CLRボタンの
+   タップ/長押し(_showMemMenu)は従来どおり影響を受けない */
+.vbm-lbl{font-size:9px;color:#aac8e8;font-weight:800;letter-spacing:.06em;text-align:center;line-height:1.25;white-space:nowrap;
+  cursor:grab;touch-action:none;-webkit-user-select:none;user-select:none;padding:2px 4px;border-radius:4px}
+.vbm-lbl:active{cursor:grabbing;background:rgba(0,212,255,.12)}
 .vbm{width:42px;height:38px;border-radius:8px;border:1.5px solid rgba(140,160,180,0.4);
   background:transparent;color:rgba(170,190,210,0.7);font-size:14px;font-weight:700;
   cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;
@@ -439,7 +444,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #measureToolPopup .co-label{margin-bottom:0}
 /* V1_214: 計測ツール6種を2段(3×2)から1段(6×1)に変更(見やすさの指摘のため) */
 /* V1_240: 「線の長さ」追加により7種になったため1段(7×1)に変更 */
-#measureToolPopup .dim-group-btns{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+#measureToolPopup .dim-group-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px} /* V2_63: 8個になったため4列×2行に変更 */
 /* V1_214: 計測ボタンの枠は、選択中(いずれかの計測ツールがcurrentTool)の時だけ色付きに
    する(tool.js側でtool-activeクラスを切替)。常時色付きだと選択中かどうか分かりにくい
    との指摘のため、既定の枠(.tb-btnの1px境界線)は変更せず、色のみ切り替える
@@ -962,6 +967,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
            寸法線の位置を指定）。アイコンは水平な両矢印(ものさし風)で、選ぶ線の実際の
            角度に関わらず固定形状（斜めアイコンが常に45°固定なのと同じ扱い） -->
       <button class="tb-tool-btn tool-btn" data-tool="lineLen" title="線の長さ（既存の線・円弧を選ぶだけで長さを計測）"><span class="tb-tool-label">線長</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/></svg></button>
+      <!-- V2_63: 「角度」追加。2本の線を選ぶと交点(頂点)を自動計算し、その頂点を通る
+           円弧と角度の値(小数第1位まで、例:60.3°)を表示する（LL「2線間」と同じ
+           「線選択→線選択→位置指定」の3段階操作。ただしLLは平行な線を要求するのに
+           対し、こちらは非平行な線(交点を持つ線)を要求する） -->
+      <button class="tb-tool-btn tool-btn" data-tool="ang" title="角度（交点を持つ2本の線を選択）"><span class="tb-tool-label">角度</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="21" y2="20"/><line x1="4" y1="20" x2="15" y2="4"/><path d="M11 20 A7 7 0 0 0 8.1 13.8" fill="none"/></svg></button>
     </div>
   </div>
   <!-- V1_214: 計測線の色選択。旧#colorOverlayの.co-dim-sectionから移設(class名は
@@ -1194,7 +1204,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
          1つまたは複数選択し、書込み履歴をまとめて復元する。同じファイルのデータが
          複数のZIP・現在端末のデータ間で重複していた場合は保存日時が新しい方だけ残す
          ため、古い内容で誤って上書きされることはない -->
-    <button id="allDvRestoreBtn232" class="sp-action-btn" style="margin-top:8px" title="『全バックアップ』のZIPを1つまたは複数選択し、書込み履歴をまとめて復元します。同じファイルのデータが複数ある場合は保存日時が新しい方を残すため、現在のデータより古い内容で上書きされることはありません">全バックアップ復元</button>
+    <button id="allDvRestoreBtn232" class="sp-action-btn" style="margin-top:8px" title="『全バックアップ』『複数選択でのまとめてバックアップ』いずれのZIPも1つまたは複数選択して復元できます。元図面が複数同梱されている場合は、開く図面を一覧から選べます。同じファイルのデータが複数ある場合は保存日時が新しい方を残すため、現在のデータより古い内容で上書きされることはありません">全バックアップ復元</button>
     <div style="font-size:11px;color:#666;margin-top:6px;line-height:1.5">複数の『全バックアップ』ZIP(例:1年前と今日)をまとめて選択できます。同じファイルの書込みが複数見つかった場合は、保存日時が新しい方だけを残します</div>
   </div>
   <div class="sp-section"> <!-- V1_03: クラウド保存状況（Supabaseの保存件数・使用サイズ） -->
@@ -1572,8 +1582,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      ここでの先読みは不要と判断し削除した。HD-PDF書出機能自体は_loadJPFont()により
      初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
      呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
-<script src="export.js?v=257"></script>
-<script src="tool.js?v=257"></script>
+<script src="export.js?v=262"></script>
+<script src="tool.js?v=258"></script>
 <script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
 <script src="shxGlyphs.js?v=257"></script>
@@ -1585,7 +1595,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V2_57';
+const APP_VERSION = 'V2_66';
 
 // =========================================================
 // グローバル状態
@@ -2442,6 +2452,7 @@ function resetToolStates(keepMeasureTool){
   if(window.LP  && typeof resetLP ==='function') resetLP();
   if(window.LL  && typeof resetLL ==='function') resetLL(); // V0_153.1: 2線間
   if(window.LLEN && typeof resetLLEN==='function') resetLLEN(); // V1_240: 線の長さ
+  if(window.ANG && typeof resetANG==='function') resetANG(); // V2_63: 角度
   if(window.SW  && typeof resetSW ==='function'){ resetSW(); if(typeof _swUpdateBtnUI==='function')_swUpdateBtnUI(false); }
   // V1_66: 上記はDIM/LP/LL/SWの内部active状態を解除するだけで、currentTool変数と
   // ツールボタンの見た目(activeクラス)はそのまま残っていた。そのため「2線間」等の
@@ -2466,7 +2477,7 @@ function resetToolStates(keepMeasureTool){
   // 直したのと同じ状態までDIM/LP/LLを再アクティブ化することで、見た目通りに新しいファイル
   // でもすぐ計測を続けられるようにする（旧ファイルの選択線・候補点等の内部状態は
   // resetDIM/resetLP/resetLLで既にクリア済みなので、古い参照を引きずる心配はない）
-  var _measureTools67=['dxdy','diag','ll','lp','circDim','radDim','lineLen'];
+  var _measureTools67=['dxdy','diag','ll','lp','circDim','radDim','lineLen','ang']; // V2_63: 角度追加
   if(_measureTools67.indexOf(currentTool)!==-1){
     if(keepMeasureTool){
       // V1_234: 選択状態を維持したまま、DIM/LP/LLだけをこのツール用に再アクティブ化する
@@ -2479,6 +2490,8 @@ function resetToolStates(keepMeasureTool){
         LL.active=true; LL.phase=0;
       } else if(currentTool==='lineLen'){
         LLEN.active=true; LLEN.phase=0; // V1_240: 線の長さ
+      } else if(currentTool==='ang'){
+        ANG.active=true; ANG.phase=0; // V2_63: 角度
       }
       // dxdy/diagはactiveフラグを持たずcurrentTool判定のみで動作するため追加処理不要
     } else {
@@ -3310,7 +3323,7 @@ function _closeMeasureToolPopup(){
 // 直接参照できない(スクリプトタグをまたぐconst/letは共有されないため。storage.jsで
 // 同様の理由によりハードコード配列で判定している前例と同じ対応)ため、ここでも
 // ハードコード配列で判定する
-var _MEASURE_TOOLS_210=['dxdy','diag','ll','lp','circDim','radDim','lineLen']; // V1_240: 線の長さ追加
+var _MEASURE_TOOLS_210=['dxdy','diag','ll','lp','circDim','radDim','lineLen','ang']; // V2_63: 角度追加
 document.getElementById('measureToggleBtn').addEventListener('click',function(e){
   var popup=document.getElementById('measureToolPopup');
   if(!popup) return;
@@ -4061,13 +4074,75 @@ function _vbmToggleBtnUI(on){
   });
 })();
 
+// =========================================================
+// V2_60: 記憶VIEWポップアップ(#vbmPop)を任意の位置に移動できるようにする。
+// 「記憶ビューのポップアップ枠を任意で移動出来る様にして」との依頼への対応。
+// ラベル(.vbm-lbl)だけをドラッグハンドルにし、スロットボタン(1〜5)・CLRボタンの
+// タップ/長押しメニュー(_showMemMenu)には一切触れない。
+// 位置はlocalStorageに保存し、次回起動時も同じ位置から開くようにする。
+// =========================================================
+(function(){
+  var _pop260=document.getElementById('vbmPop');
+  var _handle260=_pop260&&_pop260.querySelector('.vbm-lbl');
+  if(!_pop260||!_handle260)return;
+  var _POSKEY260='dxfViewerVbmPopPos';
+  // 前回位置の復元（無ければCSS既定値=右上のまま）
+  try{
+    var _saved260=JSON.parse(localStorage.getItem(_POSKEY260)||'null');
+    if(_saved260&&typeof _saved260.left==='number'&&typeof _saved260.top==='number'){
+      _pop260.style.left=_saved260.left+'px';
+      _pop260.style.top=_saved260.top+'px';
+      _pop260.style.right='auto';
+    }
+  }catch(e){}
+  var _drag260=null; // {dx,dy}: pointerdown位置とポップアップ左上の差分
+  function _clamp260(v,max){return Math.max(0,Math.min(max,v));}
+  _handle260.addEventListener('pointerdown',function(ev){
+    var r=_pop260.getBoundingClientRect();
+    // right指定のままだとleft/topでの移動と競合するため、ドラッグ開始時に
+    // 現在の実測位置をleft/topへ固定してからrightを解除する
+    _pop260.style.left=r.left+'px';
+    _pop260.style.top=r.top+'px';
+    _pop260.style.right='auto';
+    _drag260={dx:ev.clientX-r.left,dy:ev.clientY-r.top};
+    try{_handle260.setPointerCapture(ev.pointerId);}catch(e){}
+    ev.preventDefault();
+  });
+  _handle260.addEventListener('pointermove',function(ev){
+    if(!_drag260)return;
+    var r=_pop260.getBoundingClientRect();
+    var maxL=window.innerWidth-r.width, maxT=window.innerHeight-r.height;
+    var nl=_clamp260(ev.clientX-_drag260.dx,maxL>0?maxL:0);
+    var nt=_clamp260(ev.clientY-_drag260.dy,maxT>0?maxT:0);
+    _pop260.style.left=nl+'px';
+    _pop260.style.top=nt+'px';
+  });
+  function _dragEnd260(ev){
+    if(!_drag260)return;
+    _drag260=null;
+    try{_handle260.releasePointerCapture(ev.pointerId);}catch(e){}
+    var r=_pop260.getBoundingClientRect();
+    try{localStorage.setItem(_POSKEY260,JSON.stringify({left:r.left,top:r.top}));}catch(e){}
+  }
+  _handle260.addEventListener('pointerup',_dragEnd260);
+  _handle260.addEventListener('pointercancel',_dragEnd260);
+  // 画面回転・リサイズ時に画面外へはみ出さないよう補正
+  window.addEventListener('resize',function(){
+    var r=_pop260.getBoundingClientRect();
+    if(r.left===0&&r.top===0)return; // CSS既定(right指定)のままなら何もしない
+    var maxL=window.innerWidth-r.width, maxT=window.innerHeight-r.height;
+    _pop260.style.left=_clamp260(r.left,maxL>0?maxL:0)+'px';
+    _pop260.style.top=_clamp260(r.top,maxT>0?maxT:0)+'px';
+  });
+})();
+
 
 // V0_71: コンテキスト感知色丸ボタン制御（V1_45で色丸自体は廃止。関数名・DIM_TOOLS定数は
 // 他ファイル(tool.js/storage.js)から参照されているためそのまま維持している）
 // V1_30: 「2線間」(ll)がこの一覧に含まれておらず、2線間コマンド中に寸法色選択ボタン
 // (dimColorDot)が表示されない不具合を修正。他の寸法系ツール(dxdy/diag/lp/circDim/
 // radDim)と同様、llもDIM_TOOLSに含めることでボタンが表示されるようにした
-const DIM_TOOLS=['dxdy','diag','lp','ll','circDim','radDim','lineLen']; // V1_240: 線の長さ追加
+const DIM_TOOLS=['dxdy','diag','lp','ll','circDim','radDim','lineLen','ang']; // V2_63: 角度追加
 // V1_44/V1_45: 「ペン」「蛍光」「寸法系」ツールボタンのアイコン自体に選択中の色を
 // 反映する。svg要素自身のstyle.colorを変えることで、そのsvg内のstroke="currentColor"
 // な要素（線）だけが変わり、ボタン本体のactive状態の色(border/background)には
@@ -5974,6 +6049,278 @@ window.resetLLEN=resetLLEN;
 
 })(); // end D4
 
+// ── D5. 角度 ──────────────────────────────────────────────────────────
+// V2_63: 「計測に角度を追加してほしい。小数第1位まで、例:60.3°」との依頼に対応。
+// 既存の寸法ツールを一切変更せず、LL(2線間)と全く同じ「線選択→線選択→位置指定」の
+// 3段階状態機械を新設する形で追加する（drawDimEntity等の共通描画関数も無改造。
+// 円弧はd.linesへの短い線分の連続(ポリライン)として近似することで表現する）。
+;(function(){
+
+var ANG={
+  active:false, phase:0,
+  selLine1:null, selLine2:null,
+  penDown:false, cur:null,
+  _hoverLine:null, _hoverPos:null
+};
+
+var ANG_GUIDES={
+  LINE1:'1本目の線の近くにペンを当てて選択（離して確定）',
+  LINE2:'2本目の線（1本目と交わる線）を選択（離して確定）',
+  POS:'測りたい角度の内側にペンを当てて位置を指定（移動→離して確定）' // V2_66: どの角度が表示されるかは位置指定の方向で決まる
+};
+
+function resetANG(){
+  ANG.active=false; ANG.phase=0;
+  ANG.selLine1=null; ANG.selLine2=null;
+  ANG.penDown=false; ANG.cur=null; ANG._hoverLine=null; ANG._hoverPos=null;
+}
+
+// 2本の線が(ほぼ)平行かどうか判定。LLの_llIsParallel()と同じ考え方（向きの正負は
+// 無視、約1度の誤差まで許容）だが、ANGでは「平行でない(=交点を持つ)」ことを
+// 要求するため、判定結果はこちらで反転させて使う
+function _angIsParallel(l1,l2){
+  var d1x=l1.x2-l1.x1, d1y=l1.y2-l1.y1;
+  var d2x=l2.x2-l2.x1, d2y=l2.y2-l2.y1;
+  var len1=Math.hypot(d1x,d1y), len2=Math.hypot(d2x,d2y);
+  if(len1<1e-9||len2<1e-9) return true; // 長さ0は判定不能→平行扱いで弾く
+  var ux1=d1x/len1, uy1=d1y/len1;
+  var ux2=d2x/len2, uy2=d2y/len2;
+  var cross=Math.abs(ux1*uy2-uy1*ux2);
+  var TOL=Math.sin(1*Math.PI/180); // 約1度まで許容
+  return cross<TOL;
+}
+
+// 2本を無限直線とみなした交点(頂点)を求める
+function _angIntersect(l1,l2){
+  var x1=l1.x1,y1=l1.y1,x2=l1.x2,y2=l1.y2,x3=l2.x1,y3=l2.y1,x4=l2.x2,y4=l2.y2;
+  var d=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);
+  if(Math.abs(d)<1e-10) return null;
+  var t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/d;
+  return {x:x1+t*(x2-x1),y:y1+t*(y2-y1)};
+}
+
+// 頂点から見て、その線の実体(線分)が伸びている側の方向ベクトルを返す
+// (2端点のうち頂点から遠い方への方向。交点が線分の途中/延長どちら上にあっても
+// 安定した向きを取れるようにするため)
+function _angRayDir(line,vertex){
+  var d1=Math.hypot(line.x1-vertex.x,line.y1-vertex.y);
+  var d2=Math.hypot(line.x2-vertex.x,line.y2-vertex.y);
+  var far=(d1>=d2)?{x:line.x1,y:line.y1}:{x:line.x2,y:line.y2};
+  var rx=far.x-vertex.x, ry=far.y-vertex.y;
+  var rl=Math.hypot(rx,ry);
+  if(rl<1e-9) return null;
+  return {x:rx/rl,y:ry/rl};
+}
+
+function formatAngle(deg){
+  // 小数第1位まで（.0でも省略しない。例:60.3°、90.0°）
+  return deg.toFixed(1)+'°';
+}
+
+// V2_63: line1・line2の交点(頂点)を求め、pArrowが位置する側の角度を、頂点を
+// 中心とする円弧(ポリライン近似)として構築する。drawDimEntity()には手を加えず、
+// 既存のd.lines(直線分の配列)だけで弧を表現する
+function buildAngDim(line1,line2,pArrow){
+  var vertex=_angIntersect(line1,line2);
+  if(!vertex) return null;
+  var ray1=_angRayDir(line1,vertex), ray2=_angRayDir(line2,vertex);
+  if(!ray1||!ray2) return null;
+  var a1=Math.atan2(ray1.y,ray1.x), a2=Math.atan2(ray2.y,ray2.x);
+  var TWO_PI=Math.PI*2;
+  function _angNorm(a){ return ((a%TWO_PI)+TWO_PI)%TWO_PI; }
+  var diffCCW=_angNorm(a2-a1);
+  var EPS=1e-4;
+  if(diffCCW<EPS||diffCCW>TWO_PI-EPS) return null; // 平行/一致（縮退）は描けない
+
+  // V2_66: 「線が交差する構図では、頂点の周りに4つの角度(向かい合う2組)ができるが、
+  // 位置指定で選べるのはそのうち2つ(180°以下の1つと反射角側)だけで、残り2つ
+  // (もう一組の対頂角、隣り合う180°-内角の側)が選べず測れない」との指摘への対応。
+  // V2_65では「常に180°以下を選ぶ」固定にしたが、これだと4つの角のうち意図しない
+  // 方(対頂角ではない隣接角)が出てしまう場合に選び直せなかった。各線は頂点から見て
+  // 実際には両方向(順方向・逆方向)に伸びており、交点では計4本の半直線ができるため、
+  // その4本を角度順に並べ、位置指定点(pArrow)の方向がどの区画(隣り合う半直線の間)に
+  // 入るかで表示する角度を選ぶよう変更した（4区画は必ずそれぞれ180°未満になるため、
+  // 反射角が出ることも無い）。
+  var rays=[_angNorm(a1),_angNorm(a1+Math.PI),_angNorm(a2),_angNorm(a2+Math.PI)].sort(function(x,y){return x-y;});
+  var base=rays[0];
+  var rel=rays.map(function(r){return _angNorm(r-base);}); // rel[0]===0
+  var aP=(pArrow&&isFinite(pArrow.x)&&isFinite(pArrow.y))?Math.atan2(pArrow.y-vertex.y,pArrow.x-vertex.x):a1;
+  var aPrel=_angNorm(aP-base);
+  var idx=3;
+  for(var k=0;k<3;k++){ if(aPrel>=rel[k]-1e-9&&aPrel<rel[k+1]+1e-9){ idx=k; break; } }
+  var sweepStart=rays[idx];
+  var sweepAmt=(idx<3)?(rel[idx+1]-rel[idx]):(TWO_PI-rel[3]);
+  if(sweepAmt<EPS||sweepAmt>Math.PI+EPS) return null; // 縮退防御（4区画は本来180°未満のはず）
+
+  var r=Math.hypot(pArrow.x-vertex.x,pArrow.y-vertex.y);
+  var minR=30/(scale||1);
+  if(!(r>=minR)) r=minR;
+
+  var n=Math.max(8,Math.min(120,Math.ceil(sweepAmt/(5*Math.PI/180))));
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var ang=sweepStart+sweepAmt*i/n;
+    pts.push({x:vertex.x+r*Math.cos(ang),y:vertex.y+r*Math.sin(ang)});
+  }
+  var lines=[];
+  for(var j=1;j<pts.length;j++) lines.push({x1:pts[j-1].x,y1:pts[j-1].y,x2:pts[j].x,y2:pts[j].y});
+  // 頂点から弧の両端点まで、角度の両辺を示す直線(標準的な角度寸法の見た目)
+  lines.push({x1:vertex.x,y1:vertex.y,x2:pts[0].x,y2:pts[0].y});
+  lines.push({x1:vertex.x,y1:vertex.y,x2:pts[pts.length-1].x,y2:pts[pts.length-1].y});
+  // V2_64: 「弧の両端点に丸マーカーが欲しい」との依頼への対応。d.dotsは既存の
+  // 「線の長さ」(円弧)寸法(buildArcLenDim226)で使っているdrawDimEntity側の描画を
+  // そのまま再利用するだけで、drawDimEntity自体には一切手を加えていない
+  var dots=[{x:pts[0].x,y:pts[0].y},{x:pts[pts.length-1].x,y:pts[pts.length-1].y}];
+
+  var midAng=sweepStart+sweepAmt/2;
+  var textR=r+14/(scale||1);
+  var tx2=vertex.x+textR*Math.cos(midAng), ty2=vertex.y+textR*Math.sin(midAng);
+  var degVal=sweepAmt*180/Math.PI;
+
+  return {lines,arrows:[],dots,
+    text:formatAngle(degVal),
+    tx:tx2,ty:ty2,tangle:0,worldFontH:17/(scale||1),fixedTextPx:17,
+    color:currentDimColor||'#f39c12',page:_curPage()};
+}
+
+function _updateHoverLineANG(wx,wy){
+  ANG._hoverLine=findNearestSen(wx,wy);
+}
+
+// ─ drawOverlay フック ─────────────────────────────────
+var _angOrigDO=window.drawOverlay;
+window.drawOverlay=function(){ _angOrigDO(); if(ANG.active) drawANGOverlay(); };
+
+function drawANGOverlay(){
+  var dpr=window.devicePixelRatio||1;
+  var ctx2=octx;
+  ctx2.save(); ctx2.scale(dpr,dpr);
+
+  if(ANG.phase===0&&ANG._hoverLine){
+    var hl=ANG._hoverLine;
+    var hs1=w2s(hl.x1,hl.y1),hs2=w2s(hl.x2,hl.y2);
+    ctx2.save();
+    ctx2.strokeStyle='#ff8c00'; ctx2.lineWidth=5; ctx2.globalAlpha=0.85;
+    ctx2.beginPath(); ctx2.moveTo(hs1[0],hs1[1]); ctx2.lineTo(hs2[0],hs2[1]); ctx2.stroke();
+    ctx2.restore();
+  }
+  if(ANG.selLine1&&ANG.phase>=1){
+    var ls1=w2s(ANG.selLine1.x1,ANG.selLine1.y1),ls2=w2s(ANG.selLine1.x2,ANG.selLine1.y2);
+    ctx2.save();
+    ctx2.strokeStyle='#ff8c00'; ctx2.lineWidth=5; ctx2.globalAlpha=0.9;
+    ctx2.beginPath(); ctx2.moveTo(ls1[0],ls1[1]); ctx2.lineTo(ls2[0],ls2[1]); ctx2.stroke();
+    ctx2.restore();
+  }
+  if(ANG.phase===1&&ANG._hoverLine){
+    var hl2=ANG._hoverLine;
+    var ok=!_angIsParallel(ANG.selLine1,hl2);
+    var hs21=w2s(hl2.x1,hl2.y1),hs22=w2s(hl2.x2,hl2.y2);
+    ctx2.save();
+    ctx2.strokeStyle=ok?'#00ff7f':'#ff4444'; ctx2.lineWidth=5; ctx2.globalAlpha=0.85;
+    ctx2.beginPath(); ctx2.moveTo(hs21[0],hs21[1]); ctx2.lineTo(hs22[0],hs22[1]); ctx2.stroke();
+    ctx2.restore();
+  }
+  if(ANG.selLine2&&ANG.phase===2){
+    var ls21=w2s(ANG.selLine2.x1,ANG.selLine2.y1),ls22=w2s(ANG.selLine2.x2,ANG.selLine2.y2);
+    ctx2.save();
+    ctx2.strokeStyle='#00ff7f'; ctx2.lineWidth=5; ctx2.globalAlpha=0.9;
+    ctx2.beginPath(); ctx2.moveTo(ls21[0],ls21[1]); ctx2.lineTo(ls22[0],ls22[1]); ctx2.stroke();
+    ctx2.restore();
+  }
+  if(ANG.phase===2&&ANG.cur&&ANG.selLine1&&ANG.selLine2){
+    var pv=buildAngDim(ANG.selLine1,ANG.selLine2,ANG.cur);
+    if(pv) window.drawLPPreview(ctx2,pv);
+  }
+
+  ctx2.restore();
+}
+
+// ─ ポインタハンドラ ───────────────────────────────────
+ANG.handleDown=function(sx,sy){
+  if(window.IPX&&window.IPX.active){window.IPX.handleDown(sx,sy);return;}
+  var wp=s2w(sx,sy);
+  ANG._hoverPos={x:wp[0],y:wp[1]};
+  ANG.penDown=true;
+  if(ANG.phase===0||ANG.phase===1){
+    _updateHoverLineANG(wp[0],wp[1]);
+  } else if(ANG.phase===2){
+    ANG.cur={x:wp[0],y:wp[1]};
+  }
+  scheduleOverlay();
+};
+
+ANG.handleMove=function(sx,sy){
+  if(window.IPX&&window.IPX.active){window.IPX.handleMove(sx,sy);return;}
+  var wp=s2w(sx,sy);
+  ANG._hoverPos={x:wp[0],y:wp[1]};
+  if(!ANG.penDown){scheduleOverlay();return;}
+  if(ANG.phase===0||ANG.phase===1){
+    _updateHoverLineANG(wp[0],wp[1]);
+  } else if(ANG.phase===2){
+    ANG.cur={x:wp[0],y:wp[1]};
+  }
+  scheduleOverlay();
+};
+
+ANG.handleUp=function(sx,sy){
+  if(window.IPX&&window.IPX.active){window.IPX.handleUp(sx,sy);return;}
+  if(!ANG.penDown) return;
+  ANG.penDown=false;
+  if(ANG.phase===0){
+    if(ANG._hoverLine){
+      ANG.selLine1=ANG._hoverLine;
+      ANG._hoverLine=null;
+      ANG.phase=1; ANG.cur=null;
+      showGuide(ANG_GUIDES.LINE2,0);
+    } else {
+      showGuide('線の近くにペンを当ててください',1500);
+    }
+  } else if(ANG.phase===1){
+    if(!ANG._hoverLine){
+      showGuide('線の近くにペンを当ててください',1500);
+    } else if(_angIsParallel(ANG.selLine1,ANG._hoverLine)){
+      // ANGはLLと逆で、平行な(交点を持たない)線は選べない
+      showGuide('1本目の線と交わっていません',2000);
+      ANG._hoverLine=null;
+    } else {
+      ANG.selLine2=ANG._hoverLine;
+      ANG._hoverLine=null;
+      ANG.phase=2; ANG.cur=null;
+      showGuide(ANG_GUIDES.POS,0);
+    }
+  } else if(ANG.phase===2){
+    var wp2=s2w(sx,sy);
+    var pArrow=ANG.cur||{x:wp2[0],y:wp2[1]};
+    var dim=buildAngDim(ANG.selLine1,ANG.selLine2,pArrow);
+    if(dim){ snapshot(); dims.push(dim); doSave(); scheduleDraw(); }
+    ANG.selLine1=null; ANG.selLine2=null; ANG.phase=0; ANG.cur=null;
+    showGuide(ANG_GUIDES.LINE1,0);
+  }
+  scheduleOverlay();
+};
+
+// ─ ツール切り替えフック ─────────────────────────────────────────────
+document.querySelectorAll('.tool-btn[data-tool]').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    var t=this.dataset.tool;
+    if(t==='ang'){
+      if(window.DIM) window.DIM.active=false;
+      if(window.LP) window.LP.active=false;
+      if(window.LL) window.LL.active=false;
+      if(window.LLEN) window.LLEN.active=false;
+      resetANG(); ANG.active=true; ANG.phase=0;
+      showGuide(ANG_GUIDES.LINE1,0);
+    } else {
+      resetANG();
+    }
+  });
+});
+
+window.ANG=ANG;
+window.resetANG=resetANG;
+
+})(); // end D5
+
 // ── E. サブ窓（矩形範囲選択 + フローティング独立ウィンドウ） ────────────────
 // V0_153.1 Phase1: 表示・移動・リサイズ・メインとの自動リアルタイム同期のみ実装。
 // サブ窓内での書込み・計測操作はPhase2（次バージョン）で追加予定。
@@ -6455,6 +6802,7 @@ function _swAttachInput(sw){
       else if(window.LP&&window.LP.active) window.LP.handleDown(p.x,p.y);
       else if(window.LL&&window.LL.active) window.LL.handleDown(p.x,p.y); // V0_156: 2線間のサブ窓対応
       else if(window.LLEN&&window.LLEN.active) window.LLEN.handleDown(p.x,p.y); // V1_240: 線の長さのサブ窓対応
+      else if(window.ANG&&window.ANG.active) window.ANG.handleDown(p.x,p.y); // V2_63: 角度のサブ窓対応
       else handlePointerDown(p.x,p.y,false);
     });
   });
@@ -6465,6 +6813,7 @@ function _swAttachInput(sw){
       else if(window.LP&&window.LP.active) window.LP.handleMove(p.x,p.y);
       else if(window.LL&&window.LL.active) window.LL.handleMove(p.x,p.y); // V0_156
       else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(p.x,p.y); // V1_240
+      else if(window.ANG&&window.ANG.active) window.ANG.handleMove(p.x,p.y); // V2_63
       else if(_mDown) handlePointerMove(p.x,p.y,false);
     });
   });
@@ -6477,6 +6826,7 @@ function _swAttachInput(sw){
       else if(window.LP&&window.LP.active) window.LP.handleUp(p.x,p.y);
       else if(window.LL&&window.LL.active) window.LL.handleUp(p.x,p.y); // V0_156
       else if(window.LLEN&&window.LLEN.active) window.LLEN.handleUp(p.x,p.y); // V1_240
+      else if(window.ANG&&window.ANG.active) window.ANG.handleUp(p.x,p.y); // V2_63
       else handlePointerUp(p.x,p.y,false);
     });
   });
@@ -6501,6 +6851,7 @@ function _swAttachInput(sw){
           else if(window.LP&&window.LP.active) window.LP.handleDown(sx,sy);
           else if(window.LL&&window.LL.active) window.LL.handleDown(sx,sy); // V0_156: 2線間のサブ窓対応
           else if(window.LLEN&&window.LLEN.active) window.LLEN.handleDown(sx,sy); // V1_240
+          else if(window.ANG&&window.ANG.active) window.ANG.handleDown(sx,sy); // V2_63
           else handlePointerDown(sx,sy,true);
         });
       }
@@ -6519,6 +6870,7 @@ function _swAttachInput(sw){
       if(window.LP) window.LP.penDown=false;
       if(window.LL) window.LL.penDown=false;
       if(window.LLEN) window.LLEN.penDown=false; // V1_240
+      if(window.ANG) window.ANG.penDown=false; // V2_63
       mouseDown=false;panning=false;
       // V1_101: メイン画面(tool.js)と同じく、2本指が揃った時点でセッション全体
       // フラグを立てる。全指が完全に離れて新しいタッチセッションが始まるまで
@@ -6576,6 +6928,7 @@ function _swAttachInput(sw){
         else if(window.LP&&window.LP.active) window.LP.handleMove(sx,sy);
         else if(window.LL&&window.LL.active) window.LL.handleMove(sx,sy); // V0_156
         else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(sx,sy); // V1_240
+        else if(window.ANG&&window.ANG.active) window.ANG.handleMove(sx,sy); // V2_63
         else handlePointerMove(sx,sy,true);
       });
       lastMX=sx;lastMY=sy;
@@ -6610,6 +6963,7 @@ function _swAttachInput(sw){
         else if(window.LP&&window.LP.active) window.LP.handleMove(sxf,syf);
         else if(window.LL&&window.LL.active) window.LL.handleMove(sxf,syf); // V0_156
         else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(sxf,syf); // V1_240
+        else if(window.ANG&&window.ANG.active) window.ANG.handleMove(sxf,syf); // V2_63
         else handlePointerMove(sxf,syf,false);
       });
       lastMX=sxf;lastMY=syf;
@@ -6644,6 +6998,7 @@ function _swAttachInput(sw){
         else if(window.LP&&window.LP.active) window.LP.handleUp(lastMX,lastMY);
         else if(window.LL&&window.LL.active) window.LL.handleUp(lastMX,lastMY); // V0_156
         else if(window.LLEN&&window.LLEN.active) window.LLEN.handleUp(lastMX,lastMY); // V1_240
+        else if(window.ANG&&window.ANG.active) window.ANG.handleUp(lastMX,lastMY); // V2_63
         else handlePointerUp(lastMX,lastMY,true);
       });
       mouseDown=false;isPen=false;

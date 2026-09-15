@@ -1040,6 +1040,104 @@ function _dvPutAll232(recs){
     }catch(e){reject(e);}
   });
 }
+// V2_61: ファイル一覧の「複数選択」で作る一括バックアップ(exportDxfviewManualBatch183)は、
+// ZIP内をファイルごとのサブフォルダに分け、各フォルダに元図面(drawName)+.dxfviewの
+// 両方を入れる形式。一方この「全バックアップ復元」はexportAllDvBackup223(元図面を
+// 含まない、フォルダ無しでdvレコードのJSONを並べただけの形式)専用に作られており、
+// レコードの判定を`rec.fk`の有無だけで行っていたため、フォルダ分けされた
+// exportDxfviewManualBatch183形式(dxfview-backup形式、fkの代わりにmeta.fileKeyを持つ)を
+// 渡すと1件も認識できず「0件読込→0件に統合」で終わり、何も復元されないように見えていた。
+// この関数を、(a)従来通りのフラットなdvレコード形式、(b)フォルダ分け・元図面同梱形式の
+// 両方に対応させる。(b)の場合は書込みデータの統合だけでなく、同梱された元図面も
+// 実際に新しいタブとして開き、書込みを反映する(バックアップ復元ボタンと同じ処理を
+// フォルダの数だけ繰り返す)。
+function _normalizeDvRec261(rec){
+  // dxfview-backup形式(meta.fileKeyを持つ)を、dvストア保存形式(fkを持つ)へ正規化する。
+  // 通常のdvレコード(fkを既に持つ)はそのまま返す
+  if(rec&&rec.fk) return rec;
+  if(rec&&rec.meta&&rec.meta.fileKey){
+    return {
+      fk:rec.meta.fileKey,
+      format:'dxfview',version:1,
+      fileName:rec.meta.fileName||'',fileSize:rec.meta.fileSize||0,
+      savedAt:rec.createdAt||new Date().toISOString(),
+      dims:rec.dims||[],strokes:rec.strokes||[]
+    };
+  }
+  return null;
+}
+// V2_62: 「ZIP内の全図面を無条件に開くのは良くない、ファイル名を指定して選んで
+// 復元したい」との要望への対応。drawPairs261(元図面が同梱されている候補)を
+// チェックボックス一覧で表示し、ユーザーが選んだものだけを開く。
+// キャンセル時はnullを返す(その場合は書込みデータの統合のみ行い、図面は開かない)
+function _showRestoreFilePicker262(pairs){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.82);'+
+      'display:flex;align-items:center;justify-content:center;';
+    var box=document.createElement('div');
+    box.style.cssText='background:#1e2530;border:1.5px solid rgba(0,212,255,.4);border-radius:16px;'+
+      'padding:18px 18px 14px;max-width:420px;width:90%;max-height:80vh;display:flex;flex-direction:column;'+
+      'box-shadow:0 8px 32px rgba(0,0,0,.65);color:#eee;';
+    var title=document.createElement('div');
+    title.textContent='開く図面を選択('+pairs.length+'件見つかりました)';
+    title.style.cssText='font-size:15px;font-weight:700;margin-bottom:4px;';
+    var sub=document.createElement('div');
+    sub.textContent='選んだ図面だけを新しいタブとして開き、書込みを復元します。書込み履歴自体は選択に関わらずすべて統合されます。';
+    sub.style.cssText='font-size:12px;color:#aac8e8;line-height:1.5;margin-bottom:10px;';
+    var listWrap=document.createElement('div');
+    listWrap.style.cssText='overflow-y:auto;flex:1;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:6px;margin-bottom:12px;';
+    var cbs=[];
+    pairs.forEach(function(p,i){
+      var row=document.createElement('label');
+      row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 4px;font-size:13px;'+
+        'border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer;';
+      var cb=document.createElement('input');
+      cb.type='checkbox';
+      cb.style.cssText='width:20px;height:20px;flex-shrink:0;';
+      var span=document.createElement('span');
+      span.textContent=p.drawName.split('/').pop();
+      row.appendChild(cb);row.appendChild(span);
+      listWrap.appendChild(row);
+      cbs.push(cb);
+    });
+    var btnRow0=document.createElement('div');
+    btnRow0.style.cssText='display:flex;gap:8px;margin-bottom:10px;';
+    var allBtn=document.createElement('button');
+    allBtn.textContent='全て選択';
+    var noneBtn=document.createElement('button');
+    noneBtn.textContent='全て解除';
+    [allBtn,noneBtn].forEach(function(b){
+      b.type='button';
+      b.style.cssText='flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);'+
+        'background:transparent;color:#eee;font-size:12px;cursor:pointer;';
+    });
+    allBtn.onclick=function(){cbs.forEach(function(cb){cb.checked=true;});};
+    noneBtn.onclick=function(){cbs.forEach(function(cb){cb.checked=false;});};
+    btnRow0.appendChild(allBtn);btnRow0.appendChild(noneBtn);
+    var btnRow=document.createElement('div');
+    btnRow.style.cssText='display:flex;gap:8px;';
+    var okBtn=document.createElement('button');
+    okBtn.textContent='復元';
+    okBtn.style.cssText='flex:2;padding:11px;border-radius:9px;border:none;background:#00838f;color:#fff;font-size:13px;font-weight:700;cursor:pointer;';
+    var cancelBtn=document.createElement('button');
+    cancelBtn.textContent='キャンセル(図面は開かない)';
+    cancelBtn.style.cssText='flex:1;padding:11px;border-radius:9px;border:none;background:#333;color:#ccc;font-size:12px;cursor:pointer;';
+    okBtn.onclick=function(){
+      var picked=pairs.filter(function(p,i){return cbs[i].checked;});
+      document.body.removeChild(ov);
+      resolve(picked);
+    };
+    cancelBtn.onclick=function(){
+      document.body.removeChild(ov);
+      resolve(null);
+    };
+    btnRow.appendChild(okBtn);btnRow.appendChild(cancelBtn);
+    box.appendChild(title);box.appendChild(sub);box.appendChild(listWrap);box.appendChild(btnRow0);box.appendChild(btnRow);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+  });
+}
 async function importAllDvBackup232(){
   if(typeof JSZip==='undefined'){
     if(typeof showGuide==='function') showGuide('ZIP機能が読み込まれていません',2000);
@@ -1052,25 +1150,46 @@ async function importAllDvBackup232(){
   input.onchange=async function(e){
     var files=Array.from(e.target.files||[]);
     if(files.length===0) return;
-    if(!confirm(files.length+'個のZIPを読み込み、書込み履歴をまとめて復元します。同じファイルのデータが複数ある場合は、保存日時が新しい方を残します。よろしいですか？'))return;
+    if(!confirm(files.length+'個のZIPを読み込み、書込み履歴をまとめて復元します。元図面が同梱されている場合は、開く図面を後で選択できます。同じファイルのデータが複数ある場合は、保存日時が新しい方を残します。よろしいですか？'))return;
     if(typeof showGuide==='function') showGuide('復元中…',2000);
+    var _drawExtRe261=/\.(dxf|pdf|tdf|xlsx|xls|csv)$/i;
     try{
       // 現在端末にあるデータも比較対象に含める(古いバックアップで誤って上書きしない)
       var allRecs=await _dvGetAll232();
       var zipFileCount=0, zipRecCount=0;
+      var drawPairs261=[]; // {zipObj,drawName,dvText} 元図面が同梱されていたものだけ
       for(var fi=0; fi<files.length; fi++){
         var f=files[fi];
         if(!f.name.toLowerCase().endsWith('.zip')) continue;
         try{
           var zipObj=await JSZip.loadAsync(f);
-          var names=Object.keys(zipObj.files);
+          // ディレクトリエントリ自体は除外(V2_58と同じ理由)
+          var names=Object.keys(zipObj.files).filter(function(n){
+            var zf=zipObj.files[n];
+            return !(zf&&zf.dir)&&!n.endsWith('/');
+          });
+          // フォルダ(親パス)ごとにグループ化し、フォルダ内に元図面が同梱されているかを見る
+          var byFolder261={};
+          names.forEach(function(n){
+            var idx=n.lastIndexOf('/');
+            var folder=idx>=0?n.slice(0,idx):'';
+            (byFolder261[folder]=byFolder261[folder]||[]).push(n);
+          });
           for(var ni=0; ni<names.length; ni++){
             var nm=names[ni];
             if(!nm.toLowerCase().endsWith('.dxfview')) continue;
             var txt=await zipObj.files[nm].async('string');
             try{
               var rec=JSON.parse(txt);
-              if(rec&&rec.fk){ allRecs.push(rec); zipRecCount++; }
+              var normRec=_normalizeDvRec261(rec);
+              if(normRec){ allRecs.push(normRec); zipRecCount++; }
+              else{ console.warn('[all dv restore] fk/meta.fileKeyが見つからないためスキップ',nm); continue; }
+              // 同じフォルダ内に元図面(既知拡張子)があれば、後でタブとして開く対象に追加
+              var idx2=nm.lastIndexOf('/');
+              var folder2=idx2>=0?nm.slice(0,idx2):'';
+              var siblings=byFolder261[folder2]||[];
+              var drawName261=siblings.find(function(s){return s!==nm&&_drawExtRe261.test(s);});
+              if(drawName261){ drawPairs261.push({zipObj:zipObj,drawName:drawName261,dvText:txt}); }
             }catch(pe){ console.warn('[all dv restore] parse error',nm,pe); }
           }
           zipFileCount++;
@@ -1094,8 +1213,47 @@ async function importAllDvBackup232(){
       });
       var mergedRecs=Object.keys(byFk).map(function(k){return byFk[k];});
       await _dvPutAll232(mergedRecs);
-      if(typeof showGuide==='function') showGuide('全バックアップ復元が完了しました('+zipFileCount+'個のZIP、'+zipRecCount+'件読込→'+mergedRecs.length+'件に統合)',3500);
-      if(typeof verify==='function') verify('全バックアップ復元',{zipFileCount:zipFileCount,zipRecCount:zipRecCount,mergedCount:mergedRecs.length});
+      // V2_62: 「同梱されている図面を無条件に全部開くのは良くない」との指摘への対応。
+      // 複数件見つかった場合は、開く図面をチェックボックスで選ばせる。1件だけなら
+      // 選ぶまでもないため従来通りそのまま開く
+      var toOpen261=drawPairs261;
+      if(drawPairs261.length>1){
+        var picked262=await _showRestoreFilePicker262(drawPairs261);
+        toOpen261=picked262||[]; // キャンセル時は1件も開かない(書込みデータの統合のみ)
+      }
+      // V2_61: 元図面が同梱されていたものは、バックアップ復元ボタンと同じ手順
+      // (二重オープン防止→開く→書込み適用)で順番に新しいタブとして開く
+      var openedCount261=0, failedCount261=0;
+      for(var pi261=0; pi261<toOpen261.length; pi261++){
+        var pair=toOpen261[pi261];
+        try{
+          var drawBuf261=await pair.zipObj.files[pair.drawName].async('arraybuffer');
+          var _shortName261=pair.drawName.split('/').pop();
+          if(typeof openFiles!=='undefined'&&typeof _fileKey==='function'){
+            var _fkNew261=_fileKey(_shortName261,drawBuf261.byteLength);
+            var _staleIdx261=openFiles.findIndex(function(x){
+              return (x.currentFileName||x.name)===_shortName261 && x.fileKey!==_fkNew261;
+            });
+            if(_staleIdx261>=0&&typeof doCloseTab==='function') doCloseTab(_staleIdx261);
+          }
+          if(typeof openDxfFromDb!=='function'){ failedCount261++; continue; }
+          await openDxfFromDb(_shortName261,drawBuf261);
+          _applyDxfviewJson176(pair.dvText,{drawName:_shortName261,drawOpened:true});
+          openedCount261++;
+        }catch(oe261){
+          console.warn('[all dv restore] draw open error',pair.drawName,oe261);
+          failedCount261++;
+        }
+      }
+      var _msg261='全バックアップ復元が完了しました\n'+
+        'ZIP: '+zipFileCount+'個 / 書込みデータ: '+zipRecCount+'件読込→'+mergedRecs.length+'件に統合';
+      if(drawPairs261.length>0){
+        _msg261+='\n元図面あり: '+drawPairs261.length+'件中 '+openedCount261+'件を新しいタブで開きました';
+        if(failedCount261>0) _msg261+='('+failedCount261+'件は開けませんでした)';
+        if(toOpen261.length===0) _msg261+='\n(図面は開かず、書込みデータの統合のみ行いました)';
+      }
+      alert(_msg261);
+      if(typeof verify==='function') verify('全バックアップ復元',{zipFileCount:zipFileCount,zipRecCount:zipRecCount,mergedCount:mergedRecs.length,openedCount:openedCount261,failedCount:failedCount261});
     }catch(err){
       console.warn('[all dv restore] failed',err);
       alert('全バックアップ復元に失敗しました: '+err.message);
@@ -1131,10 +1289,17 @@ function importDxfviewManual(){
         showGuide('ZIP機能が読み込まれていません',2000);return;
       }
       JSZip.loadAsync(file).then(async function(zipObj){
-        var names=Object.keys(zipObj.files);
+        // V2_58: フォルダ区切り(まとめてバックアップのサブフォルダ)・ディレクトリ自体の
+        // エントリ(JSZipはfolder()で作った場合"xxx/"という名前のエントリを含む)を
+        // 誤って元図面として扱わないよう、まずディレクトリエントリを除外する
+        var names=Object.keys(zipObj.files).filter(function(n){
+          var zf=zipObj.files[n];
+          return !(zf&&zf.dir)&&!n.endsWith('/');
+        });
         // V1_179: 原因切り分けのため、ZIP内の実際のファイル一覧を必ず記録しておく
         verify('バックアップ復元:zip内容',{names:names});
-        var dvName=names.find(function(n){return n.toLowerCase().endsWith('.dxfview');});
+        var dvNames=names.filter(function(n){return n.toLowerCase().endsWith('.dxfview');});
+        var dvName=dvNames[0];
         if(!dvName){
           // V1_214: 自社の.dxfviewが無い場合、旧アプリ「M_VIEWER」独自のバックアップZIP
           // (PDF + strokes.json + meta.json)かどうかを判定する。M_VIEWERを使っていた人が
@@ -1146,8 +1311,22 @@ function importDxfviewManual(){
           }
           alert('ZIP内に.dxfviewファイルが見つかりません。\nZIP内のファイル: '+names.join(', '));return;
         }
-        // V1_177: .dxfview以外の1件を元図面(DXF/tdf)として扱う
-        var drawName=names.find(function(n){return n!==dvName;});
+        // V2_58: 「全書込Backup」「まとめてバックアップ」等、.dxfviewが複数入っている
+        // ZIP(1ファイル専用のこのボタン向けではない)を誤って渡された場合、以前は
+        // 2件目の.dxfviewを元図面だと誤認して開こうとし、パース失敗により
+        // 「何も書いてない図面が開く」ように見える不具合があった。ここで検知し、
+        // 正しいボタン(全バックアップ復元)へ案内して処理を中断する
+        if(dvNames.length>1){
+          alert('このZIPには書込みデータ(.dxfview)が'+dvNames.length+'件含まれています。\n'+
+            'この「バックアップ復元」は1ファイル分専用です。\n'+
+            '複数ファイル分をまとめて復元する場合は「全バックアップ復元」ボタンをご使用ください。');
+          return;
+        }
+        // V1_177: .dxfview以外の1件を元図面(DXF/PDF/tdf/Excel)として扱う。
+        // V2_58: 拡張子不明のファイル(旧不具合ではディレクトリエントリ)を誤って
+        // 元図面として開こうとしないよう、既知の図面拡張子のものだけを対象にする
+        var _drawExtRe58=/\.(dxf|pdf|tdf|xlsx|xls|csv)$/i;
+        var drawName=names.find(function(n){return n!==dvName&&_drawExtRe58.test(n);});
         var dvText=await zipObj.files[dvName].async('string');
         var _drawOpened179=false;
         if(drawName){
