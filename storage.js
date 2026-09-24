@@ -145,7 +145,16 @@ function doSave(){
       bwMode,colorLightBg:(typeof colorLightBg!=='undefined'?colorLightBg:false),scaleDenom:sd,hiddenLayers:[...hiddenLayers], // V2_48: カラー(背景白)状態も保存
       currentTool,currentColor,currentLW,currentFileName,fileSize:currentFileSize,
       fileKey:(typeof _fileKey==='function'?_fileKey(currentFileName,currentFileSize):null),
+      // V2_102: ペン(currentColor)から独立させた文字・図形の色。旧バージョンには無い項目のため、
+      // 復元側(下記2箇所)は未定義ならcurrentColorへフォールバックする
+      currentTextColor:(typeof currentTextColor!=='undefined'?currentTextColor:currentColor),
+      currentShapeColor:(typeof currentShapeColor!=='undefined'?currentShapeColor:currentColor),
+      // V2_103: ペン(currentLW)から独立させた文字・図形の太さ。旧バージョンには無い項目
+      // のため、復元側(下記2箇所)は未定義ならcurrentLWへフォールバックする
+      currentTextLW:(typeof currentTextLW!=='undefined'?currentTextLW:currentLW),
+      currentShapeLW:(typeof currentShapeLW!=='undefined'?currentShapeLW:currentLW),
       currentHL_Color,currentHL_LW,currentDimColor,
+      currentHLAlpha:(typeof currentHLAlpha!=='undefined'?currentHLAlpha:0.45), // V2_98: 蛍光ペン濃度を保存
       ERASER_RADIUS_PX:(typeof ERASER_RADIUS_PX!=='undefined'?ERASER_RADIUS_PX:20), // V1_207: 消しゴム範囲を保存
       _lastMeasureTool:(typeof _lastMeasureTool!=='undefined'?_lastMeasureTool:null), // V1_210: 前回選んだ計測ツールを保存
       dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
@@ -358,17 +367,41 @@ async function tryRestore(){
             if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
             if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
             if(_d2.currentColor)currentColor=_d2.currentColor;
-            document.querySelectorAll('.color-btn').forEach(b=>{
-              const[r,g,b_]=b.dataset.color.split(',').map(Number);
-              b.classList.toggle('active',r===currentColor.r&&g===currentColor.g&&b_===currentColor.b);
-            });
+            // V2_102: 文字・図形の色を復元。旧バージョンのデータ(この項目自体が無い)を
+            // 読み込んだ場合は、従来と見た目が変わらないようcurrentColorへフォールバックする
+            currentTextColor=_d2.currentTextColor||currentColor;
+            currentShapeColor=_d2.currentShapeColor||currentColor;
+            // V2_102: .color-btnは#colorOverlay(ペン/文字共用)と#shapeToolPopup(図形専用)の
+            // 2箇所にあり、それぞれ比較対象の色状態が異なるため、単純な一括toggleではなく
+            // _syncColorBtnActive()(tool.js)にまとめて任せる
+            if(typeof _syncColorBtnActive==='function'){
+              _syncColorBtnActive();
+            } else {
+              document.querySelectorAll('.color-btn').forEach(b=>{
+                const[r,g,b_]=b.dataset.color.split(',').map(Number);
+                b.classList.toggle('active',r===currentColor.r&&g===currentColor.g&&b_===currentColor.b);
+              });
+            }
             if(_d2.currentLW)currentLW=_d2.currentLW;
-            document.querySelectorAll('.lw-btn').forEach(b=>{
-              b.classList.toggle('active',parseFloat(b.dataset.lw)===currentLW);
-            });
+            // V2_103: 文字・図形の太さを復元。旧バージョンのデータ(この項目自体が無い)を
+            // 読み込んだ場合は、従来と見た目が変わらないようcurrentLWへフォールバックする
+            currentTextLW=_d2.currentTextLW||currentLW;
+            currentShapeLW=_d2.currentShapeLW||currentLW;
+            // V2_103: .lw-btnも.color-btnと同じ理由(#colorOverlay=ペン/文字共用、
+            // #shapeToolPopup=図形専用で比較対象の太さ状態が異なる)で、_syncLwBtnActive()
+            // (tool.js)にまとめて任せる
+            if(typeof _syncLwBtnActive==='function'){
+              _syncLwBtnActive();
+            } else {
+              document.querySelectorAll('.lw-btn').forEach(b=>{
+                b.classList.toggle('active',parseFloat(b.dataset.lw)===currentLW);
+              });
+            }
             const _lwl=document.getElementById('lwLabel');if(_lwl)_lwl.textContent=currentLW;
+            const _tsl86=document.getElementById('textSizeLabel');if(_tsl86)_tsl86.textContent=currentTextLW; // V2_86/V2_103
             if(_d2.currentHL_Color)currentHL_Color=_d2.currentHL_Color;
             if(_d2.currentHL_LW)currentHL_LW=_d2.currentHL_LW;
+            if(_d2.currentHLAlpha)currentHLAlpha=_d2.currentHLAlpha; // V2_98: 旧データ(未設定)は初期値0.45のまま維持
             if(_d2.currentDimColor)currentDimColor=_d2.currentDimColor;
             if(_d2.ERASER_RADIUS_PX)ERASER_RADIUS_PX=_d2.ERASER_RADIUS_PX; // V1_207
             if(_d2._lastMeasureTool)_lastMeasureTool=_d2._lastMeasureTool; // V1_210: 前回の計測ツールを復元
@@ -380,6 +413,10 @@ async function tryRestore(){
               b.classList.toggle('active',parseFloat(b.dataset.lw)===currentHL_LW);
             });
             const _hlwl207=document.getElementById('hlLwLabel');if(_hlwl207)_hlwl207.textContent=currentHL_LW; // V1_207
+            document.querySelectorAll('.hl-alpha-btn').forEach(b=>{ // V2_98
+              b.classList.toggle('active',Math.round(parseFloat(b.dataset.alpha))===Math.round(currentHLAlpha*100));
+            });
+            const _hal117=document.getElementById('hlAlphaLabel');if(_hal117)_hal117.textContent=Math.round(currentHLAlpha*100)+'%'; // V2_117
             document.querySelectorAll('.dim-color-btn').forEach(b=>{
               b.classList.toggle('active',b.dataset.color===currentDimColor);
             });
@@ -398,6 +435,7 @@ async function tryRestore(){
               // もう1箇所)も必ず手動で追従させること。ここは自動連動していないため、更新を怠ると
               // 復元直後だけ計測ボタンの枠ハイライトがずれる不具合が再発する(デバッグ計画での指摘事項)
             if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
+            if(typeof _syncShapeToggleBtnIcon==='function') _syncShapeToggleBtnIcon(); // V2_96: 図形ボタンのアイコン/ラベルも復元したcurrentToolに同期
             if(_d2.dimensionTextMode&&_d2.dimensionTextMode!=='manual')dimensionTextMode=_d2.dimensionTextMode; // V0_154: manual廃止
             if(typeof updateDimTextModeUI==='function')updateDimTextModeUI();
             if(_d2.inputMode)inputMode=_d2.inputMode;
@@ -464,17 +502,38 @@ async function tryRestore(){
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
     if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
     if(d.currentColor)currentColor=d.currentColor;
-    document.querySelectorAll('.color-btn').forEach(b=>{
-      const[r,g,b_]=b.dataset.color.split(',').map(Number);
-      b.classList.toggle('active',r===currentColor.r&&g===currentColor.g&&b_===currentColor.b);
-    });
+    // V2_102: 文字・図形の色を復元。旧バージョンのデータ(この項目自体が無い)を
+    // 読み込んだ場合は、従来と見た目が変わらないようcurrentColorへフォールバックする
+    currentTextColor=d.currentTextColor||currentColor;
+    currentShapeColor=d.currentShapeColor||currentColor;
+    // V2_102: .color-btnは#colorOverlay(ペン/文字共用)と#shapeToolPopup(図形専用)の
+    // 2箇所にあり、それぞれ比較対象の色状態が異なるため、単純な一括toggleではなく
+    // _syncColorBtnActive()(tool.js)にまとめて任せる
+    if(typeof _syncColorBtnActive==='function'){
+      _syncColorBtnActive();
+    } else {
+      document.querySelectorAll('.color-btn').forEach(b=>{
+        const[r,g,b_]=b.dataset.color.split(',').map(Number);
+        b.classList.toggle('active',r===currentColor.r&&g===currentColor.g&&b_===currentColor.b);
+      });
+    }
     if(d.currentLW)currentLW=d.currentLW;
-    document.querySelectorAll('.lw-btn').forEach(b=>{
-      b.classList.toggle('active',parseFloat(b.dataset.lw)===currentLW);
-    });
+    // V2_103: 文字・図形の太さを復元。旧バージョンのデータ(この項目自体が無い)を
+    // 読み込んだ場合は、従来と見た目が変わらないようcurrentLWへフォールバックする
+    currentTextLW=d.currentTextLW||currentLW;
+    currentShapeLW=d.currentShapeLW||currentLW;
+    if(typeof _syncLwBtnActive==='function'){
+      _syncLwBtnActive();
+    } else {
+      document.querySelectorAll('.lw-btn').forEach(b=>{
+        b.classList.toggle('active',parseFloat(b.dataset.lw)===currentLW);
+      });
+    }
     const lwl=document.getElementById('lwLabel');if(lwl)lwl.textContent=currentLW;
+    const tsl86=document.getElementById('textSizeLabel');if(tsl86)tsl86.textContent=currentTextLW; // V2_86/V2_103
     if(d.currentHL_Color)currentHL_Color=d.currentHL_Color;
     if(d.currentHL_LW)currentHL_LW=d.currentHL_LW;
+    if(d.currentHLAlpha)currentHLAlpha=d.currentHLAlpha; // V2_98: 旧データ(未設定)は初期値0.45のまま維持
     if(d.currentDimColor)currentDimColor=d.currentDimColor;
     if(d.ERASER_RADIUS_PX)ERASER_RADIUS_PX=d.ERASER_RADIUS_PX; // V1_207
     if(d._lastMeasureTool)_lastMeasureTool=d._lastMeasureTool; // V1_210: 前回の計測ツールを復元
@@ -486,6 +545,10 @@ async function tryRestore(){
       b.classList.toggle('active',parseFloat(b.dataset.lw)===currentHL_LW);
     });
     const hlwl207=document.getElementById('hlLwLabel');if(hlwl207)hlwl207.textContent=currentHL_LW; // V1_207
+    document.querySelectorAll('.hl-alpha-btn').forEach(b=>{ // V2_98
+      b.classList.toggle('active',Math.round(parseFloat(b.dataset.alpha))===Math.round(currentHLAlpha*100));
+    });
+    const hal117=document.getElementById('hlAlphaLabel');if(hal117)hal117.textContent=Math.round(currentHLAlpha*100)+'%'; // V2_117
     document.querySelectorAll('.dim-color-btn').forEach(b=>{
       b.classList.toggle('active',b.dataset.color===currentDimColor);
     });
@@ -504,6 +567,7 @@ async function tryRestore(){
               // もう1箇所)も必ず手動で追従させること。ここは自動連動していないため、更新を怠ると
               // 復元直後だけ計測ボタンの枠ハイライトがずれる不具合が再発する(デバッグ計画での指摘事項)
     if(typeof _syncMeasureToggleBtnIcon==='function') _syncMeasureToggleBtnIcon(); // V1_219: 計測ボタンのアイコンも復元したcurrentToolに同期
+            if(typeof _syncShapeToggleBtnIcon==='function') _syncShapeToggleBtnIcon(); // V2_96: 図形ボタンのアイコン/ラベルも復元したcurrentToolに同期
     [0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     buildLayerModal();
     scheduleDraw();scheduleOverlay();updateUndoRedo();
@@ -608,7 +672,9 @@ function _doBkSave(){
   var _bkCf=(typeof openFiles!=='undefined'&&currentFileIdx>=0)?openFiles[currentFileIdx]:null;
   var _bkStrokes=_bkCf&&_bkCf.strokes?_bkCf.strokes:strokes;
   var _bkDims=_bkCf&&_bkCf.dims?_bkCf.dims:dims;
-  _bkPut(fk,_bkDims.slice(),_bkStrokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});}));
+  // V2_80: 文字入力ツールの文字(isText)はptsを持たないため、s.pts.slice()が
+  // クラッシュしないようptsがある場合のみ複製する
+  _bkPut(fk,_bkDims.slice(),_bkStrokes.map(function(s){return s.pts?Object.assign({},s,{pts:s.pts.slice()}):Object.assign({},s);}));
 }
 
 // クールダウン方式スケジューラ
@@ -665,7 +731,8 @@ function _dvAutoSave(){
       fileName:_dvFn,fileSize:_dvFs,
       savedAt:new Date().toISOString(),
       dims:_dvDims.slice(),
-      strokes:_dvStrokes.map(function(s){return Object.assign({},s,{pts:s.pts.slice()});})
+      // V2_80: 文字入力ツールの文字(isText)はptsを持たないため分岐（上のバックアップ保存と同じ理由）
+      strokes:_dvStrokes.map(function(s){return s.pts?Object.assign({},s,{pts:s.pts.slice()}):Object.assign({},s);})
     };
     // V1_40: 接続が無効化されていた場合に備え、transaction()呼び出しをtry/catchで
     // 囲み、失敗時はキャッシュを破棄して1回だけ再接続してから保存する

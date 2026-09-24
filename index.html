@@ -89,6 +89,10 @@ body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden
 .tb-sep{width:1px;height:26px;background:var(--border);margin:0 3px;flex-shrink:0}
 .tb-tool-btn{width:44px;height:52px;border-radius:9px;flex-shrink:0;border:1.5px solid rgba(70,90,120,0.5);background:transparent;color:var(--text);font-size:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .tb-tool-label{font-size:9px;line-height:1;opacity:0.75;letter-spacing:0.02em;pointer-events:none}
+/* V2_117: 蛍光ペンボタン最下段。左=太さ・右=濃度(%)を1行に左右配置する専用レイアウト。
+   他ボタン(#lwLabel/#textSizeLabel/#eraserSizeLabel/#shapeCurrentLabel)は単一値の
+   中央表示のままなので、このクラスは蛍光ペンボタンのみに適用し他ボタンへは影響させない */
+.tb-tool-label-split{display:flex;width:100%;justify-content:space-between;align-items:center;padding:0 4px;box-sizing:border-box;font-size:8px;line-height:1;opacity:0.75;letter-spacing:0;pointer-events:none}
 .tb-tool-btn:active{background:rgba(255,255,255,.1)}
 .tb-tool-btn.active{background:rgba(0,212,255,0.22);border-color:#00d4ff;color:#00d4ff}
 
@@ -370,6 +374,15 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   padding:14px 16px;min-width:252px;max-height:80vh;overflow-y:auto;
   box-shadow:0 8px 32px rgba(0,0,0,.65);flex-direction:column;gap:14px}
 #colorOverlay.open{display:flex}
+/* V2_100: ポップアップ右上の「決定」ボタン。色/太さ/濃度/種類/計測コマンドを選んでも
+   ポップアップ自体は自動的に閉じないようにした代わりに、これを押した時だけ閉じる。
+   既存の.modal-close-btn(「閉じる」文字ボタン)と同じ枠線+透明背景パターンを踏襲しつつ、
+   小さく・右上寄せにするため専用クラスにした */
+.popup-done-row{display:flex;justify-content:flex-end;margin:-6px -6px -6px 0}
+.popup-done-btn{padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;
+  border:1.5px solid var(--accent);background:rgba(46,204,113,.12);color:var(--accent);
+  cursor:pointer;-webkit-tap-highlight-color:transparent}
+.popup-done-btn:active{background:rgba(46,204,113,.3)}
 .co-hl-colors{display:flex;gap:8px;flex-wrap:wrap} /* V1_74: 10色化で折り返しが必要なため追加 */
 .hl-color-btn{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .hl-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
@@ -378,6 +391,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;
   -webkit-tap-highlight-color:transparent;min-width:0}
 .hl-lw-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(46,204,113,.1)}
+/* V2_98: 蛍光ペン濃度ボタン。既存の蛍光線幅(.hl-lw-btn)と同じ見た目・レイアウトパターン */
+.co-hl-alpha{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.hl-alpha-btn{height:38px;border-radius:8px;font-size:14px;font-weight:600;
+  border:1.5px solid var(--border);background:transparent;color:var(--text);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;min-width:0}
+.hl-alpha-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(46,204,113,.1)}
 .co-dim-colors{display:flex;gap:7px;flex-wrap:wrap}
 .dim-color-btn{width:32px;height:32px;border-radius:50%;border:3px solid transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .dim-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--accent)}
@@ -418,6 +437,19 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #colorOverlay[data-mode="sketch"] .co-sketch-section{display:block}
 #colorOverlay[data-mode="hl"] .co-hl-section{display:block}
 #colorOverlay[data-mode="eraser"] .co-eraser-section{display:block}
+/* V2_107: 「文字の太さボタンのプリセットをペンと別にしたい」との依頼への対応。
+   #colorOverlayはペン・文字で共用しているため、太さボタン(.co-lw)をペン用
+   (#coLwPenSection)と文字用(#coLwTextSection)の2つに分け、開いた時のツール
+   (openContextPopupが設定するdata-lwctx)に応じて片方だけを表示する。
+   ID込みの詳細度でco-sketch-sectionの一般ルールより優先させる */
+#colorOverlay[data-mode="sketch"] #coLwTextSection{display:none}
+#colorOverlay[data-mode="sketch"][data-lwctx="text"] #coLwTextSection{display:block}
+#colorOverlay[data-mode="sketch"][data-lwctx="text"] #coLwPenSection{display:none}
+/* V2_101: 消しゴムは大きさを選んだ瞬間にポップアップが自動的に閉じる仕様に戻した
+   (ユーザー指摘: 消しゴムは大きさしか選べないので決定ボタンは不要)ため、
+   消しゴムモードの時だけ右上の「決定」ボタン(.popup-done-row)を非表示にする。
+   他モード(sketch/hl)では従来通り表示する */
+#colorOverlay[data-mode="eraser"] .popup-done-row{display:none}
 /* V1_214: 消しゴム範囲選択ボタン。ペン線幅(.lw-btn)・蛍光線幅(.hl-lw-btn)と同じ見た目・
    グリッド構成にし、値は画面px単位の消去半径(ERASER_RADIUS_PX)そのものを表示する */
 .co-eraser-lw{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
@@ -444,7 +476,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #measureToolPopup .co-label{margin-bottom:0}
 /* V1_214: 計測ツール6種を2段(3×2)から1段(6×1)に変更(見やすさの指摘のため) */
 /* V1_240: 「線の長さ」追加により7種になったため1段(7×1)に変更 */
-#measureToolPopup .dim-group-btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px} /* V2_63: 8個になったため4列×2行に変更 */
+#measureToolPopup .dim-group-btns{display:grid;grid-template-columns:repeat(8,1fr);gap:8px} /* V2_67: 「2段になっているのを1段に戻して」との依頼により8列×1行に変更 */
 /* V1_214: 計測ボタンの枠は、選択中(いずれかの計測ツールがcurrentTool)の時だけ色付きに
    する(tool.js側でtool-activeクラスを切替)。常時色付きだと選択中かどうか分かりにくい
    との指摘のため、既定の枠(.tb-btnの1px境界線)は変更せず、色のみ切り替える
@@ -452,6 +484,30 @@ body.settings-open #settingsPanel{transform:translateX(0)}
    (.tb-tool-btn.activeと同色・同背景)に統一した。colorは指定しない(アイコンは
    currentDimColor、3段目ラベルは白系のまま独立して色付けするため) */
 #measureToggleBtn.tool-active{background:rgba(0,212,255,0.22);border-color:#00d4ff}
+/* V2_96: 図形ツール選択ポップアップ(#shapeToolPopup)。#measureToolPopupと全く同じ
+   見た目・位置合わせ方式(フローティング、ボタン直下)を踏襲する */
+#shapeToolPopup{display:none;position:fixed;z-index:400;top:0;left:0;
+  background:var(--sb-bg);border:1px solid var(--border);border-radius:16px;
+  padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.65);flex-direction:column;gap:8px;
+  min-width:252px;max-height:80vh;overflow-y:auto} /* V2_97: 色/太さ選択を追加したため#colorOverlayと同じ最小幅・スクロールにする */
+#shapeToolPopup.open{display:flex}
+#shapeToolPopup .co-label{margin-bottom:0}
+/* V2_109: 「1段(1行)に5個横並びにしてほしい」との指摘のため、V2_108の3列(3+2の
+   2段)から5列(1段)に変更。5個収まるようボタン幅(.tb-tool-btn)もこのポップアップ
+   内だけ少し縮小する(下記#shapeToolPopup .tb-tool-btn参照) */
+#shapeToolPopup .shape-group-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+/* V2_109: 1行5列化に伴い、ボタン幅がポップアップ内に収まるよう縮小(44px→40px)。
+   ヘッダー側の.tb-tool-btn(他ツール)には影響しないようこのポップアップ内のみに限定 */
+#shapeToolPopup .tb-tool-btn{width:40px;height:48px}
+#shapeToolPopup .tb-tool-label{font-size:8px}
+#shapeToolPopup .tb-tool-btn svg{width:18px;height:18px}
+/* V2_97: 図形ポップアップ内の色/太さセクション間の見出しに少し余白を付ける(種類選択
+   グリッドの直後に詰まって見えないよう、#colorOverlayの.co-sketch-section相当の
+   セクション間隔をここでも再現する) */
+#shapeToolPopup .co-label:not(:first-child){margin-top:2px}
+/* V2_96: ヘッダーの図形ボタンは、選択中(いずれかの図形ツールがcurrentTool)の時だけ
+   枠に色を付ける(#measureToggleBtn.tool-activeと同じ水色glow) */
+#shapeToggleBtn.tool-active{background:rgba(0,212,255,0.22);border-color:#00d4ff}
 /* V0_98: 文字検索パネル */
 #searchOverlay{display:none;position:fixed;inset:0;z-index:299}
 #searchOverlay.open{display:block}
@@ -505,10 +561,25 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #markFitRow #fitBtn{flex:1;}
 #markPopup{display:none;min-height:48px;padding:4px 10px;font-size:12px;border:1.5px solid rgba(255,215,0,.75);border-radius:8px;background:rgba(10,14,20,.88);color:#ffd700;-webkit-tap-highlight-color:transparent;box-shadow:0 2px 14px rgba(0,0,0,.5);user-select:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;justify-content:center;gap:4px;white-space:nowrap;flex-shrink:0;}
 #markPopup.visible{display:flex;}
+/* V2_80: 文字入力ツール用の入力ボックス。タップ位置にposition:fixedで表示する */
+#textInputBox{display:none;position:fixed;z-index:5600;background:rgba(255,255,255,.94);
+  border:1.5px dashed #00d4ff;border-radius:4px;padding:2px 6px;}
+#textInputBox textarea{border:none;outline:none;background:transparent;font-family:'NotoSansJPCanvas',sans-serif;
+  min-width:60px;resize:none;overflow:hidden;white-space:pre;padding:0;margin:0;display:block;vertical-align:top;}
+/* V2_90: なげわ(lasso)ツールの選択中アクションバー。選択範囲バウンディングボックスの
+   上端中央にposition:fixedで表示する(#textInputBoxと同じ考え方)。中身は削除ボタンのみ
+   (resize/rotateは今回スコープ外) */
+#lassoActionBar{display:none;position:fixed;z-index:5600;transform:translate(-50%,-100%);
+  background:rgba(10,14,20,.9);border:1.5px solid #00d4ff;border-radius:8px;padding:4px 6px;
+  align-items:center;gap:4px;box-shadow:0 2px 10px rgba(0,0,0,.45);}
+#lassoActionBar button{min-height:32px;min-width:32px;border-radius:6px;border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,80,80,.18);color:#ff6b6b;font-size:15px;font-weight:700;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;}
+#lassoActionBar button:active{background:rgba(255,80,80,.35);}
 /* V1_91: 「次へ」ボタン・件数表示・✕(マーク解除)。markPopup自体はもうクリック対象では
    なく、内部の各要素にそれぞれ役割を持たせる */
 #markCountLabel{font-size:11px;color:#ffe487;}
-#markNextBtn{display:none;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid rgba(255,215,0,.6);background:rgba(255,215,0,.12);color:#ffd700;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+#markNextBtn{display:none;min-height:auto;min-width:auto;font-size:12px;padding:3px 9px;border-radius:6px;border:1px solid rgba(255,215,0,.6);background:rgba(255,215,0,.12);color:#ffd700;cursor:pointer;-webkit-tap-highlight-color:transparent;} /* V2_69: .viewmemo buttonのmin-height:48px/min-width:52pxを打ち消す（idの方が優先されるため明示指定） */
 #markNextBtn:active{background:rgba(255,215,0,.28);}
 #markClearX{cursor:pointer;padding:2px 4px;}
 .asr-fname{font-size:13px;font-weight:600;color:#7cb8f5}
@@ -720,6 +791,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #chist-btn.on{border-color:#00d4ff;color:#00d4ff;background:rgba(0,212,255,.12)}
 /* V1_214: ピックモード中は他の読込ボタン(.text-pick-btn.picking等)と同じ黄色で待機中を示す */
 #calcPickBtn.picking{border-color:#ffd700;background:rgba(255,215,0,.15);color:#ffd700}
+/* V2_119: 追寸モードON中は専用ボタンを金色でハイライトし、ON/OFFが一目でわかるようにする */
+#calc .cb.tsz-on{background:rgba(255,215,0,.28)!important;border-color:#ffd700!important;color:#ffd700!important;box-shadow:0 0 0 2px rgba(255,215,0,.4) inset;}
 #chist{
   display:none;flex:1;min-height:0;overflow-y:auto;
   padding:4px 11px 6px;border-bottom:1px solid var(--border);background:rgba(0,0,0,.2);
@@ -806,12 +879,53 @@ body.settings-open #settingsPanel{transform:translateX(0)}
        V1_45: 色丸ボタン(hlColorDot)は廃止。選択中に同じアイコンをもう一度押すと
        色・太さの選択ポップアップが開く
        V1_214: 蛍光ペンも3段表示(蛍光/アイコン/現在の線幅)にした -->
-  <button class="tb-tool-btn tool-btn" data-tool="hl" title="蛍光ペン"><span class="tb-tool-label">蛍光</span><svg id="hlToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id="hlToolIconFill" d="M15 3l6 6-11 11H4v-6L15 3z" fill="rgba(255,255,0,0.25)"/><line x1="11" y1="7" x2="17" y2="13"/></svg><span class="tb-tool-label" id="hlLwLabel">4</span></button>
-  <div class="tb-sep"></div>
-  <!-- V1_214: 消しゴムも3段表示(消しゴム/アイコン/現在の範囲の大きさ)にし、範囲選択
-       (再タップで開くeraser用ポップアップ、#colorOverlayの.co-eraser-section)を新設した -->
-  <button class="tb-tool-btn tool-btn" data-tool="eraser" title="消しゴム"><span class="tb-tool-label">消しゴム</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-.9 2.5-.9 3.5 0l5.5 5.5c1 1 1 2.5 0 3.5L17 17"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg><span class="tb-tool-label" id="eraserSizeLabel">20</span></button>
-  <div class="tb-sep"></div>
+  <button class="tb-tool-btn tool-btn" data-tool="hl" title="蛍光ペン"><span class="tb-tool-label">蛍光</span><svg id="hlToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id="hlToolIconFill" d="M15 3l6 6-11 11H4v-6L15 3z" fill="rgba(255,255,0,0.25)"/><line x1="11" y1="7" x2="17" y2="13"/></svg><span class="tb-tool-label-split" id="hlBottomRow"><span id="hlLwLabel">4</span><span id="hlAlphaLabel">45%</span></span></button>
+  <!-- V2_89: 「文字コマンドは蛍光コマンドの右に配置して」との要望で、消しゴムより前
+       (蛍光ペンの直後)へ移動した -->
+  <!-- V2_80: 文字入力ツール。タップした位置にキーボードで文字を入力して配置する。
+       再タップで開く色/太さポップアップはペンと同じ#colorOverlay(.co-sketch-section)を
+       流用するが、V2_102/V2_103以降は状態値自体(色=currentTextColor/太さ=currentTextLW)
+       はペン専用のcurrentColor/currentLWとは独立している -->
+  <!-- V2_86: ペンの#lwLabelと同じ3段表示(文字/アイコン/現在の大きさ)にした。
+       V2_103以降は文字専用のcurrentTextLWを表示する(ペンのcurrentLWとは独立) -->
+  <button class="tb-tool-btn tool-btn" data-tool="text" title="文字入力"><span class="tb-tool-label">文字</span><svg id="textToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg><span class="tb-tool-label" id="textSizeLabel">0.5</span></button>
+  <!-- V2_96: 図形ツール(四角・矢印・丸・楕円)。V2_95では4つの独立ボタンを並べていたが
+       「1つの『図形』ボタン+ポップアップにまとめてほしい」との要望への対応。
+       計測ボタン(#measureToggleBtn/#measureToolPopup)と全く同じ「1つのヘッダーボタン→
+       タップでポップアップが開く→中の.tool-btnを選ぶと確定してポップアップが閉じる」
+       という既存パターンをそのまま踏襲する(ゼロから新しいUIコンポーネントは作らない)。
+       内部のcurrentTool値は従来通り'rect'/'arrow'/'circle'/'ellipse'のまま変更しない
+       (storage.jsの復元・active class同期・guideMap等、既存コードを一切変更せずに
+       済むため)。4つの.tool-btn本体は#shapeToolPopup(HTML末尾、#measureToolPopupの
+       近くを参照)へ移設した。新しいストローク種別は作らず、ドラッグの始点・終点から
+       確定時に多角形近似した頂点列(pts)を計算し、pen等と全く同じ形の通常ストローク
+       {pts,color,lw,page,shapeType}としてstrokesに追加する(isText導入時に発生した
+       s.pts前提コードのクラッシュを再発させないための設計方針。shapeTypeはV2_96で
+       追加した軽量な追加プロパティで、既存のs.pts前提コードには影響しない)。
+       色・太さの選択UI自体は#shapeToolPopup専用のものを使う(V2_97で.color-btn/.lw-btn
+       を追加済み)が、状態値(currentShapeColor/currentShapeLW、V2_102/V2_103)はペンとは
+       独立している。ヘッダーのツールボタン再タップ時の色/太さポップアップ開閉自体は
+       _TOOL_COLOR_MODEに'sketch'として登録された共通の仕組みを使う。操作方法・頂点列の
+       計算はtool.js の shapeToolState /
+       _shapePointerDown・Move・Up / _shapeBuildPts を参照。ヘッダーボタン自体の
+       アイコン・下段ラベル切替は_syncShapeToggleBtnIcon()(index.html末尾寄り)を参照。
+       V2_116: 「図形ボタンの一番下は、現在アイコンで種類が分かるので種類名ではなく
+       太さの数値を表示してほしい」との依頼で、下段ラベル(#shapeCurrentLabel)の内容を
+       図形種類名からcurrentShapeLW(V2_103で新設した図形専用の太さ変数)の数値表示に
+       変更した。ペンの#lwLabel/蛍光ペンの#hlLwLabel/文字の#textSizeLabel/消しゴムの
+       #eraserSizeLabelと同じ「3段目=太さ/サイズの数値」パターンに揃えるため。
+       種類名自体はtitle属性とポップアップ内表示に残っており、アイコン(#shapeToolIcon)
+       は引き続き選択中の図形種類に応じて切り替わる(_syncShapeToggleBtnIconを参照)。
+       初期表示はcurrentShapeLWの初期値(0.6)に合わせた。 -->
+  <button class="tb-btn" id="shapeToggleBtn" title="図形ツールを選ぶ（四角/矢印/丸/楕円）">
+  <span class="tb-tool-label">図形</span>
+  <svg id="shapeToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><circle cx="17.5" cy="7" r="4"/><ellipse cx="7" cy="17.5" rx="5" ry="3.5"/><line x1="15" y1="15" x2="21" y2="21"/><polyline points="16.5 15 21 15 21 19.5"/></svg>
+  <span class="tb-tool-label" id="shapeCurrentLabel">0.6</span>
+</button>
+  <!-- V2_106: 「計測コマンドボタンを図形の右側に移動して」との要望で、図形ボタンの
+       直後(消しゴムより前)へ移動した(V2_89の文字ボタン移動と同じパターン)。
+       クリックハンドラ・ポップアップ開閉ロジックはid/data-tool基準の汎用処理のため
+       この移動による改修は不要。 -->
   <!-- V1_205: 計測ボタン群(.dim-group)は#measureToolPopupへ移設した(HTML末尾、
        .topbarの直後を参照)。このボタンはアイコンを定規デザインに変更し、押すと
        ポップアップで計測ツールを選ぶ方式にした(第2段バー方式は画面が
@@ -834,6 +948,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <svg id="measureToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="10" y1="9" x2="10" y2="12"/><line x1="14" y1="9" x2="14" y2="12"/><line x1="18" y1="9" x2="18" y2="12"/></svg>
   <span class="tb-tool-label" id="measureCurrentLabel">未選択</span>
 </button>
+  <div class="tb-sep"></div>
+  <!-- V1_214: 消しゴムも3段表示(消しゴム/アイコン/現在の範囲の大きさ)にし、範囲選択
+       (再タップで開くeraser用ポップアップ、#colorOverlayの.co-eraser-section)を新設した -->
+  <button class="tb-tool-btn tool-btn" data-tool="eraser" title="消しゴム"><span class="tb-tool-label">消しゴム</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-.9 2.5-.9 3.5 0l5.5 5.5c1 1 1 2.5 0 3.5L17 17"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg><span class="tb-tool-label" id="eraserSizeLabel">20</span></button>
+  <!-- V2_90: なげわ(lasso)ツール。「消しゴムボタンの右に」との要望通りここに配置。
+       囲んだ範囲のペン/文字ストロークを選択→バウンディングボックス内ドラッグで移動、
+       ✕ボタンで削除できる(resize/rotateは今回スコープ外) -->
+  <button class="tb-tool-btn tool-btn" data-tool="lasso" title="なげわ"><span class="tb-tool-label">なげわ</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 10c0 2.6 1.8 4.8 4.5 6L7 20l3-1.6c.6.1 1.3.2 2 .2 5 0 9-3 9-7.3S17 3 12 3z"/><circle cx="7.3" cy="19.3" r="1.4" fill="currentColor" stroke="none"/></svg></button>
   <div class="tb-sep"></div>
   <button class="tb-btn" id="undoBtn" title="元に戻す" style="font-size:18px;opacity:0.35"><span class="tb-tool-label">戻る</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg></button>
   <button class="tb-btn" id="redoBtn" title="進む" style="font-size:18px;opacity:0.35"><span class="tb-tool-label">進む</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-4.95"/></svg></button>
@@ -950,6 +1072,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      移設(id/class/data-tool属性は無変更のため、既存のクリックハンドラ・active表示は
      すべてそのまま動作する) -->
 <div id="measureToolPopup">
+  <!-- V2_100: 右上の「決定」ボタン。計測コマンドや色を選んでも自動的に閉じないので、
+       2点をタップして計測を終え、色も選び終わったらこれを押して閉じる -->
+  <div class="popup-done-row"><button type="button" id="measureToolPopupDoneBtn" class="popup-done-btn">決定</button></div>
   <div class="co-label">計測ツールを選択</div>
   <div class="dim-group">
     <div class="dim-group-btns">
@@ -990,6 +1115,71 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <button class="dim-color-btn" data-color="#ff88ff" style="background:#f8f" title="ピンク"></button>
     <button class="dim-color-btn" data-color="#ff4444" style="background:#f44" title="赤"></button>
     <button class="dim-color-btn" data-color="#a0623c" style="background:#a0623c" title="茶"></button>
+    <!-- V2_99: 「全コマンドの色に灰色を追加」対応。計測線の色に#999999(灰)を追加 -->
+    <button class="dim-color-btn" data-color="#999999" style="background:#999999" title="灰"></button>
+  </div>
+</div>
+<!-- V2_96: 図形ツール選択ポップアップ。#shapeToggleBtnを押すと表示され(#measureToolPopup
+     と同系のフローティングポップアップ)、四角・矢印・丸・楕円のいずれかを選ぶと
+     tool.js側(currentToolを設定する箇所)でポップアップを閉じ、#shapeCurrentLabel/
+     #shapeToolIconを更新する。中の.tool-btnはV2_95でヘッダーに直接並んでいたものを
+     そのまま移設しただけ(data-tool属性は無変更のため、既存のクリックハンドラ・
+     色/太さポップアップ連携(_TOOL_COLOR_MODE)・active表示はすべてそのまま動作する) -->
+<div id="shapeToolPopup">
+  <!-- V2_100: 右上の「決定」ボタン。図形の種類や色/太さを選んでも自動的に閉じないので、
+       選び終わったらこれを押して閉じる -->
+  <div class="popup-done-row"><button type="button" id="shapeToolPopupDoneBtn" class="popup-done-btn">決定</button></div>
+  <div class="co-label">図形の種類を選択</div>
+  <div class="dim-group">
+    <div class="shape-group-btns">
+      <button class="tb-tool-btn tool-btn" data-tool="rect" title="四角"><span class="tb-tool-label">四角</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="arrow" title="矢印"><span class="tb-tool-label">矢印</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="19" x2="18" y2="5"/><polyline points="9 5 18 5 18 14"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="circle" title="丸"><span class="tb-tool-label">丸</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="ellipse" title="楕円"><span class="tb-tool-label">楕円</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9" ry="6"/></svg></button>
+      <!-- V2_108: 雲印(クラウド)。指摘・修正箇所を囲む吹き出し風のこぶ状ポリライン
+           (詳細はtool.js _shapeCloudPts参照)。アイコンは雲の輪郭を模した固定パス -->
+      <button class="tb-tool-btn tool-btn" data-tool="cloud" title="雲印"><span class="tb-tool-label">雲印</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 17c-1.93 0-3.5-1.57-3.5-3.5 0-1.74 1.27-3.18 2.94-3.45C6.2 8.2 7.9 7 9.9 7c1.4 0 2.65.6 3.53 1.55C13.9 8.2 14.44 8 15 8c1.93 0 3.5 1.57 3.5 3.5 0 .16-.01.31-.03.46C19.9 12.3 21 13.6 21 15.1c0 1.6-1.4 3.9-3 3.9H6.5z"/></svg></button>
+    </div>
+  </div>
+  <!-- V2_97: 「図形ポップアップの中で色・太さも選びたい」との要望への対応。
+       #colorOverlayの.co-sketch-section(ペン等と共通の色/太さ選択UI)を複製するのでは
+       なく、全く同じclass名(.color-btn/.lw-btn)・同じdata-color/data-lw値のボタンを
+       ここにも追加するだけに留めている。これらのクラスに対するクリックハンドラ
+       (tool.js)・保存/復元(storage.js)は既にdocument全体をquerySelectorAllしており、
+       クリック時にボタンの所属先(このポップアップかどうか)に応じた状態値へ同期する
+       (V2_102/V2_103でtool.js側もその方式に修正済み)。V2_102/V2_103以降はここでの
+       操作は専用のcurrentShapeColor/currentShapeLWを読み書きし、ペン側の色/太さ
+       ポップアップ(currentColor/currentLW、文字選択時はcurrentTextColor/currentTextLW)
+       とは独立している。
+       測ツール選択ポップアップ(#measureToolPopup)が種類選択+色選択を1つにまとめている
+       のと同じ構成に揃えた(色/太さを選んでもポップアップ自体は閉じない) -->
+  <div class="co-label">図形の色</div>
+  <div class="co-colors">
+    <button class="color-btn active" data-color="255,0,0" style="background:#f00" title="赤"></button>
+    <button class="color-btn" data-color="255,140,0" style="background:#f80" title="橙"></button>
+    <button class="color-btn" data-color="255,215,0" style="background:#ffd700" title="黄"></button>
+    <button class="color-btn" data-color="130,220,0" style="background:#82dc00" title="黄緑"></button>
+    <button class="color-btn" data-color="0,200,0" style="background:#0c8" title="緑"></button>
+    <button class="color-btn" data-color="0,200,220" style="background:#00c8dc" title="水色"></button>
+    <button class="color-btn" data-color="0,120,255" style="background:#08f" title="青"></button>
+    <button class="color-btn" data-color="140,60,230" style="background:#8c3ce6" title="紫"></button>
+    <button class="color-btn" data-color="255,0,180" style="background:#f0b" title="ピンク"></button>
+    <button class="color-btn" data-color="150,90,40" style="background:#965a28" title="茶"></button>
+    <!-- V2_99: 「全コマンドの色に灰色を追加」対応。図形の色に(128,128,128)灰を追加 -->
+    <button class="color-btn" data-color="128,128,128" style="background:#808080" title="灰"></button>
+  </div>
+  <div class="co-label">図形の太さ</div>
+  <div class="co-lw">
+    <button class="lw-btn" data-lw="0.1">0.1</button>
+    <button class="lw-btn" data-lw="0.4">0.4</button>
+    <button class="lw-btn active" data-lw="0.6">0.6</button>
+    <button class="lw-btn" data-lw="0.8">0.8</button>
+    <button class="lw-btn" data-lw="1">1</button>
+    <button class="lw-btn" data-lw="2">2</button>
+    <button class="lw-btn" data-lw="3">3</button>
+    <button class="lw-btn" data-lw="5">5</button>
+    <button class="lw-btn" data-lw="7">7</button>
+    <button class="lw-btn" data-lw="10">10</button>
   </div>
 </div>
 <div id="tabBarRow">
@@ -1079,6 +1269,18 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <div id="markPopup"><span style="font-size:15px">●</span>マーク<span id="markCountLabel"></span><button id="markNextBtn" type="button">次へ</button><span id="markClearX">✕</span></div>
     </div>
   </div>
+  <!-- V3_02: #textInputBox・#lassoActionBarは元々.viewmemo(z-index:100)の内側に置かれて
+       いたため、自身にどれだけ高いz-index(5600)を指定しても、position:absoluteかつ
+       z-index指定済みの.viewmemoが作るスタッキングコンテキストに閉じ込められ、
+       実際の重なり順は常に.viewmemo側のz-index:100で決まってしまい、サブ窓(z-index:5000/5001)
+       の下に隠れて見えなくなっていた(自身のz-indexだけを5600に上げても解決しない根本原因)。
+       .viewmemoの外(bodyの直下)に移すことで、この閉じ込めを解消する。
+       どちらもposition:fixedのため、.viewmemo内の#markFitRow(flexレイアウト)から
+       移動しても見た目・配置には影響しない。
+       V2_80: 文字入力ツールのキーボード入力ボックス -->
+  <div id="textInputBox"><textarea id="textInputField" rows="1" maxlength="300"></textarea></div>
+  <!-- V2_90: なげわ(lasso)ツールの選択中アクションバー(削除のみ。resize/rotateは対象外) -->
+  <div id="lassoActionBar"><button id="lassoDeleteBtn" type="button" title="削除">✕</button></div>
   <!-- V1_234: 記憶VIEWポップアップ(M_Viewer_V7.09の#vbm-pop仕様。1〜5の単一ボタン。
        空きスロット→タップで保存、保存済み→タップでジャンプ・長押しで上書き/リセット
        メニュー(既存の_showMemMenuを流用)) -->
@@ -1274,7 +1476,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <button class="cb cbo" data-cop="/">÷</button>
     <button class="cb cbf" data-cfn="⌫">⌫</button>
     <button class="cb cbf" data-cfn="±">±</button>
-    <button class="cb cbf" data-cfn="%">%</button>
+    <button class="cb cbf" data-cfn="tsuizun">追寸</button>
     <button class="cb cbo" data-cop="*">×</button>
     <button class="cb cbn" data-cnum="7">7</button>
     <button class="cb cbn" data-cnum="8">8</button>
@@ -1294,6 +1496,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 </div>
 
 <div id="colorOverlay">
+  <!-- V2_100: 右上の「決定」ボタン。色/太さ/濃度を選んでも自動的に閉じないので、
+       選び終わったらこれを押して閉じる -->
+  <div class="popup-done-row"><button type="button" id="colorOverlayDoneBtn" class="popup-done-btn">決定</button></div>
   <div class="co-sketch-section">
     <div class="co-label">スケッチ色</div>
     <!-- V1_74: 10色に拡張。白・黒は背景色（白背景/濃紺背景・図面の黒線）と重なり見えなくなるため除外 -->
@@ -1308,9 +1513,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="color-btn" data-color="140,60,230" style="background:#8c3ce6" title="紫"></button>
       <button class="color-btn" data-color="255,0,180" style="background:#f0b" title="ピンク"></button>
       <button class="color-btn" data-color="150,90,40" style="background:#965a28" title="茶"></button>
+      <!-- V2_99: 「全コマンドの色に灰色を追加」対応。スケッチ色(ペン/文字と共通)に(128,128,128)灰を追加 -->
+      <button class="color-btn" data-color="128,128,128" style="background:#808080" title="灰"></button>
     </div>
   </div>
-  <div class="co-sketch-section">
+  <div class="co-sketch-section" id="coLwPenSection">
     <div class="co-label">ペン線幅</div>
     <div class="co-lw">
       <button class="lw-btn" data-lw="0.1">0.1</button> <!-- V0_159.3: 追加 -->
@@ -1324,6 +1531,24 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="5">5</button>
       <button class="lw-btn" data-lw="7">7</button>
       <button class="lw-btn" data-lw="10">10</button>
+    </div>
+  </div>
+  <!-- V2_107: 文字ツール専用の太さ(文字サイズ)プリセット。ペン用(#coLwPenSection)とは
+       別DOM・別プリセット値にし、data-lwctx="text"の時だけCSSで表示切替する
+       (上記CSSコメント参照)。クリックハンドラ・保存/復元は既存の.lw-btn共通処理
+       (tool.js/storage.js、currentToolが'text'ならcurrentTextLWへ書き込む)がそのまま
+       使えるため、JS側の追加改修は最小限で済む -->
+  <div class="co-sketch-section" id="coLwTextSection">
+    <div class="co-label">文字の大きさ</div>
+    <div class="co-lw">
+      <button class="lw-btn" data-lw="0.1">0.1</button>
+      <button class="lw-btn" data-lw="0.2">0.2</button>
+      <button class="lw-btn" data-lw="0.3">0.3</button>
+      <button class="lw-btn active" data-lw="0.5">0.5</button>
+      <button class="lw-btn" data-lw="0.8">0.8</button>
+      <button class="lw-btn" data-lw="1">1</button>
+      <button class="lw-btn" data-lw="2">2</button>
+      <button class="lw-btn" data-lw="3">3</button>
     </div>
   </div>
   <div class="co-hl-section">
@@ -1340,6 +1565,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="hl-color-btn" data-color="255,80,160" style="background:#f050a0" title="ピンク"></button>
       <button class="hl-color-btn" data-color="255,110,110" style="background:#ff6e6e" title="赤"></button>
       <button class="hl-color-btn" data-color="220,180,120" style="background:#dcb478" title="茶"></button>
+      <!-- V2_99: 「全コマンドの色に灰色を追加」対応。蛍光色は他色と同様に明るめの(200,200,200)灰を追加 -->
+      <button class="hl-color-btn" data-color="200,200,200" style="background:#c8c8c8" title="灰"></button>
     </div>
   </div>
   <div class="co-hl-section">
@@ -1355,6 +1582,17 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="hl-lw-btn" data-lw="8">8</button>
       <button class="hl-lw-btn" data-lw="9">9</button>
       <button class="hl-lw-btn" data-lw="10">10</button>
+    </div>
+  </div>
+  <div class="co-hl-section">
+    <div class="co-label">濃度</div>
+    <!-- V2_98: 蛍光ペンの透明度を選べるようにした。既定45%は従来のハードコード値(0.45)を踏襲 -->
+    <div class="co-hl-alpha">
+      <button class="hl-alpha-btn" data-alpha="20">20%</button>
+      <button class="hl-alpha-btn" data-alpha="40">40%</button>
+      <button class="hl-alpha-btn active" data-alpha="45">45%</button>
+      <button class="hl-alpha-btn" data-alpha="60">60%</button>
+      <button class="hl-alpha-btn" data-alpha="80">80%</button>
     </div>
   </div>
   <!-- V1_214: 寸法(計測)色選択は#measureToolPopupへ移設した(計測ツール選択と同じ
@@ -1397,7 +1635,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div id="searchBg"></div>
   <div id="searchPanel">
     <div class="sp-header">
-      <span class="sp-title">文字検索</span>
+      <span class="sp-title" id="searchSpTitle">文字検索</span>
       <button class="sp-close" id="searchClose">✕</button>
     </div>
     <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
@@ -1583,7 +1821,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
      呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
 <script src="export.js?v=262"></script>
-<script src="tool.js?v=258"></script>
+<script src="tool.js?v=259"></script>
 <script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
 <script src="shxGlyphs.js?v=257"></script>
@@ -1595,7 +1833,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V2_66';
+const APP_VERSION = 'V3_04';
 
 // =========================================================
 // グローバル状態
@@ -1604,9 +1842,27 @@ const APP_VERSION = 'V2_66';
 let scaleDenom=1;
 var currentTool='sketch';
 var currentColor={r:255,g:0,b:0};
+// V2_102: 「ペン・文字・図形の色が連動して同じ色になってしまう」との指摘への対応。
+// 従来はペン(currentColor)を文字入力ツール(V2_84)・図形ツール(V2_95)が共有していたが、
+// これをやめて文字・図形それぞれ専用の色状態を持たせる(currentHL_Color/currentDimColorと
+// 同じパターン)。デフォルト値は従来ペンと共有していた時と見た目が変わらないよう、
+// ペンの初期色と同じ赤にしておく
+var currentTextColor={r:255,g:0,b:0};   // 文字入力の色(V2_102で新設、従来はcurrentColorを共有)
+var currentShapeColor={r:255,g:0,b:0};  // 図形(四角/矢印/丸/楕円)の色(V2_102で新設、従来はcurrentColorを共有)
 var currentLW=0.6;
+// V2_103: 「文字とペンの大きさ(太さ)がリンクしていて一緒になっている。独立させて」
+// との指摘への対応。V2_102で色は分離したが太さ(文字の場合はフォントサイズ計算式の
+// 基準値、ペンの場合は線幅)は据え置いていたため、ペンの太さを変えると文字サイズも
+// 連動して変わってしまっていた。currentTextColor/currentShapeColorと同じパターンで、
+// 文字用・図形用にそれぞれ専用の太さ状態を新設する。デフォルト値はペンの初期値と
+// 同じ0.6にしておき、従来の見た目とは変わらないようにする
+var currentTextLW=0.5;   // 文字入力のフォントサイズ計算基準値(V2_103で新設、従来はcurrentLWを共有)
+                          // V2_107: 文字サイズのプリセットを0.1〜3の8段階に変更した際、旧デフォルト値
+                          // 0.6が新プリセットに存在しなくなったため、最も近い値0.5に変更した
+var currentShapeLW=0.6;  // 図形(四角/矢印/丸/楕円)の太さ(V2_103で新設、従来はcurrentLWを共有)
 var currentHL_Color={r:255,g:255,b:0}; // 蛍光ペン色（黄）
 var currentHL_LW=4;                     // 蛍光ペン線幅
+var currentHLAlpha=0.45;                // V2_98: 蛍光ペン濃度(透明度)。既定0.45は従来のハードコード値を踏襲
 var currentDimColor='#f39c12';          // 寸法色
 var dims=[];
 var currentFileSize=0;   // V0_103: ファイルサイズ(自動保存ID用)
@@ -1621,6 +1877,11 @@ var _markNavList=null;
 var _markNavIdx=-1;
 var _excelMatchCounts=null;
 var _excelMatchIdx=-1;
+// V2_68: 「全図面検索」結果の複数ファイルを「次へ」で跨いで巡回するための状態。
+// _allSearchQueue=[{name,folder}, ...] 検索結果一覧のファイル順。_allSearchQueueIdxは
+// そのうち現在開いているファイルの位置(0-based)。-1/nullは全図面検索経由で開いていない状態
+var _allSearchQueue=null;
+var _allSearchQueueIdx=-1;
 var strokes=[];
 let images=[];
 var savedViews=[null,null,null,null,null]; // V0_76: 5スロットに拡張
@@ -1699,6 +1960,34 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
   var _curPg65=_curPage(); // V1_65: PDFページごとに書き込みを分離するため、現在ページ以外は描画しない
   for(var si=0; si<strokes.length; si++){
     var s = strokes[si];
+    // V2_80: 文字入力ツールで配置した文字(s.isText)は線(pts)を持たないため、
+    // 通常のストローク描画とは別処理でここに分岐させる。ペン扱いのためフィルタは
+    // 蛍光ペン専用表示時(strokeFilter==='hl')のみ除外する
+    if(s.isText){
+      if((s.page||1)!==_curPg65) continue;
+      if(strokeFilter==='hl') continue;
+      var _tpx80=physX(s.x), _tpy80=physY(s.y);
+      if(_tpx80<-_mgPx||_tpx80>_cwPx+_mgPx||_tpy80<-_mgPx||_tpy80>_chPx+_mgPx) continue;
+      var _tFontPx80=Math.max(dpr,(s.lw||0.6)*20*(scale/lwRef)*dpr*PS);  // V2_81: 線幅と同じ最小1pxに統一(下限8pxで急に大きさが変わる不具合を修正)
+      atc.save();
+      // V2_84: 「もっといいフォントにしたい」との要望に対応。DXF文字・PDF書出と
+      // 同じNoto Sans JP(埋込フォント、tool.jsの_ensureCanvasJPFont80で
+      // FontFaceとして読込・登録)を使う。読込前・読込失敗時はsans-serifへ
+      // 自然にフォールバックする
+      atc.font=_tFontPx80+'px "NotoSansJPCanvas", sans-serif';
+      atc.fillStyle='rgb('+s.color.r+','+s.color.g+','+s.color.b+')';
+      atc.textBaseline='top';
+      // V2_87: 「alt+Enterで次の行に入力出来る様にして」との要望で複数行に対応。
+      // canvasのfillText()は改行(\n)を解釈しないため、行ごとに分割して1行ずつ
+      // 下にずらして描画する(行間はPDF書出(_hpDrawTextStrokes81等)と揃えて
+      // フォントサイズの1.2倍)
+      var _tLines80=(s.text||'').split('\n');
+      for(var _tli80=0;_tli80<_tLines80.length;_tli80++){
+        atc.fillText(_tLines80[_tli80],_tpx80,_tpy80+_tFontPx80*1.2*_tli80);
+      }
+      atc.restore();
+      continue;
+    }
     if(!s.pts || s.pts.length < 2) continue;
     if((s.page||1)!==_curPg65) continue;
     if(strokeFilter==='hl' && !s.hl) continue; // V1_170
@@ -1708,7 +1997,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
     if(_sxMx<-_mgPx||_sxMn>_cwPx+_mgPx||_syMx<-_mgPx||_syMn>_chPx+_mgPx) continue;
     atc.save();
     if(s.hl){
-      atc.globalAlpha = 0.45;
+      atc.globalAlpha = s.hlOpacity||0.45; // V2_98: ストロークごとの濃度(未設定時は従来値0.45)
       atc.strokeStyle = 'rgb('+s.color.r+','+s.color.g+','+s.color.b+')';
       atc.lineWidth = s.lw * (scale / lwRef) * dpr * PS;  // V0_87: zoom比例
       atc.lineCap = 'round';
@@ -1718,22 +2007,43 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       atc.lineWidth = Math.max(dpr, s.lw * (scale / lwRef) * dpr * PS);  // V0_87: zoom比例・最小1px
       atc.lineCap = 'round';
     }
-    atc.lineJoin = 'round';
+    // V2_96: 図形ツール(四角・矢印・丸・楕円=s.shapeType)は、ペン用のCatmull-Rom風
+    // スムージング(quadraticCurveToで頂点の手前/先の中点までしか結ばない方式)を
+    // 適用すると、角が丸まる・始点付近の辺が欠けて見える(始点=中点から描き始め、
+    // 最後は正確な終点までしか戻らないため)という見た目バグが出る。s.shapeTypeが
+    // あるストロークは頂点を忠実に直線で結び、lineJoin='miter'で鋭角を保つ
+    // (四角の角・矢印の矢尻)。閉じた形状(四角・丸・楕円)はclosePath()で確実に閉じる
+    // V2_97: 矢印(shapeType='arrow')は「軸→矢尻左→軸(戻り)→矢尻右」という1本の
+    // 連続パスで描いており、矢尻左の頂点は"来た辺をそのまま逆走する"180度の
+    // 折り返しになる。miterJoinは折り返し角ではミター長が無限大になり
+    // canvasのmiterLimitで自動的にbevel(面取り)へ切り替わるため、その頂点に
+    // ごくわずかな凹み(ノッチ)が見えることがあった(V2_96で報告された「矢印の
+    // 先端がまだ少しおかしい」の原因の一つ)。矢印だけroundJoin/roundCapにして
+    // 頂点を自然に丸めて隙間なく閉じる(四角・丸・楕円は直角の頂点を保つため
+    // 従来通りmiter/buttのまま)
+    atc.lineJoin = s.shapeType ? (s.shapeType==='arrow' ? 'round' : 'miter') : 'round';
+    if(s.shapeType) atc.lineCap = (s.shapeType==='arrow') ? 'round' : 'butt'; // 図形は丸みキャップにしない(矢印のみ丸)
     atc.beginPath();
     var spts = s.pts, n = spts.length;
-    var px0 = physX(spts[0].x), py0 = physY(spts[0].y);
-    if(n === 2){
-      atc.moveTo(px0, py0);
-      atc.lineTo(physX(spts[1].x), physY(spts[1].y));
+    if(s.shapeType){
+      atc.moveTo(physX(spts[0].x), physY(spts[0].y));
+      for(var _si96=1; _si96<n; _si96++) atc.lineTo(physX(spts[_si96].x), physY(spts[_si96].y));
+      if(_isClosedShapeType(s.shapeType)) atc.closePath();
     } else {
-      var px1 = physX(spts[1].x), py1 = physY(spts[1].y);
-      atc.moveTo((px0+px1)/2, (py0+py1)/2);
-      for(var i=1; i<n-1; i++){
-        var cx = physX(spts[i].x),   cy = physY(spts[i].y);
-        var nx = physX(spts[i+1].x), ny = physY(spts[i+1].y);
-        atc.quadraticCurveTo(cx, cy, (cx+nx)/2, (cy+ny)/2);
+      var px0 = physX(spts[0].x), py0 = physY(spts[0].y);
+      if(n === 2){
+        atc.moveTo(px0, py0);
+        atc.lineTo(physX(spts[1].x), physY(spts[1].y));
+      } else {
+        var px1 = physX(spts[1].x), py1 = physY(spts[1].y);
+        atc.moveTo((px0+px1)/2, (py0+py1)/2);
+        for(var i=1; i<n-1; i++){
+          var cx = physX(spts[i].x),   cy = physY(spts[i].y);
+          var nx = physX(spts[i+1].x), ny = physY(spts[i+1].y);
+          atc.quadraticCurveTo(cx, cy, (cx+nx)/2, (cy+ny)/2);
+        }
+        atc.lineTo(physX(spts[n-1].x), physY(spts[n-1].y));
       }
-      atc.lineTo(physX(spts[n-1].x), physY(spts[n-1].y));
     }
     atc.stroke();
     atc.restore();
@@ -1743,7 +2053,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
   if(sketching && sketchPts.length >= 2){
     atc.save();
     if(currentTool === 'hl'){
-      atc.globalAlpha = 0.45;
+      atc.globalAlpha = currentHLAlpha||0.45; // V2_98: 選択中の濃度をプレビューにも反映
       atc.strokeStyle = 'rgb('+currentHL_Color.r+','+currentHL_Color.g+','+currentHL_Color.b+')';
       atc.lineWidth = currentHL_LW * (scale / lwRef) * dpr * PS;  // V0_87: zoom比例
     } else {
@@ -2054,6 +2364,52 @@ function drawOverlay(){
       octx.restore();
     }
   }
+  // V2_90: なげわ(lasso)ツール — 描画中のプレビュー線、および選択中のバウンディング
+  // ボックス。ロジック本体(_lassoPointerDown/Move/Up等)はtool.jsで実装しているため
+  // ここでは描画のみを行う(lassoStateはtool.jsでvar宣言されグローバル公開)
+  if(typeof lassoState!=='undefined'&&lassoState){
+    if(currentTool==='lasso'&&lassoState.drawing&&lassoState.pts&&lassoState.pts.length>0){
+      octx.save();
+      octx.strokeStyle='#00d4ff';octx.lineWidth=1.5;octx.setLineDash([5,3]);
+      octx.beginPath();
+      for(var _lpi90=0;_lpi90<lassoState.pts.length;_lpi90++){
+        var _lp90=w2s(lassoState.pts[_lpi90].x,lassoState.pts[_lpi90].y);
+        if(_lpi90===0) octx.moveTo(_lp90[0],_lp90[1]); else octx.lineTo(_lp90[0],_lp90[1]);
+      }
+      octx.stroke();
+      octx.setLineDash([]);
+      octx.restore();
+    }
+    if(lassoState.selected&&lassoState.selected.length>0&&lassoState.bbox){
+      var _lb90=lassoState.bbox;
+      var _ltl90=w2s(_lb90.minX,_lb90.maxY); // ワールドYは上向きのため画面上端はmaxY
+      var _lbr90=w2s(_lb90.maxX,_lb90.minY);
+      octx.save();
+      octx.strokeStyle='#ffd700';octx.lineWidth=1.5;octx.setLineDash([6,4]);
+      octx.strokeRect(_ltl90[0],_ltl90[1],_lbr90[0]-_ltl90[0],_lbr90[1]-_ltl90[1]);
+      octx.setLineDash([]);
+      octx.restore();
+    }
+  }
+  // V2_95: 図形ツール(四角・矢印・丸・楕円) — ドラッグ中のプレビュー線。
+  // ロジック本体(shapeToolState/_shapeBuildPts等)はtool.jsで実装しているため
+  // ここでは描画のみを行う。確定時と全く同じ_shapeBuildPts()を呼ぶことで、
+  // プレビュー表示と確定した図形の形が必ず一致するようにしている
+  if(typeof shapeToolState!=='undefined'&&shapeToolState&&shapeToolState.drawing&&shapeToolState.start&&shapeToolState.cur){
+    var _shPts95=(typeof _shapeBuildPts==='function')?_shapeBuildPts(shapeToolState.tool,shapeToolState.start,shapeToolState.cur):null;
+    if(_shPts95&&_shPts95.length>=2){
+      octx.save();
+      octx.strokeStyle='#00d4ff';octx.lineWidth=1.5;octx.setLineDash([5,3]);
+      octx.beginPath();
+      for(var _spi95=0;_spi95<_shPts95.length;_spi95++){
+        var _sp95=w2s(_shPts95[_spi95].x,_shPts95[_spi95].y);
+        if(_spi95===0) octx.moveTo(_sp95[0],_sp95[1]); else octx.lineTo(_sp95[0],_sp95[1]);
+      }
+      octx.stroke();
+      octx.setLineDash([]);
+      octx.restore();
+    }
+  }
   octx.restore();
 }
 
@@ -2211,7 +2567,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
     // （四方の余白が異常に広い）不具合の原因になっていた
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     // V0_131/V1_51: ファイル切替時にマーク自動クリア（従来DXF側にしか無かった処理をPDFにも適用）
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     await loadPDF(buf);{const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
     if(typeof _updateTopbarForPdf==='function') _updateTopbarForPdf(true); // V1_116: 直前のrenderExcelView()呼び出し時点ではpdfDoc未設定だったため、loadPDF完了後に改めて反映する
     // V1_55: PDF分岐だけcurrentFileSizeが一度も設定されておらず、前に開いていた
@@ -2285,7 +2641,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
     // V1_76: Excel(.xlsx/.xls/.csv)はシンプルな表形式表示＋テキスト読込のみ対応。
     // 座標系を持たないため、DXF/PDFと異なり手書き・寸法計測(strokes/dims)は対象外とする
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     currentFileSize=f.size;
     var _excelOk176=loadExcel(buf,f.name.toLowerCase().endsWith('.csv')); // V1_106: CSVは文字コード自動判定させる
     if(_excelOk176){
@@ -2303,7 +2659,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
       currentFileSize=f.size; // V0_103
       hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_160: savedViewsはファイル横断のグローバル項目のためここではリセットしない
       // V0_131: ファイル切替時にマーク自動クリア
-      _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+      _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
       // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
       // ※SAVE_KEY復元は廃止（異ファイル間でデータが混入するバグを修正）
       // V2_57: PDF分岐と同じ理由でindexedDB.open()の都度接続をやめ、_dvOpenIdb()
@@ -2519,7 +2875,7 @@ function switchToFile(idx){
   if(idx<0||idx>=openFiles.length) return;
   verify('switchToFile:before',{from:currentFileIdx,to:idx});
   // V0_131: タブ切替時にマーク自動クリア
-  _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+  _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
   resetToolStates(true); // V0_139: タブ切替時に計測ツール状態をリセット / V1_234: 計測ツールは選択維持
   // V0_140: ビュー状態のみ同期（strokes/dimsは参照エイリアスで既に同期済み）
   if(currentFileIdx>=0&&currentFileIdx<openFiles.length){
@@ -3308,17 +3664,28 @@ document.getElementById('tabListBtn').addEventListener('click',function(e){
   e.stopPropagation();
   if(typeof _showOpenFilesListMenu==='function') _showOpenFilesListMenu(this);
 });
-// V1_214: 計測ツール選択ポップアップ(#measureToolPopup)の開閉。#colorOverlayの
-// openContextPopup()と同様に、ボタン直下に位置合わせして開く。ポップアップ内で
-// いずれかの計測ツールを選ぶとtool.js側(currentToolを設定する箇所)で自動的に閉じる
-// ため、ここでは「開く」「(閉じている状態から)開いた状態にする」「(開いている状態で
-// 再度押されたら)閉じる」の3パターンのみを扱う。
-function _closeMeasureToolPopup(){
-  var popup=document.getElementById('measureToolPopup');
-  var btn=document.getElementById('measureToggleBtn');
+// V2_100: 「ペン/蛍光/図形/文字/計測のポップアップが、色などを選ぶたびに勝手に閉じて
+// ストレス」との指摘への対応。色/太さ/濃度/種類/計測コマンドいずれを選んでもポップアップは
+// 閉じないようにし、各ポップアップ右上に新設した「決定」ボタンを押した時だけ閉じる
+// ようにした。3つのポップアップ(#colorOverlay/#measureToolPopup/#shapeToolPopup)で
+// 閉じ方(対象要素・連動して外すべきトグルボタンのactive)が異なるため、共通関数
+// _closeToolPopupById(popupId)にidベースの分岐だけをまとめ、重複を避ける
+function _closeToolPopupById(popupId){
+  var popup=document.getElementById(popupId);
   if(popup) popup.classList.remove('open');
-  if(btn) btn.classList.remove('active');
+  if(popupId==='measureToolPopup'){
+    var mBtn=document.getElementById('measureToggleBtn');
+    if(mBtn) mBtn.classList.remove('active');
+  } else if(popupId==='shapeToolPopup'){
+    var sBtn=document.getElementById('shapeToggleBtn');
+    if(sBtn) sBtn.classList.remove('active');
+  }
 }
+// V1_214: 計測ツール選択ポップアップ(#measureToolPopup)の開閉。#colorOverlayの
+// openContextPopup()と同様に、ボタン直下に位置合わせして開く。
+// V2_100: 選択操作では自動的に閉じなくなったため、ここでは「開く」「(閉じている状態から)
+// 開いた状態にする」「(開いている状態で再度押されたら)閉じる」の3パターンのみを扱う。
+function _closeMeasureToolPopup(){ _closeToolPopupById('measureToolPopup'); }
 // V1_214: 計測系ツール名の判定は、tool.js側でconst宣言された_MEASURE_TOOL_LABELSを
 // 直接参照できない(スクリプトタグをまたぐconst/letは共有されないため。storage.jsで
 // 同様の理由によりハードコード配列で判定している前例と同じ対応)ため、ここでも
@@ -3353,14 +3720,52 @@ document.getElementById('measureToggleBtn').addEventListener('click',function(e)
   popup.style.top=top+'px';popup.style.left=left+'px';
   if(e&&e.stopPropagation) e.stopPropagation();
 });
-// V1_214: ポップアップの外側をタップしたら閉じる(#colorOverlayの同種リスナーと同じ方式)
-document.addEventListener('click',function(e){
-  var popup=document.getElementById('measureToolPopup');
-  var btn=document.getElementById('measureToggleBtn');
-  if(popup&&popup.classList.contains('open')&&!popup.contains(e.target)&&e.target!==btn){
-    _closeMeasureToolPopup();
+// V2_100: 「勝手にポップアップが消えるのがストレス」との指摘に対応するため、外側タップで
+// 閉じる従来の挙動は廃止した。ポップアップ右上の「決定」ボタン(measureToolPopupDoneBtn)を
+// 押した時、または計測ボタン(#measureToggleBtn)の再タップだけで閉じるようにする
+// V2_96: 図形ツール選択ポップアップ(#shapeToolPopup)の開閉。#measureToolPopupの
+// 開閉ロジック(_closeMeasureToolPopup/#measureToggleBtnクリックハンドラ/外側タップで
+// 閉じるリスナー)を、図形ツール(rect/arrow/circle/ellipse)向けにそのまま複製したもの。
+// 「ツール再タップでポップアップ開閉」という既存パターン(ペン等の再タップで色/太さ
+// ポップアップが開く挙動)に倣い、既に図形ツールが選択中の状態でこのボタンを押すと
+// (＝実質的な「再タップ」)ポップアップが開いて図形の種類を選び直せる
+function _closeShapeToolPopup(){ _closeToolPopupById('shapeToolPopup'); }
+var _SHAPE_TOOLS_96=['rect','arrow','circle','ellipse','cloud']; // V2_108: 雲印追加
+document.getElementById('shapeToggleBtn').addEventListener('click',function(e){
+  var popup=document.getElementById('shapeToolPopup');
+  if(!popup) return;
+  if(popup.classList.contains('open')){ _closeShapeToolPopup(); return; }
+  // 現在のツールが図形系でない場合(ペン等から押した場合)、前回選んでいた図形タイプ
+  // (_lastShapeTool、tool.js側のvar)があれば、ポップアップを開かずにそのツールを
+  // 直接有効化する(該当ボタンをそのままクリックしたのと同じ処理に乗せることで、
+  // ガイド表示・下段ラベル更新・保存など既存処理を再利用する)。図形系が既に
+  // アクティブな場合、または前回の図形タイプが無い(未使用)場合は従来通りポップアップを開く
+  if(_SHAPE_TOOLS_96.indexOf(currentTool)<0 && _lastShapeTool){
+    var lastBtn96=popup.querySelector('.tool-btn[data-tool="'+_lastShapeTool+'"]');
+    if(lastBtn96){ lastBtn96.click(); if(e&&e.stopPropagation) e.stopPropagation(); return; }
   }
+  // 色/太さ選択ポップアップ(#colorOverlay)・計測ポップアップが開いていれば先に閉じ、
+  // 複数のポップアップが同時に画面に残らないようにする
+  var co96=document.getElementById('colorOverlay');
+  if(co96) co96.classList.remove('open');
+  if(typeof _closeMeasureToolPopup==='function') _closeMeasureToolPopup();
+  popup.classList.add('open');
+  this.classList.add('active');
+  // V2_102: 図形専用のcurrentShapeColorを正しくハイライトし直す
+  if(typeof _syncColorBtnActive==='function') _syncColorBtnActive();
+  // V2_103: 図形専用のcurrentShapeLWも正しくハイライトし直す
+  if(typeof _syncLwBtnActive==='function') _syncLwBtnActive();
+  var r96=this.getBoundingClientRect();
+  var popW96=popup.offsetWidth||220,popH96=popup.offsetHeight||120;
+  var left96=r96.left,top96=r96.bottom+6;
+  if(left96+popW96>window.innerWidth) left96=window.innerWidth-popW96-8;
+  if(left96<4) left96=4;
+  if(top96+popH96>window.innerHeight) top96=r96.top-popH96-4;
+  popup.style.top=top96+'px';popup.style.left=left96+'px';
+  if(e&&e.stopPropagation) e.stopPropagation();
 });
+// V2_100: 外側タップで閉じる従来の挙動は廃止(理由は#measureToolPopupの同種コメントを参照)。
+// ポップアップ右上の「決定」ボタン(shapeToolPopupDoneBtn)、または図形ボタンの再タップだけで閉じる
 document.getElementById('scaleDenom').addEventListener('change',e=>{scaleDenom=parseFloat(e.target.value)||1;scheduleSave();});
 // PDFページ
 document.getElementById('prevPage').addEventListener('click',async()=>{
@@ -3919,9 +4324,13 @@ function _diRender(){
 
 
 // Undo/Redo スナップショット
+// V2_80: 文字入力ツールで追加した文字(isText)はpts(線の点列)を持たないため、
+// 従来の s=>({...s,pts:[...s.pts]}) のままだと [...undefined] でクラッシュしていた。
+// ptsがある場合のみ複製し、無い場合(文字)はそのままコピーする共通関数にまとめた
+function _cloneStroke80(s){ return s.pts?{...s,pts:[...s.pts]}:{...s}; }
 function snapshot(){
   history.push({
-    strokes:strokes.map(s=>({...s,pts:[...s.pts]})),
+    strokes:strokes.map(_cloneStroke80),
     dims:[...dims]
   });
   if(history.length>MAX_HISTORY)history.shift();
@@ -3930,18 +4339,24 @@ function snapshot(){
 }
 function undo(){
   if(!history.length)return;
-  redoStack.push({strokes:strokes.map(s=>({...s,pts:[...s.pts]})),dims:[...dims]});
+  redoStack.push({strokes:strokes.map(_cloneStroke80),dims:[...dims]});
   const st=history.pop();strokes=st.strokes;dims=st.dims;
   // V0_140: undo後は新配列のためopenFiles[]に明示同期
   if(currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}
+  // V2_90: undoでstrokes配列が丸ごと新しいオブジェクト群に差し替わるため、なげわ(lasso)の
+  // 選択(lassoState.selected)が古い(もう配列に存在しない)オブジェクトを指したまま残る
+  // 事故を防ぐため、選択状態を必ずクリアする
+  if(typeof _lassoClearSelection==='function') _lassoClearSelection();
   scheduleOverlay();updateUndoRedo();scheduleSave();verify('Undo');
 }
 function redo(){
   if(!redoStack.length)return;
-  history.push({strokes:strokes.map(s=>({...s,pts:[...s.pts]})),dims:[...dims]});
+  history.push({strokes:strokes.map(_cloneStroke80),dims:[...dims]});
   const st=redoStack.pop();strokes=st.strokes;dims=st.dims;
   // V0_140: redo後は新配列のためopenFiles[]に明示同期
   if(currentFileIdx>=0&&openFiles[currentFileIdx]){openFiles[currentFileIdx].strokes=strokes;openFiles[currentFileIdx].dims=dims;}
+  // V2_90: undoと同じ理由でredo後もなげわの選択状態をクリアする
+  if(typeof _lassoClearSelection==='function') _lassoClearSelection();
   scheduleOverlay();updateUndoRedo();scheduleSave();verify('Redo');
 }
 function updateUndoRedo(){
@@ -4152,7 +4567,15 @@ function updateToolColorDots(){
   const si=document.getElementById('sketchToolIcon');
   const hi=document.getElementById('hlToolIcon');
   const hif=document.getElementById('hlToolIconFill');
+  const txi=document.getElementById('textToolIcon'); // V2_80: 文字入力もペンと同じ色を反映
+  const shi96=document.getElementById('shapeToolIcon'); // V2_96: 図形ツールもペンと同じ色を反映
   if(si&&currentColor)si.style.color=`rgb(${currentColor.r},${currentColor.g},${currentColor.b})`;
+  // V2_102: 文字・図形はそれぞれ専用のcurrentTextColor/currentShapeColorを反映する
+  // (未定義の旧データ読込直後など、万一値がまだ無い場合はcurrentColorにフォールバック)
+  const _txc102=(typeof currentTextColor!=='undefined'&&currentTextColor)?currentTextColor:currentColor;
+  const _shc102=(typeof currentShapeColor!=='undefined'&&currentShapeColor)?currentShapeColor:currentColor;
+  if(txi&&_txc102)txi.style.color=`rgb(${_txc102.r},${_txc102.g},${_txc102.b})`;
+  if(shi96&&_shc102)shi96.style.color=`rgb(${_shc102.r},${_shc102.g},${_shc102.b})`;
   if(hi&&currentHL_Color)hi.style.color=`rgb(${currentHL_Color.r},${currentHL_Color.g},${currentHL_Color.b})`;
   if(hif&&currentHL_Color)hif.setAttribute('fill',`rgba(${currentHL_Color.r},${currentHL_Color.g},${currentHL_Color.b},0.25)`);
   if(currentDimColor){
@@ -4171,10 +4594,24 @@ function openContextPopup(mode,anchorEl){
   // アイコンを再タップして色/太さを開くケースで、計測選択ポップアップが開いたまま
   // 裏に残ってしまうのを防ぐ)
   if(typeof _closeMeasureToolPopup==='function') _closeMeasureToolPopup();
+  // V2_96: 図形ツール選択ポップアップ(#shapeToolPopup)が開いていた場合も同様に閉じる
+  // (図形アイコンの再タップで色/太さポップアップを開く際、裏に図形選択ポップアップが
+  // 残ってしまわないようにする)
+  if(typeof _closeShapeToolPopup==='function') _closeShapeToolPopup();
   co.dataset.mode=mode;
+  // V2_107: 太さボタン(.co-lw)をペン用/文字用の2セットに分けたため、開いた時点で
+  // どちらのツール(anchorElのdata-tool)から開かれたかをdata-lwctxに記録し、
+  // CSS側(上部の#colorOverlay[data-lwctx="text"]ルール)で表示を切り替える
+  co.dataset.lwctx=(anchorEl&&anchorEl.dataset&&anchorEl.dataset.tool==='text')?'text':'pen';
   // V1_74: 色数(10色化)でポップアップの実際の高さがモードごとに変わるため、
   // 固定値(旧popW=252,popH=180)ではなく先に表示してoffsetWidth/Heightで実測する
   co.classList.add('open');
+  // V2_102: ペン/文字は色状態が分離した(currentColor/currentTextColor)ため、
+  // 開いた時点のcurrentTool(ペンか文字か)に応じて正しい方をハイライトし直す
+  if(typeof _syncColorBtnActive==='function') _syncColorBtnActive();
+  // V2_103: 太さも同様に分離した(currentLW/currentTextLW)ため、同じタイミングで
+  // ハイライトし直す
+  if(typeof _syncLwBtnActive==='function') _syncLwBtnActive();
   const rect=anchorEl.getBoundingClientRect();
   const popW=co.offsetWidth||252,popH=co.offsetHeight||180;
   let left=rect.left;
@@ -4188,11 +4625,22 @@ function openContextPopup(mode,anchorEl){
 // ポップアップは、選択中のツールアイコンをもう一度押すことで開く(tool.js側で
 // stopImmediatePropagation()して開くため、このdocumentクリックリスナーには
 // 到達しない。他の場所をタップした場合のみここで閉じる)
-document.addEventListener('click',function(e){
-  const co=document.getElementById('colorOverlay');
-  if(co.classList.contains('open')&&!co.contains(e.target)){
-    co.classList.remove('open');
-  }
+// V2_100: 外側タップで閉じる従来の挙動は廃止(「勝手にポップアップが消えるのがストレス」
+// との指摘への対応)。ポップアップ右上の「決定」ボタン(colorOverlayDoneBtn)、または
+// 選択中のツールアイコンの再タップ(openContextPopupのトグル)だけで閉じるようにする
+// V2_100: 3つのポップアップ(#colorOverlay/#measureToolPopup/#shapeToolPopup)右上に
+// 新設した「決定」ボタン。押すと該当ポップアップだけを閉じる(他の状態には触れない)
+document.getElementById('colorOverlayDoneBtn').addEventListener('click',function(e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  _closeToolPopupById('colorOverlay');
+});
+document.getElementById('measureToolPopupDoneBtn').addEventListener('click',function(e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  _closeToolPopupById('measureToolPopup');
+});
+document.getElementById('shapeToolPopupDoneBtn').addEventListener('click',function(e){
+  if(e&&e.stopPropagation) e.stopPropagation();
+  _closeToolPopupById('shapeToolPopup');
 });
 // 初期表示（ページ読み込み時: スケッチが選択済み）
 updateToolColorDots();
@@ -4251,6 +4699,53 @@ function getDimFontSize(d, PS) {
 function needsUnderbar(str){
   var digits=(str||'').replace(/[^0-9]/g,'');
   return digits.length>0&&/^[69]+$/.test(digits);
+}
+// V2_104: 寸法値文字の回転角度を正規化する共通関数。
+// 「文字が上下逆さまにならないように」との要望対応。
+// 寸法線のスクリーン空間角度(screenAng, -180°〜180°)をそのままctx.rotateに使うと、
+// 寸法線が左向き(角度が90°〜270°/-90°〜-180°の範囲)の場合、文字も一緒に180°
+// 回転してしまい上下逆さま(読みにくい)になる。この関数は角度を-90°〜+90°の範囲に
+// 正規化し(90°を超えたら-180°、-90°未満なら+180°して180°反転)、常に文字が
+// 上下逆さまにならない向き(基本は下が画面下、または右下方向)で表示されるようにする。
+// 全ての寸法コマンド(水平/鉛直/斜め/直径/半径/線と点/2線間/線の長さ)で共通利用し、
+// 画面描画・PDF書出し(jsPDF/pdf-lib)のいずれもこの関数が返したd.tangleを再利用する
+// ことで、両者の見た目を一致させている。
+// V2_105: 垂直に近い(±90°付近)寸法線で、文字の下端が左右どちらを向くかが
+// 計測時に選んだ点や側(=始点/終点の順序、法線のどちら側に点を取ったか等)に
+// よって不定になる不具合の対応。
+// 原因: 上の-90°〜+90°への正規化は「同じ物理的な向きの角度が180°反転して
+// 範囲外に出た場合」だけを180°反転で範囲内に畳み込む仕組みのため、通常は
+// 始点/終点をどちらの順で選んでも同じ最終角度に収束する。ところが寸法線が
+// ちょうど90°(または-90°)付近になる場合、+90°側と-90°側は「上下逆さま」
+// ではない(=このロジックの畳み込み対象外)ため、どちらも正規化されずに
+// そのまま残ってしまい、点の選び方や基準線のごくわずかな傾き方向の違い
+// (鉄骨図面では水平・垂直な線がほとんどのため、法線方向がちょうど±90°
+// 付近になりやすい)によって+90°になったり-90°になったりしてしまう。
+// ctx.rotate()は時計回りが正、かつ文字はtextBaseline='bottom'で
+// ローカル(0,-gap)を基準に描画される(=回転前のローカル+Y方向が文字の下端)
+// ため、回転後の下端方向ベクトルは(-sinθ, cosθ)になる。これが画面右
+// (+X方向)を向くのはθ=-90°の時のみ(θ=+90°では画面左を向いてしまう)。
+// そこで、θがちょうど90°/-90°(実質的にちょうど、浮動小数点誤差含む)の
+// 場合は常にθ=-90°に統一し、「文字の下端は常に画面右側を向く」という
+// 一貫した向きにする。
+// 上記の「90°/-90°をまたぐ180°反転」ロジック自体は変更しないため、
+// 既存の「上下逆さま防止」の挙動には影響しない。
+function normalizeDimTextAngle(screenAng){
+  var a=screenAng;
+  if(a>Math.PI/2) a=a-Math.PI;
+  else if(a<-Math.PI/2) a=a+Math.PI;
+  // V2_105追記: 90°/-90°ちょうど(または浮動小数点誤差で実質ちょうど)の場合のみを
+  // 対象とする。これより有意に(1°などのオーダーで)90°からずれている場合は、上の
+  // 180°反転により始点/終点や側の選び方によらず数学的に厳密に同じ値へ収束する
+  // (差分は常にちょうど180°のため、90°/-90°の特異点を跨がない限り必ず一致する)。
+  // よってこの許容差は「ちょうど垂直な基準線(dx=0またはdy=0)」で生じる浮動小数点
+  // 誤差(~1e-14オーダー)のみを吸収できれば十分であり、ここを広げすぎると逆に
+  // このEPS自体の境界で新たな不定さを生んでしまう。
+  var VERT_EPS=1e-6; // ラジアン(約0.00006°)
+  if(Math.abs(a-Math.PI/2)<VERT_EPS||Math.abs(a+Math.PI/2)<VERT_EPS){
+    a=-Math.PI/2; // 常に「文字の下端が画面右側を向く」側に統一
+  }
+  return a;
 }
 function drawDimEntity(ctx,d){
   var PS=1; // V0_95: PDF時もPS=1固定（PSCALE倍しない）
@@ -4378,6 +4873,23 @@ function snapAt(wx,wy){
 // =========================================================
 // 寸法構築
 // =========================================================
+// V2_115: 「作成時点のビュー表示倍率(scale)にそのまま反比例する、画面ピクセル
+// 相当の固定長オフセット(例: 32/scale, 8/scale, 6/scale, 50/scale, 30/scale等)」は、
+// 全体表示に近いくらい大きくズームアウトした状態で寸法・引出線・補助線を新規作成
+// すると、ワールド座標上では実寸何百〜何千mmという巨大な値になってdims[]に固定
+// 保存されてしまう(V2_112〜V2_114で「線と点」「2線間」に発見・修正済みの不具合と
+// 全く同じ原因)。V2_114時点ではbuildLinePtDim/buildLLDimの2箇所にしか対策
+// (fitScaleの3倍を分母scaleの下限にするクランプ)が適用されておらず、同じ
+// `定数/scale`パターンが斜め寸法(buildDim diag)・線の長さ(同流用)・直径(circDim)・
+// 半径(radDim)・円弧の長さ(buildArcLenDim226)・角度(buildAngDim)にも独立に
+// 存在し続けていた(実測: fitScale相当でφ330の円に直径寸法を作ると、本来330前後で
+// 済むはずの寸法線が587まで膨張することを確認)。全計測コマンドで再発しないよう、
+// 「ズームアウトして作成した際の定数/scale型オフセット」を必ずこの共通ヘルパー
+// 経由で計算するよう統一する。
+function _dimScaleFloor(){
+  var fs=(typeof fitScale==='number'&&fitScale>0)?fitScale:(scale||1);
+  return Math.max(scale||1, fs*3);
+}
 function buildDim(p1,p2,pArrow,type){
   const sd=parseFloat(document.getElementById('scaleDenom').value)||1;
   const lines=[],arrows=[];
@@ -4410,15 +4922,19 @@ function buildDim(p1,p2,pArrow,type){
     const nx2=-uy,ny2=ux;
     const midX=(p1.x+p2.x)/2,midY=(p1.y+p2.y)/2;
     // pArrow が未指定またはp2と同じ場合は法線方向50px先をデフォルト位置に
+    // V2_115: 50/scaleをそのまま使うとズームアウトして作成した際にデフォルト位置が
+    // 遠くへ飛ぶため、_dimScaleFloor()でクランプしたscaleを分母に使う
+    const _sf115a=_dimScaleFloor();
     const pRef=(pArrow&&(pArrow.x!==p2.x||pArrow.y!==p2.y))
-      ?pArrow:{x:midX+nx2*50/scale,y:midY+ny2*50/scale};
+      ?pArrow:{x:midX+nx2*50/_sf115a,y:midY+ny2*50/_sf115a};
     // p3のオフセット量（法線方向への射影）
     const offset2=(pRef.x-midX)*nx2+(pRef.y-midY)*ny2;
     // 寸法線端点
     const ep1x=p1.x+nx2*offset2,ep1y=p1.y+ny2*offset2;
     const ep2x=p2.x+nx2*offset2,ep2y=p2.y+ny2*offset2;
     // 補助線（寸法線外側に少しはみ出す）
-    const ext2=8/scale;
+    // V2_115: 8/scaleがズームアウト作成時に膨張しないよう_dimScaleFloor()を使用
+    const ext2=8/_dimScaleFloor();
     const sig2=offset2>=0?1:-1;
     const a1=Math.atan2(uy,-ux),a2=Math.atan2(-uy,ux);  // スクリーン空間: Y軸反転考慮
     text=formatDim(len/sd);
@@ -4426,7 +4942,7 @@ function buildDim(p1,p2,pArrow,type){
     // 寸法線方向角度（drawDimEntityのctx.rotateで使用）
     var screenAng=Math.atan2(-uy,ux);  // Y軸反転を考慮したスクリーン空間の角度
     // 文字が逆さにならないよう-90°〜90°の範囲に正規化
-    tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+    tangle=normalizeDimTextAngle(screenAng);
     lines.push({x1:ep1x,y1:ep1y,x2:ep2x,y2:ep2y});
     lines.push({x1:p1.x,y1:p1.y,x2:ep1x+nx2*sig2*ext2,y2:ep1y+ny2*sig2*ext2});
     lines.push({x1:p2.x,y1:p2.y,x2:ep2x+nx2*sig2*ext2,y2:ep2y+ny2*sig2*ext2});
@@ -4742,7 +5258,10 @@ function buildCircDimPhi(ent,p3){
   var p1x=cx-r*ux,p1y=cy-r*uy; // p3と反対側
   var p2x=cx+r*ux,p2y=cy+r*uy; // p3に近い側
   var sd=parseFloat(document.getElementById('scaleDenom').value)||1;
-  var ext=6/scale; // 補助線のはみ出し量
+  // V2_115: 6/scaleがズームアウトして作成した際に(直径そのものより大きく)膨張する
+  // 不具合(「線と点」「2線間」と同じ`定数/scale`パターン)を修正。_dimScaleFloor()で
+  // 分母scaleの下限をfitScale*3にクランプする
+  var ext=6/_dimScaleFloor(); // 補助線のはみ出し量
   // p3が円外にある場合は寸法線をp3まで延長
   var distP3=Math.hypot(p3.x-cx,p3.y-cy);
   var ep2x=(distP3>r+ext)?p3.x:p2x+ux*ext;
@@ -4751,7 +5270,7 @@ function buildCircDimPhi(ent,p3){
   var ep1x=p1x-ux*ext, ep1y=p1y-uy*ext;
   // スクリーン空間の角度: w2sがY軸反転するため atan2(-uy, ux) を使用
   var screenAng=Math.atan2(-uy,ux);
-  var tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+  var tangle=normalizeDimTextAngle(screenAng);
   return{
     lines:[{x1:ep1x,y1:ep1y,x2:ep2x,y2:ep2y}],
     arrows:[{x:p1x,y:p1y,angle:screenAng+Math.PI},{x:p2x,y:p2y,angle:screenAng}],
@@ -4820,14 +5339,15 @@ function buildRadDim(ent,p3){
   var ux=Math.cos(ang),uy=Math.sin(ang);
   var ex=cx+r*ux,ey=cy+r*uy; // 円周上の端点
   var sd=parseFloat(document.getElementById('scaleDenom').value)||1;
-  var ext=6/scale; // 補助線のはみ出し量
+  // V2_115: circDimと同じ`6/scale`パターンの不具合を修正(_dimScaleFloor()参照)
+  var ext=6/_dimScaleFloor(); // 補助線のはみ出し量
   // p3が円外にある場合は半径線をp3まで延長
   var distP3=Math.hypot(p3.x-cx,p3.y-cy);
   var ep2x=(distP3>r+ext)?p3.x:ex+ux*ext;
   var ep2y=(distP3>r+ext)?p3.y:ey+uy*ext;
   // スクリーン空間の角度: w2sがY軸反転するため atan2(-uy, ux) を使用
   var screenAng=Math.atan2(-uy,ux);
-  var tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+  var tangle=normalizeDimTextAngle(screenAng);
   return{
     lines:[{x1:cx,y1:cy,x2:ep2x,y2:ep2y}],
     arrows:[{x:ex,y:ey,angle:screenAng+Math.PI}], // 円周上で内向き（中心方向）
@@ -5068,15 +5588,15 @@ function buildLinePtDim(line,pt,pArrow){
   var d1={x:foot.x+lux*offset,y:foot.y+luy*offset}; // 表示上の寸法線位置(line側)
   var d2={x:pt.x  +lux*offset,y:pt.y  +luy*offset}; // 表示上の寸法線位置(pt側)
   var lines=[{x1:d1.x,y1:d1.y,x2:d2.x,y2:d2.y}]; // 寸法線本体
-  // line側: オフセット後の表示位置d1がlineの範囲内かどうかで判定(V2_27)。
-  // 範囲外ならはみ出した側の端点からd1まで補助線を伸ばす
-  var tOff=t+offset/lineLen;
-  if(tOff<-TOLR||tOff>1+TOLR){
-    var end=(tOff<0)?{x:line.x1,y:line.y1}:{x:line.x2,y:line.y2};
-    lines.push({x1:end.x,y1:end.y,x2:d1.x,y2:d1.y});
-  }
-  // pt側: offsetがほぼゼロ(寸法位置が点の位置にある)なら補助線なし。
-  // 点を左右に動かした場合のみ、pt自体からd2まで補助線を足す
+  // V2_112: line側とpt側の補助線は同じ条件・同じ考え方で描画する(始点側・終点側の
+  // 非対称バグ修正)。オフセット(offset)は同じ量だけfoot・ptの両方をline方向へ
+  // ずらしているため、補助線の長さは常にfoot側=pt側=|offset|で揃う。
+  // 旧実装ではline側を「オフセット後のd1が実物の線分(line)の範囲内かどうか」で
+  // 判定し、範囲内なら実物の線が背景に写っているからと補助線を省略していた。
+  // しかしlineが通り芯や既存の長い線で、その色がたまたま寸法と同じ色の場合、
+  // line側の補助線が実物の線に紛れて「pt側だけ長く伸びている」ように見える
+  // 不具合があった。pt側と全く同じ判定・同じ描画方法(foot自身からd1まで、
+  // offsetが無視できない大きさの時だけ)に統一し、常に左右(始点・終点)対称にする。
   // V2_27: offsetはワールド座標の絶対値(mm相当)で、pArrowはスナップなしのタッチ位置
   // (s2w変換のみ)からそのまま作られるため、TOLR=1e-6mmという閾値ではタッチ操作で
   // 到達できる精度を大きく下回り、「点の位置を指定しても常にoffsetありと判定されて
@@ -5084,19 +5604,50 @@ function buildLinePtDim(line,pt,pArrow){
   // 閾値にすることで、点の位置を大まかに狙うだけで意図通り補助線なしになるようにする
   var TOLR_OFS=Math.max(TOLR,6/(scale||1));
   if(Math.abs(offset)>TOLR_OFS){
-    lines.push({x1:pt.x,y1:pt.y,x2:d2.x,y2:d2.y});
+    lines.push({x1:foot.x,y1:foot.y,x2:d1.x,y2:d1.y}); // line側 補助線(pt側と対称)
+    lines.push({x1:pt.x,y1:pt.y,x2:d2.x,y2:d2.y});     // pt側 補助線
   }
+  // V2_113: V2_112では「line側: オフセット後のd1が実物のline範囲外(延長線上)の場合、
+  // はみ出した側の端点からd1までも追加で結ぶ」という処理をここに残していたが、これが
+  // 真の原因だった。footの元々の位置(t)がline実体の範囲[0,1]の外に出るケース
+  // (=lineと選択したptが正面に対向しておらず、垂線の足がlineの描画範囲からはみ出す
+  // 極めてよくある配置)では、pArrowによるoffsetがほぼゼロ(=寸法線をptの真上/真下に
+  // 置いただけ)でも、この判定だけがtOffで単独に働き、line側にだけ
+  // 「実物のline端点→d1(=foot)」という補助線が追加されていた。pt側にはこれに対応する
+  // 処理が無い(ptは単独の点であり、lineのような「実体の範囲」という概念自体が無い)ため、
+  // 常にline側だけ補助線が長く伸びて見える、という非対称バグの直接の原因だった
+  // (V2_112で修正した「foot→d1 / pt→d2」の対称化だけでは、この別経路の補助線
+  // 追加処理が温存されていたため直らなかった)。
+  // 2線間(buildLLDim)と違い、「線と点」は一方が実体の無い単なる点であるため、
+  // 「実体の範囲をはみ出した分を可視化する」という考え方自体が本質的に非対称にしか
+  // ならない。V2_113ではこの処理を完全に撤去し、buildDim(水平/鉛直/斜め)と同じく、
+  // 常にfoot→d1・pt→d2のみ(かつ両者とも同じoffset条件)で補助線を描く、単純で
+  // 左右対称な設計に統一する。
   var screenAng=Math.atan2(-uy,ux);
   var arrows=[
     {x:d1.x,y:d1.y,angle:screenAng+Math.PI},
     {x:d2.x,y:d2.y,angle:screenAng}
   ];
   var tx2=(d1.x+d2.x)/2,ty2=(d1.y+d2.y)/2;
-  var tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+  var tangle=normalizeDimTextAngle(screenAng);
   var sd1=w2s(d1.x,d1.y),sd2=w2s(d2.x,d2.y);
   var pxLen=Math.hypot(sd2[0]-sd1[0],sd2[1]-sd1[1]);
   if(pxLen<60){
-    var ref=(offset>=0?32:-32)/scale;
+    // V2_114: 以前は ref=32/scale (作成時点のビュー拡大率scaleにそのまま反比例) と
+    // していたため、鉄骨図面全体を見渡すくらいズームアウトした状態(scaleが極端に
+    // 小さい)で「線と点」寸法を作成すると、この「矢印からテキストを逃がすだけ」の
+    // 短い引出線が、ワールド座標上では図面内の実体線と見紛うほど巨大な長さになって
+    // dims[]に固定保存されてしまっていた。dims保存後は再計算されない静的な座標のため、
+    // 後で通常の倍率で表示したりPDF書き出ししたりすると、あたかも選択した線分の実体が
+    // そのまま赤色で描画されているかのように見える不具合の直接の原因だった
+    // (V2_112/V2_113で修正した「foot→d1・pt→d2の対称化」自体は正しく機能しているが、
+    // この引出線はそれとは別の独立したコードパスであり、これまで見落とされていた)。
+    // scaleそのものではなく、ファイルを開いた際に自動計算される全体表示スケール
+    // fitScale を下限の基準にすることで、図面全体が見えるくらいズームアウトして
+    // 寸法を作成しても、この引出線の長さが常に図面全体に対して妥当な(ごく一部の)
+    // 長さに収まるようにする。
+    var _refScaleBase114=Math.max(scale||1,((typeof fitScale==='number'&&fitScale>0)?fitScale:(scale||1))*3);
+    var ref=(offset>=0?32:-32)/_refScaleBase114;
     tx2=d2.x+lux*ref; ty2=d2.y+luy*ref;
     lines.push({x1:d2.x,y1:d2.y,x2:tx2,y2:ty2});
   }
@@ -5424,12 +5975,18 @@ function buildLLDim(line1,line2,pArrow){
     {x:foot2.x,y:foot2.y,angle:screenAng}
   ];
   var tx2=(foot1.x+foot2.x)/2,ty2=(foot1.y+foot2.y)/2;
-  var tangle=(screenAng>Math.PI/2)?screenAng-Math.PI:(screenAng<-Math.PI/2)?screenAng+Math.PI:screenAng;
+  var tangle=normalizeDimTextAngle(screenAng);
   var sd1=w2s(foot1.x,foot1.y),sd2=w2s(foot2.x,foot2.y);
   var pxLen=Math.hypot(sd2[0]-sd1[0],sd2[1]-sd1[1]);
   if(pxLen<60){
     // 寸法線が短すぎて数値が収まらない場合、line1の方向へ数値を逃がす(既存LP版と同趣旨)
-    var refDir=(t1>=0.5)?1:-1,refLen=32/scale;
+    // V2_114: buildLinePtDimと全く同じ理由(32/scaleが作成時のビュー拡大率に反比例し、
+    // ズームアウトして作成すると引出線がワールド座標上で巨大化してdims[]に固定
+    // 保存されてしまう不具合)がこちら(2線間)にも独立に存在していたため、同じ対策
+    // (fitScaleを下限の基準にする)を適用する。
+    var refDir=(t1>=0.5)?1:-1;
+    var _refScaleBase114=Math.max(scale||1,((typeof fitScale==='number'&&fitScale>0)?fitScale:(scale||1))*3);
+    var refLen=32/_refScaleBase114;
     tx2=foot2.x+ux1*refDir*refLen; ty2=foot2.y+uy1*refDir*refLen;
     lines.push({x1:foot2.x,y1:foot2.y,x2:tx2,y2:ty2});
   }
@@ -5894,7 +6451,8 @@ function buildArcLenDim226(e,pArrow){
   // 距離が取れない/ほぼ0の場合は元の半径より少し外側にデフォルト表示する
   var baseR=e.r||Math.max(e.rx||0,e.ry||0)||1;
   var distP=(pArrow&&pArrow.x!=null)?Math.hypot(pArrow.x-e.cx,pArrow.y-e.cy):NaN;
-  var r2=(isFinite(distP)&&distP>1e-6)?distP:(baseR+50/(scale||1));
+  // V2_115: デフォルトオフセット50/scaleがズームアウト作成時に膨張する不具合を修正
+  var r2=(isFinite(distP)&&distP>1e-6)?distP:(baseR+50/_dimScaleFloor());
   var ratio=r2/baseR;
   var offsetEnt={cx:e.cx,cy:e.cy,r:r2,rx:(e.rx||e.r||baseR)*ratio,ry:(e.ry||e.r||baseR)*ratio,a1:e.a1,a2:e.a2,tilt:e.tilt||0};
   var offPts=_llenArcPoints226(offsetEnt,n);
@@ -5912,7 +6470,7 @@ function buildArcLenDim226(e,pArrow){
   var midPrev=offPts[Math.max(0,midIdx-1)];
   var dtx=mid.x-midPrev.x,dty=mid.y-midPrev.y;
   var screenAngle=(Math.abs(dtx)<1e-9&&Math.abs(dty)<1e-9)?0:Math.atan2(-dty,dtx);
-  var tangle=(screenAngle>Math.PI/2)?screenAngle-Math.PI:(screenAngle<-Math.PI/2)?screenAngle+Math.PI:screenAngle;
+  var tangle=normalizeDimTextAngle(screenAngle);
 
   return {lines:lines,arrows:[],dots:dots,text:formatDim(len/sd),tx:mid.x,ty:mid.y,tangle:tangle,
     color:currentDimColor||'#f39c12',worldFontH:17/(scale||1),fixedTextPx:17,page:_curPage()};
@@ -6153,7 +6711,9 @@ function buildAngDim(line1,line2,pArrow){
   if(sweepAmt<EPS||sweepAmt>Math.PI+EPS) return null; // 縮退防御（4区画は本来180°未満のはず）
 
   var r=Math.hypot(pArrow.x-vertex.x,pArrow.y-vertex.y);
-  var minR=30/(scale||1);
+  // V2_115: 30/scaleがズームアウト作成時に膨張し、頂点付近を指定したつもりでも
+  // 弧の半径が図面全体に対して不釣り合いに巨大になる不具合を修正
+  var minR=30/_dimScaleFloor();
   if(!(r>=minR)) r=minR;
 
   var n=Math.max(8,Math.min(120,Math.ceil(sweepAmt/(5*Math.PI/180))));
@@ -6173,7 +6733,8 @@ function buildAngDim(line1,line2,pArrow){
   var dots=[{x:pts[0].x,y:pts[0].y},{x:pts[pts.length-1].x,y:pts[pts.length-1].y}];
 
   var midAng=sweepStart+sweepAmt/2;
-  var textR=r+14/(scale||1);
+  // V2_115: 14/scaleの膨張を防止
+  var textR=r+14/_dimScaleFloor();
   var tx2=vertex.x+textR*Math.cos(midAng), ty2=vertex.y+textR*Math.sin(midAng);
   var degVal=sweepAmt*180/Math.PI;
 
@@ -6487,6 +7048,19 @@ document.getElementById('subWinBtn').addEventListener('click',function(){
 var subWindows=[]; // [{id, el, cvEl, ctxEl, acEl, acCtx, ovEl, octxEl, tx,ty,scale, rectWorld, W,H}]
 var _swIdSeq=0;
 
+// V3_02: text入力欄・なげわアクションバー等、サブ窓内で開いたDOM要素の位置を
+// 毎フレーム正しく追従させるため、「あるovEl(canvas)がどのサブ窓に属するか」を
+// 外部(tool.js)から調べられるようにする
+window._swFindOwnerOfOv=function(ovEl){
+  for(var i=0;i<subWindows.length;i++){ if(subWindows[i].ovEl===ovEl) return subWindows[i]; }
+  return null;
+};
+// サブ窓自身のtx/ty/scaleを使って、ワールド座標(wx,wy)をそのサブ窓のcanvas内の
+// スクリーン座標へ変換する(w2s()と同じ計算式、グローバルの差し替えを必要としない)
+window._swScreenPos=function(sw,wx,wy){
+  return [wx*sw.scale+sw.tx, -wy*sw.scale+sw.ty];
+};
+
 function _swComputeScale(rectWorld,W,H){
   var eW=rectWorld.x2-rectWorld.x1, eH=rectWorld.y2-rectWorld.y1;
   var pad=0.06;
@@ -6633,9 +7207,18 @@ function createSubWindow(rectWorld){
       var p=_swPointerPos(e);
       el.style.left=(elStartLeft+(p.x-startX))+'px';
       el.style.top=(elStartTop+(p.y-startY))+'px';
+      // V3_03: サブ窓自体をドラッグ移動する操作はscheduleDraw/scheduleOverlayを呼ばないため
+      // rafLoopが回らず、文字入力欄(#textInputBox)・なげわ操作バー(#lassoActionBar)の位置が
+      // サブ窓の移動に追従しない不具合があった。ここで直接同期関数を呼んで即座に追従させる
+      if(typeof _syncTextInputBoxPosition88==='function') _syncTextInputBoxPosition88();
+      if(typeof _syncLassoActionBar90==='function') _syncLassoActionBar90();
       e.preventDefault();
     }
-    function onUp(){dragging=false;}
+    function onUp(){
+      dragging=false;
+      if(typeof _syncTextInputBoxPosition88==='function') _syncTextInputBoxPosition88();
+      if(typeof _syncLassoActionBar90==='function') _syncLassoActionBar90();
+    }
     header.addEventListener('mousedown',onDown);
     header.addEventListener('touchstart',onDown,{passive:false});
     window.addEventListener('mousemove',onMove);
@@ -6736,6 +7319,10 @@ function createSubWindow(rectWorld){
     _swCleanupFns.forEach(function(fn){fn();}); // V0_153.1: window付けリスナーを解放
     var idx=subWindows.indexOf(sw);
     if(idx>=0)subWindows.splice(idx,1);
+    // V3_02: このサブ窓内で文字入力/なげわ選択中だった場合、DOM要素が
+    // 取り残されないよう閉じる/隠す
+    if(typeof window._closeTextInputIfOwnedBySw92==='function') window._closeTextInputIfOwnedBySw92(sw);
+    if(typeof window._lassoHideActionBarIfOwnedBySw90==='function') window._lassoHideActionBarIfOwnedBySw90(sw);
     scheduleOverlay(); // V1_150: 閉じた瞬間にメイン画面の範囲着色を即時消去
   });
 
@@ -6796,41 +7383,50 @@ function _swAttachInput(sw){
     if(e.button!==0||(window.SW&&window.SW.active))return;
     _swBringToFront();
     _mDown=true;
+    // V3_02: 「なげわ」「図形」ツールのドラッグ処理(_lassoPointerMove/_shapePointerMove等)は
+    // handlePointerMove内でグローバルのmouseDown変数を見て動作有無を判定しているが、
+    // メイン画面用のov.addEventListener('mousedown')(tool.js)はサブ窓のel(このcanvas)の
+    // 下に隠れて発火しないため、このmouseDown変数がtrueにならず、サブ窓内でマウスドラッグ
+    // しても「なげわの囲み線が伸びない/図形のプレビューが動かない」=実質何も起きないように
+    // 見える不具合があった(タッチ側は既にmouseDown=trueを設定済みで問題なかった)。
+    // ここでタッチ側と同様にmouseDown=trueを設定して合わせる。
+    // ただし、mousemove/mouseupはtool.js側でwindow(document全体)にもグローバルリスナーが
+    // 貼られており、単純にmouseDown=trueにするだけだとそちらでも二重に(サブ窓ではなく
+    // メイン画面のov/tx/ty/scaleを使って)handlePointerMove/Upが呼ばれてしまい、ストローク
+    // 座標が壊れる。それを防ぐため_swActiveMouseDrag92で「今サブ窓がこのドラッグを
+    // 処理中」であることを示し、tool.js側のwindowレベルmousemove/mouseupの先頭で
+    // これを見て処理をスキップしてもらう(このファイルの直後、mouseup/mouseleaveで
+    // 必ずクリアする)。
+    window.mouseDown=true;
+    window._swActiveMouseDrag92=true;
     var r=el.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top};
+    // V3_04: IPX/DIM/LP/LL/LLEN/ANGのactive判定→handleDown呼び出しを一本化(tool.js _dispatchMeasureDown)。
+    // 新しい計測系ツールを追加する場合はtool.js側のMEASURE_TOOL_NAMES配列に足すだけでよい。
     withCtx(function(){
-      if(window.DIM&&window.DIM.active) window.DIM.handleDown(p.x,p.y);
-      else if(window.LP&&window.LP.active) window.LP.handleDown(p.x,p.y);
-      else if(window.LL&&window.LL.active) window.LL.handleDown(p.x,p.y); // V0_156: 2線間のサブ窓対応
-      else if(window.LLEN&&window.LLEN.active) window.LLEN.handleDown(p.x,p.y); // V1_240: 線の長さのサブ窓対応
-      else if(window.ANG&&window.ANG.active) window.ANG.handleDown(p.x,p.y); // V2_63: 角度のサブ窓対応
-      else handlePointerDown(p.x,p.y,false);
+      if(!_dispatchMeasureDown(p.x,p.y)) handlePointerDown(p.x,p.y,false);
     });
   });
   el.addEventListener('mousemove',function(e){
     var r=el.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top};
     withCtx(function(){
-      if(window.DIM&&window.DIM.active) window.DIM.handleMove(p.x,p.y);
-      else if(window.LP&&window.LP.active) window.LP.handleMove(p.x,p.y);
-      else if(window.LL&&window.LL.active) window.LL.handleMove(p.x,p.y); // V0_156
-      else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(p.x,p.y); // V1_240
-      else if(window.ANG&&window.ANG.active) window.ANG.handleMove(p.x,p.y); // V2_63
-      else if(_mDown) handlePointerMove(p.x,p.y,false);
+      if(!_dispatchMeasureMove(p.x,p.y)){ if(_mDown) handlePointerMove(p.x,p.y,false); }
     });
   });
+  function _swMouseUpOrLeave92(){
+    // V3_02: mouseDown/_swActiveMouseDrag92の後始末(mouseup・カーソルがel外に出た場合の両方で確実に)
+    window.mouseDown=false;
+    window._swActiveMouseDrag92=false;
+  }
   el.addEventListener('mouseup',function(e){
     if(!_mDown)return;
     _mDown=false;
+    _swMouseUpOrLeave92();
     var r=el.getBoundingClientRect(),p={x:e.clientX-r.left,y:e.clientY-r.top};
     withCtx(function(){
-      if(window.DIM&&window.DIM.active) window.DIM.handleUp(p.x,p.y);
-      else if(window.LP&&window.LP.active) window.LP.handleUp(p.x,p.y);
-      else if(window.LL&&window.LL.active) window.LL.handleUp(p.x,p.y); // V0_156
-      else if(window.LLEN&&window.LLEN.active) window.LLEN.handleUp(p.x,p.y); // V1_240
-      else if(window.ANG&&window.ANG.active) window.ANG.handleUp(p.x,p.y); // V2_63
-      else handlePointerUp(p.x,p.y,false);
+      if(!_dispatchMeasureUp(p.x,p.y)) handlePointerUp(p.x,p.y,false);
     });
   });
-  el.addEventListener('mouseleave',function(){_mDown=false;});
+  el.addEventListener('mouseleave',function(){_mDown=false;_swMouseUpOrLeave92();});
 
   // ── タッチ（iPad本番用。ペン/指分離・2本指パン+ピンチはメイン画面と同じロジック） ──
   el.addEventListener('touchstart',function(e){
@@ -6846,17 +7442,25 @@ function _swAttachInput(sw){
         var t=styli[0];
         var sx=t.clientX-r.left,sy=t.clientY-r.top;
         isPen=true;mouseDown=true;lastMX=sx;lastMY=sy;panning=false;
-        withCtx(function(){
-          if(window.DIM&&window.DIM.active) window.DIM.handleDown(sx,sy);
-          else if(window.LP&&window.LP.active) window.LP.handleDown(sx,sy);
-          else if(window.LL&&window.LL.active) window.LL.handleDown(sx,sy); // V0_156: 2線間のサブ窓対応
-          else if(window.LLEN&&window.LLEN.active) window.LLEN.handleDown(sx,sy); // V1_240
-          else if(window.ANG&&window.ANG.active) window.ANG.handleDown(sx,sy); // V2_63
-          else handlePointerDown(sx,sy,true);
-        });
+        // V3_04: IPX/DIM/LP/LL/LLEN/ANGのactive判定→handleDown呼び出しを一本化
+        // (tool.js _dispatchMeasureDown)。新しい計測系ツールを追加する場合は
+        // tool.js側のMEASURE_TOOL_NAMES配列に足すだけでよい。
+        var _swMDown=false;
+        withCtx(function(){ _swMDown=_dispatchMeasureDown(sx,sy); });
+        if(_swMDown){
+          // 計測系ツールへ委譲済み
+        } else if(currentTool==='text'){
+          // V3_01: 文字ツール。メイン画面(tool.js)と同じく、ペンが触れた瞬間(touchstart)では
+          // まだ入力枠を開かず、位置だけ記憶してtouchend(ペンが離れた瞬間)で開く
+          // (理由はtool.js側の_textToolPendingOpen92宣言部コメントを参照)。
+          _textToolPendingOpen92={sx:sx,sy:sy,isPenInput:true};
+        } else {
+          withCtx(function(){ handlePointerDown(sx,sy,true); });
+        }
       }
     } else if(fingers.length>=2){
       if(sketching){sketching=false;sketchPts=[];}
+      _textToolPendingOpen92=null; // V3_01: 1本指タップ保留中に2本目が触れたら2本指ジェスチャー優先でキャンセル
       // V1_98: メイン画面(tool.js)のV1_97と同じ修正をサブ窓にも適用。指Aが単独で
       // 触れた直後(fingers.length===1のtouchstartが1回発火した後)に指Bが加わって
       // 2本指ピンチが成立するケースでは、その一瞬の間に手書きモード+計測ツール
@@ -6889,17 +7493,23 @@ function _swAttachInput(sw){
       // サブ窓内でも手書き描画・消しゴム・指計測より文字タップのテキスト読込ピックを
       // 優先する（メイン画面tool.jsと同様の扱い）
       if(typeof _textPickTarget!=='undefined'&&_textPickTarget&&inputMode==='freehand'
-          &&(_fingerMeasureActive()||currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser')){
+          &&(_fingerMeasureActive()||currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser'||currentTool==='lasso'||_isShapeTool(currentTool))){
         if(sketching){sketching=false;sketchPts=[];}
         panning=true;
         _panAnchorX=null;_panAnchorY=null; // V1_101: 移動距離判定の起点をパン開始のたびにリセット
         _tapStartTime=Date.now();_tapStartX=sxf;_tapStartY=syf;
+      } else if(currentTool==='text'){
+        // V3_01: 文字ツール。メイン画面(tool.js)と同じく、指がフリーハンドモードかどうかに
+        // 関係なく指タップで常にテキスト入力を開始できるようにする。入力枠を実際に開く処理は
+        // ここでは行わず、位置だけ記憶してtouchend(指が離れた瞬間)まで遅らせる。
+        panning=false;
+        _textToolPendingOpen92={sx:sxf,sy:syf,isPenInput:false};
       } else if(inputMode==='freehand'&&_fingerMeasureActive()){
         panning=false;
         var fyf=syf-FINGER_CURSOR_OFFSET_Y;
         withCtx(function(){ _fingerMeasureDown(sxf,fyf); });
         lastMX=sxf;lastMY=fyf;
-      } else if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser')){
+      } else if(inputMode==='freehand'&&(currentTool==='sketch'||currentTool==='hl'||currentTool==='eraser'||currentTool==='lasso'||_isShapeTool(currentTool))){
         panning=false;
         withCtx(function(){ handlePointerDown(sxf,syf,false); });
       } else {
@@ -6923,14 +7533,8 @@ function _swAttachInput(sw){
     if(styli.length>0&&mouseDown&&isPen){
       var t=styli[0];
       var sx=t.clientX-r.left,sy=t.clientY-r.top;
-      withCtx(function(){
-        if(window.DIM&&window.DIM.active) window.DIM.handleMove(sx,sy);
-        else if(window.LP&&window.LP.active) window.LP.handleMove(sx,sy);
-        else if(window.LL&&window.LL.active) window.LL.handleMove(sx,sy); // V0_156
-        else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(sx,sy); // V1_240
-        else if(window.ANG&&window.ANG.active) window.ANG.handleMove(sx,sy); // V2_63
-        else handlePointerMove(sx,sy,true);
-      });
+      // V3_04: 一本化(_dispatchMeasureMove)
+      withCtx(function(){ if(!_dispatchMeasureMove(sx,sy)) handlePointerMove(sx,sy,true); });
       lastMX=sx;lastMY=sy;
     } else if(fingers.length>=2&&pinchDist!==null){
       var t0=fingers[0],t1=fingers[1];
@@ -6955,17 +7559,11 @@ function _swAttachInput(sw){
       var sxf=tf.clientX-r.left,syf=tf.clientY-r.top-FINGER_CURSOR_OFFSET_Y;
       withCtx(function(){ _fingerMeasureMove(sxf,syf); });
       lastMX=sxf;lastMY=syf;
-    } else if(fingers.length===1&&mouseDown&&!panning&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
+    } else if(fingers.length===1&&mouseDown&&!panning&&(sketching||(inputMode==='freehand'&&(currentTool==='eraser'||currentTool==='lasso'||_isShapeTool(currentTool))))){
       var tf=fingers[0];
       var sxf=tf.clientX-r.left,syf=tf.clientY-r.top;
-      withCtx(function(){
-        if(window.DIM&&window.DIM.active) window.DIM.handleMove(sxf,syf);
-        else if(window.LP&&window.LP.active) window.LP.handleMove(sxf,syf);
-        else if(window.LL&&window.LL.active) window.LL.handleMove(sxf,syf); // V0_156
-        else if(window.LLEN&&window.LLEN.active) window.LLEN.handleMove(sxf,syf); // V1_240
-        else if(window.ANG&&window.ANG.active) window.ANG.handleMove(sxf,syf); // V2_63
-        else handlePointerMove(sxf,syf,false);
-      });
+      // V3_04: 一本化(_dispatchMeasureMove)
+      withCtx(function(){ if(!_dispatchMeasureMove(sxf,syf)) handlePointerMove(sxf,syf,false); });
       lastMX=sxf;lastMY=syf;
     } else if(fingers.length===1&&mouseDown&&panning){
       var tf2=fingers[0];
@@ -6993,14 +7591,18 @@ function _swAttachInput(sw){
     var remFing=remaining.filter(function(t){return t.touchType!=='stylus';});
     var liftedStylus=changed.filter(function(t){return t.touchType==='stylus';});
     if(liftedStylus.length>0&&isPen&&mouseDown){
-      withCtx(function(){
-        if(window.DIM&&window.DIM.active) window.DIM.handleUp(lastMX,lastMY);
-        else if(window.LP&&window.LP.active) window.LP.handleUp(lastMX,lastMY);
-        else if(window.LL&&window.LL.active) window.LL.handleUp(lastMX,lastMY); // V0_156
-        else if(window.LLEN&&window.LLEN.active) window.LLEN.handleUp(lastMX,lastMY); // V1_240
-        else if(window.ANG&&window.ANG.active) window.ANG.handleUp(lastMX,lastMY); // V2_63
-        else handlePointerUp(lastMX,lastMY,true);
-      });
+      if(_textToolPendingOpen92){
+        // V3_01: 文字ツール。ペンが離れた「今」初めて入力枠を開きfocus()する。
+        // サブ窓自身のtx/ty/scale/ov(getBoundingClientRect基準)に差し替えた状態で
+        // handlePointerDownを呼ぶ必要があるため、必ずwithCtx()で包む
+        // (怠ると入力開始位置がメイン画面の座標系で計算されてしまう)。
+        var _swTp92pen=_textToolPendingOpen92;_textToolPendingOpen92=null;
+        _textInputTouchOrigin=true;
+        withCtx(function(){ handlePointerDown(_swTp92pen.sx,_swTp92pen.sy,true); });
+      } else {
+        // V3_04: 一本化(_dispatchMeasureUp)
+        withCtx(function(){ if(!_dispatchMeasureUp(lastMX,lastMY)) handlePointerUp(lastMX,lastMY,true); });
+      }
       mouseDown=false;isPen=false;
       if(remFing.length>=2){
         var t0=remFing[0],t1=remFing[1];
@@ -7015,6 +7617,18 @@ function _swAttachInput(sw){
       return;
     }
     if(remaining.length===0){
+      // V3_01: 文字ツールの指タップ保留があれば最優先で処理する(メイン画面tool.jsと同様)。
+      // 指が離れた「今」初めて入力枠を開きfocus()する。保留中に2本指ジェスチャーへ
+      // 発展していた場合(_gestureSessionActive)は開かない。
+      if(_textToolPendingOpen92){
+        var _swTp92fin=_textToolPendingOpen92;_textToolPendingOpen92=null;
+        if(!_gestureSessionActive){
+          _textInputTouchOrigin=true;
+          withCtx(function(){ handlePointerDown(_swTp92fin.sx,_swTp92fin.sy,false); });
+        }
+        _tapStartTime=0;_gestureSessionActive=false;_panAnchorX=null;_panAnchorY=null;
+        panning=false;mouseDown=false;pinchDist=null;pinchMid=null;return;
+      }
       // V1_46/V1_47: 手書きモードで指計測中（DIM/LP/LL・水平鉛直・斜め）だった場合は
       // 指を離した位置で確定
       // V1_101: メイン画面(tool.js)と同じく、時間ベースの猶予(V1_99/V1_100)を
@@ -7023,7 +7637,7 @@ function _swAttachInput(sw){
       if(!_gestureSessionActive&&!isPen&&inputMode==='freehand'&&_fingerMeasureActive()){
         withCtx(function(){ _fingerMeasureUp(lastMX,lastMY); });
       }
-      if(!_gestureSessionActive&&!isPen&&(sketching||(inputMode==='freehand'&&currentTool==='eraser'))){
+      if(!_gestureSessionActive&&!isPen&&(sketching||(inputMode==='freehand'&&(currentTool==='eraser'||currentTool==='lasso'||_isShapeTool(currentTool))))){
         withCtx(function(){ handlePointerUp(lastMX,lastMY,false); });
       }
       // V1_42: 「テキスト読込」ピック中は、サブ窓内での単純タップ（ドラッグ量が
@@ -7062,6 +7676,24 @@ function _swAttachInput(sw){
       _panAnchorX=null;_panAnchorY=null;
     }
   },{passive:false});
+
+  // V3_01: touchcancel対応。従来サブ窓にはtouchstart/touchmove/touchendの3つしか
+  // 登録しておらず、touchcancel(iPadのシステムジェスチャーや着信・通知等でtouchendの
+  // 代わりに発火する)を一切処理していなかった。メイン画面(tool.js V2_94)と同じ考え方で、
+  // 確定処理(コミット)は一切行わずに状態をリセットするだけの安全な形で対応する。
+  el.addEventListener('touchcancel',function(e){
+    var remaining=Array.from(e.touches);
+    if(remaining.length>0) return; // 残っている指がある間はキャンセル扱いにしない(他の指は継続)
+    _textToolPendingOpen92=null; // 文字ツールの保留は「タップが確定しなかった」ものとして破棄
+    if(sketching){sketching=false;sketchPts=[];scheduleOverlay();}
+    if(typeof shapeToolState!=='undefined'&&shapeToolState.drawing){
+      shapeToolState.drawing=false;shapeToolState.tool=null;shapeToolState.start=null;shapeToolState.cur=null;
+      scheduleOverlay();
+    }
+    mouseDown=false;isPen=false;panning=false;
+    pinchDist=null;pinchMid=null;
+    _gestureSessionActive=false;_panAnchorX=null;_panAnchorY=null;_tapStartTime=0;
+  },{passive:true});
 }
 
 // キャンバスの物理ピクセルサイズをdprに合わせて設定し、tx/ty/scaleを再計算
@@ -7124,6 +7756,8 @@ window._renderAllSubWindows=function(){
    _justOp   : 演算子押下直後フラグ（次の数字で入力リセット） */
 let leftVal='',pendingOp='',curInput='0';
 let _afterEq=false,_justOp=false;
+let _runSum=0; // V2_118: 追寸ボタン用ランニング合計
+let _tsuizunMode=false; // V2_119: 追寸モード(トグル)のON/OFF
 let _lastOp='',_lastOperand=''; // V2_57: 「=」連続押しの定数計算用(直前に実際に使った演算子・右辺値)
 let _dispExpr=''; // 式表示用。=後も保持し新規入力開始時にクリア
 let _dispTokens=[]; // 表示用トークン（内部計算から分離）
@@ -7171,7 +7805,17 @@ document.getElementById('cclose').addEventListener('click',function(){
   // V1_214: 計算機を閉じたら、数字読込ピックモード('calc')中だった場合は解除する
   // (他の読込パネル(画面検索/検索して開く等)を閉じた時と同じ扱い)
   if(typeof _textPickTarget!=='undefined'&&_textPickTarget==='calc'&&typeof _setTextPickMode==='function') _setTextPickMode(null);
+  // V2_119: パネルを閉じたら追寸モードも自動終了させ、ボタン見た目も戻す
+  if(_tsuizunMode){_tsuizunMode=false;_updateTsuizunBtnUI();}
 });
+
+function _updateTsuizunBtnUI(){
+  var b=document.querySelector('.cb[data-cfn="tsuizun"]');
+  if(b) b.classList.toggle('tsz-on',_tsuizunMode);
+  // V2_119: 追寸モード中は読込トグル(#calcPickBtn)自体を押せなくする。
+  // ピックモードのON/OFFは追寸ボタンのみで制御し、中途半端な状態を防ぐ
+  if(_calcPickBtnEl211) _calcPickBtnEl211.disabled=_tsuizunMode;
+}
 
 // V1_214: 画面上の数字テキスト(doc.moji/pdfMoji/Excelセル/計測値)をタップして
 // 計算機へ自動入力する機能。curInput等はこのIIFE内のlet宣言でスコープが閉じている
@@ -7182,6 +7826,16 @@ document.getElementById('cclose').addEventListener('click',function(){
 window._calcInputFromPick=function(text){
   var m=(text||'').match(/-?\d+(\.\d+)?/);
   if(!m) return false;
+  if(_tsuizunMode){
+    // V2_119: 追寸モード中は読込のたびにランニング合計へ加算する
+    var d=+decEl.value;
+    _runSum=parseFloat((_runSum+parseFloat(m[0])).toFixed(d));
+    _hist('+'+m[0],String(_runSum));
+    curInput=String(_runSum);
+    _dispExpr='';_dispTokens=[];
+    _disp();
+    return true;
+  }
   curInput=m[0];
   _afterEq=false;_justOp=false;
   if(_dispTokens.length&&_dispTokens[_dispTokens.length-1].type==='num'){
@@ -7217,6 +7871,13 @@ decEl.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefaul
 
 document.querySelectorAll('.cb').forEach(function(btn){
   btn.addEventListener('click',function(){
+    var _fnPressed=btn.dataset.cfn;
+    if(_tsuizunMode && _fnPressed!=='tsuizun' && _fnPressed!=='C'){
+      // V2_119: 追寸モード中はテンキー・演算子等の手入力を一切受け付けない。読込のみ有効
+      // V2_120: Cボタンのみ例外として通す（ランニング合計のリセット用）
+      showGuide('追寸モード中は画面の数字をタップしてください（「追寸」ボタンで終了）',1800);
+      return;
+    }
     // V2_27: 押したボタンが一瞬光るフィードバック。連打時も毎回再生されるよう、
     // 一度クラスを外してリフローさせてから付け直す
     btn.classList.remove('cb-flash');
@@ -7270,12 +7931,35 @@ document.querySelectorAll('.cb').forEach(function(btn){
         leftVal='';pendingOp='';curInput='0';_afterEq=false;_justOp=false;
         _lastOp='';_lastOperand=''; // V2_57: 定数計算の記憶もクリア
         _dispExpr='';_dispTokens=[];
+        _runSum=0; // V2_118: 追寸の累計もリセット
+        if(_tsuizunMode){
+          // V2_120: 追寸モード中はモード自体(読込ピックモード含む)を維持したまま合計だけ0に戻す
+          showGuide('追寸の合計をリセットしました。続けて画面の数字をタップしてください',1800);
+        }
       }else if(fn==='⌫'){
         if(!_afterEq&&!_justOp) curInput=curInput.length>1?curInput.slice(0,-1):'0';
       }else if(fn==='±'){
         curInput=curInput.indexOf('-')===0?curInput.slice(1):'-'+curInput;
-      }else if(fn==='%'){
-        curInput=parseFloat((cur/100).toFixed(d)).toString();
+      }else if(fn==='tsuizun'){
+        // V2_119: 追寸ボタン。トグル式の専用モード。ONにすると読込ピックモードが
+        // 自動起動し、以後は画面の数字をタップするたびにランニング合計へ加算する。
+        // テンキー等の手入力は上のガードで無効化される(このfnだけは常に押せる)
+        _tsuizunMode=!_tsuizunMode;
+        if(_tsuizunMode){
+          _runSum=0;
+          leftVal='';pendingOp='';curInput='0';_afterEq=false;_justOp=false;
+          _dispExpr='';_dispTokens=[];
+          if(typeof _setTextPickMode==='function' && _textPickTarget!=='calc') _setTextPickMode('calc');
+          showGuide('追寸モードON。画面の数字をタップして加算してください（もう一度「追寸」を押すと終了）',2500);
+        }else{
+          if(typeof _setTextPickMode==='function' && _textPickTarget==='calc') _setTextPickMode(null);
+          // 直前のランニング合計は表示のまま残しつつ、次のテンキー入力は新規入力として
+          // 扱う(=直後と同じ挙動)。これをしないと通常モード復帰後に数字が末尾へ
+          // 追記されてしまう
+          _afterEq=true;_justOp=false;
+          showGuide('追寸モードを終了しました',1800);
+        }
+        _updateTsuizunBtnUI();
       }else if(fn==='sqrt'){
         var r=Math.sqrt(cur);
         curInput=isFinite(r)?parseFloat(r.toFixed(d)).toString():'エラー';
@@ -7308,7 +7992,7 @@ document.querySelectorAll('.cb').forEach(function(btn){
         }
         _afterEq=true;_justOp=false;
       }
-      if(['⌫','±','%','sqrt','sq'].indexOf(fn)>=0&&!_afterEq&&!_justOp){
+      if(['⌫','±','sqrt','sq'].indexOf(fn)>=0&&!_afterEq&&!_justOp){
         if(_dispTokens.length&&_dispTokens[_dispTokens.length-1].type==='num')
           _dispTokens[_dispTokens.length-1].val=curInput;
         _dispExpr=_tokensToStr(_dispTokens);
@@ -7438,23 +8122,83 @@ function buildSearchIndex(){
   }
 }
 
+// V2_70: 「画面検索」はPDFの場合、従来は現在表示中の1ページ分(pdfMoji)しか検索対象に
+// できなかった。「PDFを開いた時は画面検索→ページ検索として、そのデータのページ全体が
+// 検索できるようにしてほしい」との要望により、PDFが開かれている間はopenScreenSearch()で
+// 全ページ分のテキストを事前にまとめて索引化し、doSearch()もそちらを検索対象にする。
+// キー(pdfDoc参照)が変わらない限り再構築しない簡易キャッシュ
+var _pdfAllPagesIdx=null;
+var _pdfAllPagesIdxBuilding=false;
+var _pdfAllPagesIdxDocRef=null;
+async function _buildPdfAllPagesIdxIfNeeded(){
+  if(!pdfDoc) return;
+  if(_pdfAllPagesIdxDocRef===pdfDoc&&_pdfAllPagesIdx) return; // 同じPDFなら構築済みを使う
+  var docRef=pdfDoc;
+  _pdfAllPagesIdxBuilding=true;
+  var built=[];
+  try{
+    for(var i=1;i<=docRef.numPages;i++){
+      if(pdfDoc!==docRef) return; // 構築中に別ファイルへ切り替わったら古い結果は反映しない
+      var page=await docRef.getPage(i);
+      var vp=page.getViewport({scale:PDF_BASE_SCALE});
+      var items=await _pdfPageTextItems(page,vp);
+      items.forEach(function(m){
+        var t=(m.text||'').trim();
+        if(t) built.push({text:t,x:m.x,y:m.y,h:m.h||1,page:i});
+      });
+    }
+    if(pdfDoc===docRef){ _pdfAllPagesIdx=built; _pdfAllPagesIdxDocRef=docRef; }
+  }catch(e){ console.warn('[ページ検索: 全ページ索引作成]',e); }
+  finally{ if(pdfDoc===docRef) _pdfAllPagesIdxBuilding=false; }
+}
+
 function doSearch(){
   var kw=_normalizeForSearch((document.getElementById('searchInput').value||'').trim());
   var list=document.getElementById('searchResultList');
   var countEl=document.getElementById('searchCount');
   list.innerHTML='';
-  if(!kw){countEl.textContent=_searchIdx.length>0?_searchIdx.length+'件の文字をインデックス済':'';return;}
-  if(_searchIdx.length===0){
-    countEl.textContent='インデックスが空です（DXFを再読込してください）';
+  // V2_70: PDFを開いている間は「ページ検索」として全ページ分の索引(_pdfAllPagesIdx)を
+  // 検索対象にする。DXF等はこれまでと同じ現在の索引(_searchIdx)のまま
+  var isPdfAll=!!pdfDoc;
+  var idxSrc=isPdfAll?(_pdfAllPagesIdx||[]):_searchIdx;
+  if(isPdfAll&&_pdfAllPagesIdxBuilding&&idxSrc.length===0){
+    countEl.textContent='索引を作成中です…しばらくお待ちください';
     return;
   }
-  var results=_searchIdx.filter(function(m){return _normalizeForSearch(m.text).includes(kw);});
-  countEl.textContent='検索結果: '+results.length+'件';
-  results.slice(0,200).forEach(function(item){
+  if(!kw){
+    countEl.textContent=idxSrc.length>0?(idxSrc.length+'件の文字をインデックス済'+(isPdfAll?'（全'+pdfDoc.numPages+'ページ）':'')):'';
+    return;
+  }
+  if(idxSrc.length===0){
+    countEl.textContent='インデックスが空です（'+(isPdfAll?'PDF':'DXF')+'を再読込してください）';
+    return;
+  }
+  var results=idxSrc.filter(function(m){return _normalizeForSearch(m.text).includes(kw);});
+  countEl.textContent='検索結果: '+results.length+'件'+(isPdfAll?'（全'+pdfDoc.numPages+'ページ中）':'');
+  results.slice(0,200).forEach(function(item,idx){
     var li=document.createElement('div');
     li.className='search-result-item';
-    li.textContent=item.text;
-    li.addEventListener('click',function(){jumpToSearchResult(item);});
+    if(isPdfAll){
+      // V2_70: 「右にページ数の選択肢が出て、ヒット文字がどんな文言か部分的に表示」
+      // との要望どおり、一致テキスト(左)＋ページ番号バッジ(右)の1行にする
+      li.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px';
+      var txt=document.createElement('span');
+      txt.style.cssText='overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0';
+      txt.textContent=item.text;
+      var pg=document.createElement('span');
+      pg.style.cssText='flex-shrink:0;font-size:12px;color:var(--accent,#00d4ff);border:1px solid var(--accent,#00d4ff);border-radius:10px;padding:2px 9px;';
+      pg.textContent=item.page+'ページ';
+      li.appendChild(txt);li.appendChild(pg);
+      li.addEventListener('click',function(){
+        // V2_76: パネルを開いたままにするため、選択中の行が分かるよう強調表示する
+        Array.prototype.forEach.call(list.querySelectorAll('.search-result-item'),function(x){x.style.background='';});
+        li.style.background='rgba(0,212,255,.18)';
+        _jumpToPdfAllSearchResult(results,idx,kw);
+      });
+    } else {
+      li.textContent=item.text;
+      li.addEventListener('click',function(){jumpToSearchResult(item);});
+    }
     list.appendChild(li);
   });
   if(results.length>200){
@@ -7463,6 +8207,72 @@ function doSearch(){
     more.textContent='… 他'+(results.length-200)+'件（絞り込んでください）';
     list.appendChild(more);
   }
+}
+
+// V2_70: 「ページ検索」の結果をタップした時の処理。対象ページが現在表示中と異なれば
+// 切り替えてから該当箇所へジャンプする（_markGoNext()のPDF分岐と同じ手順）。
+// 続けて「次へ」で全ページ分の他の一致箇所も巡回できるよう、_markNavList/_markNavIdxに
+// この検索結果をそのまま流用する
+async function _jumpToPdfAllSearchResult(results,idx,kw){
+  var item=results[idx];
+  if(!item) return;
+  // V2_76: 「色々探したいので、右のポップアップ(検索結果パネル)は消さずに、ヒットした
+  // ページへどんどん飛べるようにしてほしい」との要望対応。従来はここで検索パネル
+  // (#searchOverlay)を閉じていたため、1件選ぶごとにパネルが消え、他の候補へ続けて
+  // 移動できなかった。パネルは閉じずに開いたままにし、続けて他の結果をタップできる
+  // ようにする（閉じるのは✕ボタンや暗幕タップなど、これまで通りのユーザー操作のみ）
+  _markKeyword=kw;
+  _markNavList=results.slice();
+  _markNavIdx=idx;
+  _allSearchQueue=null;_allSearchQueueIdx=-1; // V2_70: 全図面検索経由のキューではないため無効化
+  if(item.page!==pdfPageNum){
+    // V2_74: 「ページ検索でそのページにジャンプしない」不具合を修正。他のページ切替箇所
+    // (prevPage/nextPage等)は全てrenderPdfPage()を呼ぶ前にグローバル変数pdfPageNumを
+    // 更新しているが、ここではその代入が漏れていた。pdfPageNumが古いページ番号のまま
+    // だと、renderPdfPage()自体は指定ページ(item.page)を正しく描画するものの、直後に
+    // 発生する高解像度再レンダリング(_pdfCheckAndRefresh→_pdfRenderVisibleTile)が
+    // 「現在のページ」としてpdfPageNum(古い値)を参照して古いページを取得し直し、
+    // pdfImageを古いページの内容で上書きしてしまうため、ジャンプした直後に元のページへ
+    // 戻ったように見えていた
+    pdfPageNum=item.page;
+    await renderPdfPage(item.page);
+    _rebuildSearchMarksForCurrentPage();
+  }
+  var _pi74=document.getElementById('pageInfo');
+  if(_pi74) _pi74.textContent=pdfPageNum+'/'+pdfDoc.numPages;
+  jumpToSearchResult(item);
+  _updateMarkCountLabel(_markNavIdx,_markNavList.length);
+  // V2_73: 「ページ検索でジャンプすると右のポップアップ(マーク件数/次へ)が消える。
+  // ✕ボタンでのみ消えるようにしてほしい」との要望対応。従来jumpToSearchResult()内の
+  // ハイライト点滅(2.4秒)が終わるまでポップアップ表示(.visible)が付与されず、その間
+  // 「消えている」ように見えていたため、ここで即座に表示状態にする。以後は✕ボタン
+  // (markClearX)を押すか、別ファイルを開く/タブを切替するまで表示され続ける
+  _showMarkPopupForce();
+}
+// V2_75: 「ページ検索でページを選んでも右のポップアップがやっぱり消える」との再報告対応。
+// コード上はV2_73/V2_74で.visible付与のタイミングを直しており、このセッション内の
+// 自動テスト(ヘッドレスブラウザ)では表示が消えない事を複数パターンで確認済みだったため、
+// 実機(iPad Safari)特有の再描画不具合(backdrop-filterを使う要素はdisplay切替直後に
+// 一瞬だけ透明のまま固まって見えることがある既知の挙動)を疑い、.visible付与後に
+// 強制的にレイアウト再計算(reflow)を発生させ、さらに次フレーム/300ms後にも再度
+// 付与し直すことで確実に描画されるようにする
+var _markPopupClosedAt=0; // V2_75: ✕ボタンで閉じた時刻。この後の遅延再表示を抑止する
+function _showMarkPopupForce(){
+  var mp=document.getElementById('markPopup');
+  if(!mp) return;
+  var t0=Date.now();
+  mp.classList.add('visible');
+  void mp.offsetHeight; // 強制reflow（iPad Safariのbackdrop-filter要素が表示直後
+                         // 一瞬透明のまま固まって見える既知の描画不具合への対策）
+  requestAnimationFrame(function(){
+    if(_markPopupClosedAt>t0) return; // 表示直後に✕で閉じられていたら再表示しない
+    mp.classList.add('visible');
+    void mp.offsetHeight;
+  });
+  setTimeout(function(){
+    if(_markPopupClosedAt>t0) return;
+    mp.classList.add('visible');
+  },300);
 }
 
 function jumpToSearchResult(item){
@@ -7480,7 +8290,7 @@ function jumpToSearchResult(item){
     cnt++;
     _searchHighlight=(cnt%2===0)?null:item;
     scheduleOverlay();
-    if(cnt>=6){clearInterval(iv);_searchHighlight=item;scheduleOverlay();var _mp2=document.getElementById('markPopup');if(_mp2)_mp2.classList.add('visible');} // V0_131
+    if(cnt>=6){clearInterval(iv);_searchHighlight=item;scheduleOverlay();_showMarkPopupForce();} // V0_131 / V2_75
   },400);
 }
 
@@ -7492,7 +8302,12 @@ function _updateMarkCountLabel(idx,total){
   var lbl=document.getElementById('markCountLabel');
   var btn=document.getElementById('markNextBtn');
   if(lbl) lbl.textContent=total>0?(' '+(idx>=0?(idx+1)+'/':'')+total+'件'):'';
-  if(btn) btn.style.display=total>1?'':'none'; // 一致が1件以下なら「次へ」は無意味なので隠す
+  // V2_69: 従来はtotal>1の際にstyle.display=''(インライン指定を解除)としていたが、
+  // #markNextBtn{display:none}(id指定)が.viewmemo button{display:flex}(class指定)より
+  // 優先されるため、インライン指定を解除するとCSS側のdisplay:noneに戻ってしまい、
+  // 一致件数が2件以上でも「次へ」ボタンが常に非表示になる不具合があった。
+  // 明示的に'inline-block'を指定することで確実に表示されるようにした
+  if(btn) btn.style.display=total>1?'inline-block':'none';
 }
 
 // DXF/PDF共通。現在のpdfMoji(またはdoc.moji)から_markKeywordに一致する要素を
@@ -7551,20 +8366,45 @@ function _excelBuildMatchCounts(keyword){
   return counts;
 }
 
+// V2_68: 「全図面検索」から開いた場合、現在のファイル内の一致を最後まで巡回したら
+// 折り返す代わりに次ファイルへ進めるかどうかを判定するヘルパー
+function _allSearchQueueHasNext(){
+  return !!(_allSearchQueue&&_allSearchQueueIdx>=0&&_allSearchQueueIdx+1<_allSearchQueue.length);
+}
+// V2_68: 全図面検索キューの次ファイルを開き、続けてその中の最初の一致箇所までジャンプする
+async function _advanceAllSearchQueue(){
+  if(!_allSearchQueueHasNext()) return;
+  _allSearchQueueIdx++;
+  var nxt=_allSearchQueue[_allSearchQueueIdx];
+  var kw=_markKeyword;
+  var full=await new Promise(function(resolve){_idbGetOne(nxt.name,resolve);});
+  if(!full){showGuide('読み込みに失敗しました',2000);return;}
+  await openDxfFromDb(nxt.name,full.buf,kw,nxt.folder,undefined,undefined,{queue:_allSearchQueue,idx:_allSearchQueueIdx});
+  await _markGoNext(true); // skipQueue=true: 開いた直後の折り返し判定は不要、最初の一致へ進めるだけ
+}
 // 「次へ」ボタン押下時のメイン処理。DXF/PDF/Excelでそれぞれ次の一致箇所へ移動する
-async function _markGoNext(){
+// V2_68: skipQueue=trueは_advanceAllSearchQueue()からの呼び出し時のみ使用し、
+// ファイル切替直後の二重跨ぎを防ぐ
+async function _markGoNext(skipQueue){
   if(pdfDoc){
     // PDF: 全ページ分の一致リスト(_markNavList)を巡回。ページが変わる場合は
     // そのページへ切り替えてから、画像描画完了(renderPdfPage内)を待ってジャンプする
     if(!_markNavList||_markNavList.length===0) return;
+    // V2_68: 全図面検索経由で、このファイル内最後の一致まで来ていて、かつキューに次の
+    // ファイルがあれば、そこへ折り返す代わりに次ファイルへ進む
+    if(!skipQueue&&_markNavIdx>=_markNavList.length-1&&_allSearchQueueHasNext()){ await _advanceAllSearchQueue(); return; }
     _markNavIdx=(_markNavIdx+1)%_markNavList.length;
     var m=_markNavList[_markNavIdx];
     if(m.page!==pdfPageNum){
+      // V2_74: ページ検索と同じ理由(renderPdfPage前にpdfPageNumを更新していないと、
+      // 直後の高解像度再レンダリングが古いページを取得し直して上書きしてしまう)で、
+      // 「次へ」でページを跨ぐ場合もここでpdfPageNumを更新するよう修正
+      pdfPageNum=m.page;
       await renderPdfPage(m.page);
       _rebuildSearchMarksForCurrentPage();
-      var _pi=document.getElementById('pageInfo');
-      if(_pi) _pi.textContent=pdfPageNum+'/'+pdfDoc.numPages;
     }
+    var _pi=document.getElementById('pageInfo');
+    if(_pi) _pi.textContent=pdfPageNum+'/'+pdfDoc.numPages;
     jumpToSearchResult(m);
     _updateMarkCountLabel(_markNavIdx,_markNavList.length);
   } else if(excelWb){
@@ -7573,6 +8413,7 @@ async function _markGoNext(){
     if(!_excelMatchCounts||_excelMatchCounts.length===0) return;
     var total=_excelMatchCounts.reduce(function(a,b){return a+b;},0);
     if(total===0) return;
+    if(!skipQueue&&_excelMatchIdx>=total-1&&_allSearchQueueHasNext()){ await _advanceAllSearchQueue(); return; }
     _excelMatchIdx=(_excelMatchIdx+1)%total;
     var remain=_excelMatchIdx,sheetIdx=0;
     for(var i=0;i<_excelMatchCounts.length;i++){
@@ -7591,6 +8432,7 @@ async function _markGoNext(){
     // DXF: doc.mojiは常に全件読み込まれているため、_searchMarks自体が既に
     // 全一致リストになっている。単純に巡回するだけでよい
     if(!_searchMarks||_searchMarks.length===0) return;
+    if(!skipQueue&&_markNavIdx>=_searchMarks.length-1&&_allSearchQueueHasNext()){ await _advanceAllSearchQueue(); return; }
     _markNavIdx=(_markNavIdx+1)%_searchMarks.length;
     jumpToSearchResult(_searchMarks[_markNavIdx]);
     _updateMarkCountLabel(_markNavIdx,_searchMarks.length);
@@ -7621,6 +8463,12 @@ function _updateTextHitBoxBtnVisibility(){
   }
 }
 function _setTextPickMode(target){
+  // V2_119: 追寸モード中に読込の対象が'calc'以外へ切り替わった場合は、
+  // テンキーも読込も両方効かない中途半端な状態を避けるため追寸モードも解除する
+  if(typeof _tsuizunMode!=='undefined' && _tsuizunMode && target!=='calc'){
+    _tsuizunMode=false;
+    if(typeof _updateTsuizunBtnUI==='function') _updateTsuizunBtnUI();
+  }
   _textPickTarget=target;
   var ov1=document.getElementById('searchOverlay');
   var ov2=document.getElementById('allSearchOverlay');
@@ -7846,9 +8694,22 @@ function openScreenSearch(){ // V0_159: 画面検索（旧searchBtnクリック�
   // 暗幕へのタップ・スクロール捕捉を無効化するクラスを付与する
   _so121.classList.toggle('excel-bg-pass',!!excelWb);
   _so121.classList.add('open');
-  // インデックス件数をプレースホルダーに表示
   var inp=document.getElementById('searchInput');
-  inp.placeholder=_searchIdx.length>0?'キーワードを入力… ('+_searchIdx.length+'件の文字)':'文字なし（DXFを確認）';
+  var titleEl=document.getElementById('searchSpTitle');
+  // V2_70: PDFの場合は現在の1ページだけでなく全ページを検索対象にする「ページ検索」に切り替える
+  if(pdfDoc){
+    if(titleEl) titleEl.textContent='ページ検索';
+    inp.placeholder='全'+pdfDoc.numPages+'ページを検索中…';
+    _buildPdfAllPagesIdxIfNeeded().then(function(){
+      if(!pdfDoc) return; // 構築完了までの間にファイルが閉じられた場合
+      inp.placeholder=(_pdfAllPagesIdx?_pdfAllPagesIdx.length:0)+'件の文字（全'+pdfDoc.numPages+'ページ）';
+      if(inp.value.trim()) doSearch();
+    });
+  } else {
+    if(titleEl) titleEl.textContent='文字検索';
+    // インデックス件数をプレースホルダーに表示
+    inp.placeholder=_searchIdx.length>0?'キーワードを入力… ('+_searchIdx.length+'件の文字)':'文字なし（DXFを確認）';
+  }
   // 既存のキーワードがあれば再検索
   if(inp.value.trim()) doSearch();
   setTimeout(function(){inp.focus();},120);
@@ -8305,6 +9166,21 @@ function openAllSearchPanel(){
   if(inp.value.trim()) doAllSearch();
   setTimeout(function(){inp.focus();},120);
 }
+// V2_68: 「1図面が複数ページ(PDF)/複数シート(Excel)に一致した場合、次へを何度も押さず
+// 直接そのページ/シートへ飛べるようにしたい」との要望対応。matched配列(1ファイル分の
+// 一致テキスト一覧)を、一致したページ番号・シート番号ごとにグループ化する。ページ/シート
+// の概念が無いDXFの場合は常に1グループになる（従来と同じ挙動のまま）
+function _groupMatchedByLocation(matched){
+  var map={},order=[];
+  matched.forEach(function(t){
+    var pg=(t&&typeof t==='object'&&t.page)?t.page:undefined;
+    var sh=(t&&typeof t==='object'&&t.sheet!==undefined)?t.sheet:undefined;
+    var key='p'+(pg!==undefined?pg:'')+'_s'+(sh!==undefined?sh:'');
+    if(!map[key]){map[key]={page:pg,sheet:sh,items:[]};order.push(key);}
+    map[key].items.push(t);
+  });
+  return order.map(function(k){return map[k];});
+}
 var _allSearchGen=0; // V0_103: 重複防止用世代カウンタ
 function doAllSearch(){
   var gen=++_allSearchGen;
@@ -8342,10 +9218,16 @@ function doAllSearch(){
       list.appendChild(d);
       return;
     }
-    hits.forEach(function(h){
+    // V2_68: 「次へ」で全図面検索結果の複数ファイルを跨いで巡回できるよう、結果一覧の
+    // ファイル順そのままを巡回用リストとして保持する（ページ/シート単位ではなくファイル単位。
+    // 1ファイル内の複数ページ/シートの巡回は既存の_markNavList/_excelMatchCounts任せでよい）
+    var _queue68=hits.map(function(h){return {name:h.name,folder:h.folder};});
+    hits.forEach(function(h,hIdx){
+      var groups=_groupMatchedByLocation(h.matched);
+      var multi=groups.length>1;
       var el=document.createElement('div');el.className='asr-item';
       var info=document.createElement('div');info.className='asr-info';
-      var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=h.name;
+      var fn=document.createElement('div');fn.className='asr-fname';fn.textContent=h.name+(multi?'（'+groups.length+'箇所）':'');
       var ht=document.createElement('div');ht.className='asr-hit';
       ht.textContent=h.matched.slice(0,4).map(_idxTextOf).join(' / ')+(h.matched.length>4?' …':'');
       info.appendChild(fn);info.appendChild(ht);
@@ -8359,10 +9241,28 @@ function doAllSearch(){
       el.addEventListener('click',function(){ // V1_75: タップ時にその1件分だけbufを取得
         _idbGetOne(h.name,function(full){
           if(!full){showGuide('読み込みに失敗しました',2000);return;}
-          openDxfFromDb(h.name,full.buf,kw,h.folder,h.page,h.sheet); // V0_104 / V1_70: folder伝達 / V1_88: page・sheet伝達
+          openDxfFromDb(h.name,full.buf,kw,h.folder,h.page,h.sheet,{queue:_queue68,idx:hIdx}); // V0_104 / V1_70: folder伝達 / V1_88: page・sheet伝達 / V2_68: 次へ用キュー伝達
         });
       });
       list.appendChild(el);
+      // V2_68: 1図面が複数ページ/シートに一致した場合、それぞれへ直接ジャンプできる
+      // サブ行を追加表示する（1箇所のみの図面は従来どおりサブ行なし）
+      if(multi){
+        groups.forEach(function(g){
+          var sel=document.createElement('div');sel.className='asr-item asr-subitem';
+          sel.style.cssText='padding:6px 16px 6px 32px;cursor:pointer;font-size:12px;color:var(--text-dim,#6b7f99);border-top:1px solid var(--border,#e2e8f0)';
+          var loc=(g.page?g.page+'ページ':'')+(g.sheet!==undefined?'シート'+(g.sheet+1):'');
+          sel.textContent='└ '+loc+'（'+g.items.length+'件）: '+g.items.slice(0,2).map(_idxTextOf).join(' / ');
+          sel.addEventListener('click',function(ev){
+            ev.stopPropagation();
+            _idbGetOne(h.name,function(full){
+              if(!full){showGuide('読み込みに失敗しました',2000);return;}
+              openDxfFromDb(h.name,full.buf,kw,h.folder,g.page,g.sheet,{queue:_queue68,idx:hIdx});
+            });
+          });
+          list.appendChild(sel);
+        });
+      }
     });
   });
 }
@@ -8370,7 +9270,7 @@ function doAllSearch(){
 // ・F-1: 新規タブ時にIDB(dxfViewerDxfviewDB)からstrokes/dimsを復元
 // ・F-2: 既存タブ時はstrokes/dims/images/savedViewsを上書きせず保持
 // ・F-3: findIndexをfileKeyベースに変更（同名異サイズ問題を修正）
-async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: folder引数追加（開いているファイル一覧での表示用、任意） / V1_88: page(PDF)・sheet(Excel)引数追加（検索一致箇所への直接ジャンプ用、任意）
+async function openDxfFromDb(name,buf,keyword,folder,page,sheet,queueInfo){ // V1_70: folder引数追加（開いているファイル一覧での表示用、任意） / V1_88: page(PDF)・sheet(Excel)引数追加（検索一致箇所への直接ジャンプ用、任意） / V2_68: queueInfo={queue,idx}引数追加（全図面検索結果を「次へ」で複数ファイルに跨って巡回するための状態、任意）
   // V1_40: fileInput側と同じ「ファイルを開いている最中はタブ切替・新規オープンを
   // ブロックする」フラグ。検索結果を連続タップした場合や、読込中にタブを
   // 切替えた場合に、非同期処理完了時に別タブのdoc/strokes/dimsを誤って
@@ -8419,6 +9319,9 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
     // V1_91: 「次へ」ナビゲーション用の状態をリセットしてから、キーワードがあれば
     // 全ページ(PDF)・全シート(Excel)分の一致情報を事前に計算しておく
     _markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;
+    // V2_68: 全図面検索から開いた場合はqueueInfoを受け取り「次へ」で他ファイルへ跨げるようにする。
+    // それ以外（通常のファイルを開く等）からの呼び出しでは毎回nullで上書きし、古い巡回状態を残さない
+    _allSearchQueue=queueInfo?queueInfo.queue:null; _allSearchQueueIdx=queueInfo?queueInfo.idx:-1;
     if(keyword){
       if(_isPdf151){
         _markNavList=await _pdfBuildFullMatchList(keyword);
@@ -8537,7 +9440,7 @@ async function openDxfFromDb(name,buf,keyword,folder,page,sheet){ // V1_70: fold
     // PDF全ページ・Excel全シート分を含む_totalForLabelで判定するよう修正。
     // 修正前はExcelの場合_searchMarks.length===0のままとなり、セルはハイライトされ
     // 件数も計算済みなのにポップアップ本体(.visible)が表示されない不具合があった）
-    var _mp=document.getElementById('markPopup');if(_mp){if(_totalForLabel>0)_mp.classList.add('visible');else _mp.classList.remove('visible');}
+    if(_totalForLabel>0){_showMarkPopupForce();}else{var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');}
   }catch(err){alert('図面を開けません: '+err.message);}finally{_isOpeningFileBusy=false;} // V1_40
 }
 // V1_22: 「ファイルを開く」フォルダインデックス検索パネル（全図面検索(V0_100〜)と同じ
@@ -8717,7 +9620,9 @@ document.getElementById('markClearX').addEventListener('click',function(e){
   _searchMarks=[];_markKeyword=null;
   _searchHighlight=null; // V0_131: 画面検索マークもクリア
   _markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1; // V1_91
+  _allSearchQueue=null;_allSearchQueueIdx=-1; // V2_68
   document.getElementById('markPopup').classList.remove('visible');
+  _markPopupClosedAt=Date.now(); // V2_75: _showMarkPopupForceの遅延再表示を抑止するため
   _updateMarkCountLabel(-1,0);
   scheduleOverlay();
   if(typeof _applyExcelSearchHighlight==='function') _applyExcelSearchHighlight(false); // V1_91: Excelのハイライトも解除

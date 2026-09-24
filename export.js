@@ -203,7 +203,9 @@ async function _runPdfExport(_dlgSel){
     let mxY=isFinite(_bbFull.maxy)?_bbFull.maxy:-Infinity;
     function upd(x,y){if(!isFinite(x)||!isFinite(y))return;mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnY=Math.min(mnY,y);mxY=Math.max(mxY,y);}
     // ペン・寸法（ユーザー追記）もboundsに含める
-    for(const s of strokes)for(const p of s.pts)upd(p.x,p.y);
+    // V2_80: 文字入力ツールで追加した文字(isText)はptsを持たないため、s.ptsに
+    // 直接forを回すとクラッシュする。ptsがある場合と文字の場合とで分岐する
+    for(const s of strokes){ if(s.pts){for(const p of s.pts)upd(p.x,p.y);} else if(s.isText){upd(s.x,s.y);} }
     for(const d of dims){
       for(const l of(d.lines||[]))upd(l.x1,l.y1),upd(l.x2,l.y2);
       if(d.tx!=null&&d.ty!=null)upd(d.tx,d.ty);
@@ -1876,7 +1878,8 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     }
     if(typeof pdfImage!=='undefined'&&pdfImage){_allExp(pdfImage.wx,pdfImage.wy);_allExp(pdfImage.wx+pdfImage.ww,pdfImage.wy-pdfImage.wh);}
     for(const img of (typeof images!=='undefined'?images:[])){_allExp(img.wx,img.wy);_allExp(img.wx+img.ww,img.wy-img.wh);}
-    for(const s of strokes)for(const p of s.pts)_allExp(p.x,p.y);
+    // V2_80: 文字(isText)はptsを持たないため分岐（206行目付近の修正と同じ理由）
+    for(const s of strokes){ if(s.pts){for(const p of s.pts)_allExp(p.x,p.y);} else if(s.isText){_allExp(s.x,s.y);} }
     for(const d of dims){
       for(const l of(d.lines||[])){_allExp(l.x1,l.y1);_allExp(l.x2,l.y2);}
       if(d.tx!=null&&d.ty!=null)_allExp(d.tx,d.ty);
@@ -2051,9 +2054,38 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         const lwPx=s.hl?(s.lw*(_strokeSc242/lwRef155)):Math.max(1,s.lw*(_strokeSc242/lwRef155));
         pdf.setDrawColor(col.r,col.g,col.b);
         pdf.setLineWidth(Math.max(0.05,lwPx*_sx));
-        pdf.setLineCap('round'); pdf.setLineJoin('round');
-        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':0.45}));
-        if(rangeRect238){
+        // V2_96: 図形ツール(四角・矢印・丸・楕円=s.shapeType)は角を鋭角に保つため
+        // lineCap/lineJoinをペンと変える(butt/miter)。ペン・蛍光ペンは従来通り
+        // round/roundのまま(手描きの丸みを維持する)
+        // V2_97: 矢印(shapeType='arrow')のみlineCapを'round'にする。矢尻は
+        // 「軸→矢尻左」「矢尻左→軸(戻り)」「軸→矢尻右」の3本を独立したpdf.line()
+        // として描画しており(1本の連続パスではないため setLineJoin は効かない)、
+        // 矢尻の付け根(軸線・左右2辺が collắp合流する頂点)をbuttキャップで
+        // 独立に描くと、各辺の太さぶんだけ向きの違う「面取り」が重なり合い、
+        // 頂点にわずかな凹み(ノッチ)が残って見える不具合があった。lwに対して
+        // 矢尻が短すぎる場合(headLen対lw比が小さい短い矢印)ほど目立つ。丸・
+        // 矩形は直角の頂点を保つ必要があるためbuttのまま据え置き、矢印だけ
+        // roundにして頂点の隙間を自然に埋める(半径はlw/2程度でごく小さく、
+        // 矢尻の鋭さ自体はほぼ変わらない)
+        if(s.shapeType==='arrow'){ pdf.setLineCap('round'); pdf.setLineJoin('round'); }
+        else if(s.shapeType){ pdf.setLineCap('butt'); pdf.setLineJoin('miter'); }
+        else { pdf.setLineCap('round'); pdf.setLineJoin('round'); }
+        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':(s.hlOpacity||0.45)})); // V2_98: 濃度を反映
+        if(s.shapeType){
+          // V2_96: 図形ストロークはベジェ補間(下のelse節、ペン用スムージング)を
+          // 使わず、頂点をそのまま直線で結ぶ(範囲指定書出時は_clipLine242で
+          // クリップしてから直線を引く。全体書出時はクリップなしでそのまま結ぶ)。
+          // これにより四角の角・矢印の矢尻が丸まらず、丸/楕円も多角形近似の
+          // 頂点列をそのまま辿るため輪郭が途切れない
+          for(let i=0;i<n-1;i++){
+            if(rangeRect238){
+              const cl=_clipLine242(s.pts[i].x,s.pts[i].y,s.pts[i+1].x,s.pts[i+1].y,rangeRect238);
+              if(cl) pdf.line(w2mx(cl[0]),w2my(cl[1]),w2mx(cl[2]),w2my(cl[3]));
+            } else {
+              pdf.line(w2mx(s.pts[i].x),w2my(s.pts[i].y),w2mx(s.pts[i+1].x),w2my(s.pts[i+1].y));
+            }
+          }
+        }else if(rangeRect238){
           // V2_42: 範囲指定書出時は境界で正確にクリップするため、ベジェ曲線ではなく
           // 隣接する2点ずつを直線分割してクリップ描画する(滑らかさより範囲の
           // 正確さを優先する。全体書出時は下のelse節で従来通りベジェ曲線を描く)
@@ -2083,6 +2115,54 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         }
         if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':1}));
       }
+    }
+
+    // V2_82: 文字入力ツール(isText)をjsPDFベクター描画する。doc.moji(7.5)と同じ
+    // 日本語埋込フォント(_hpSplitRuns/_hpSetRunFont/_hpFixChars)を流用するが、
+    // 画面描画(index.html)がtextBaseline='top'で描くのに合わせ、baseline:'top'を
+    // 指定して位置を一致させる。文字サイズは手書き線の太さ(_hpDrawStrokes170)と
+    // 同じ考え方で、現在のズーム(scale)ではなく印刷用の固定スケール(pdfScale等/
+    // lwRef比)を基準にすることで、書き出し時点の画面ズーム状態に左右されない
+    // 一定の大きさになる(画面側の20倍係数(20*(scale/lwRef))とも揃えている)
+    // V2_83: 「範囲指定書出すると文字が小さくなる」不具合を修正。線の太さ
+    // (_hpDrawStrokes170)は「用紙上での見た目の太さを一定に保つ」ため、範囲指定時
+    // あえて全体書出相当の縮小スケール(_lwScale242)を使っているが、文字は他の
+    // 図面要素(DXF線・doc.moji文字)と同様、範囲を拡大するほど用紙上で大きく
+    // 見えるのが自然な挙動(doc.mojiは常にpdfScaleを使っており、この不具合は
+    // 無い)。線と同じ考え方を誤って流用していたのが原因のため、常にpdfScale
+    // (範囲指定時は拡大された値)を使うよう修正した。
+    function _hpDrawTextStrokes81(){
+      if(typeof strokes==='undefined'||strokes.length===0) return;
+      if(!window._notoSansJPBase64) return;
+      const _curPg81=_curPage();
+      const lwRef81=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:scale;
+      for(const s of strokes){
+        if(!s.isText) continue;
+        if((s.page||1)!==_curPg81) continue;
+        if(!s.text||!s.text.trim()) continue;
+        if(!_inRange241(s.x,s.y,s.x,s.y)) continue; // V2_41
+        const fsMM=Math.max(1,(s.lw||0.6)*20*(pdfScale/lwRef81))*_sx;
+        if(fsMM<=0) continue;
+        const xmm=w2mx(s.x), ymm=w2my(s.y);
+        const col=s.color||{r:0,g:0,b:0};
+        pdf.setTextColor(col.r,col.g,col.b);
+        pdf.setFontSize(fsMM*(72/25.4));
+        const lines=_hpFixChars(s.text).split('\n');
+        // V2_91: 文字入力ツール(isText)は画面表示(index.html)が半角英数字も含め
+        // 全文字Noto Sans JPで統一描画しているため、PDF書出しもそれに揃える。
+        // doc.moji(DXF自体の文字)側は幅補正(_hpRatio)のためASCII/JP分割
+        // (_hpSplitRuns/_hpSetRunFont併用)が設計上必要な別処理であり、
+        // isText側のこの分岐だけを常にNotoSansJP単一フォントに変更する
+        // (pdf-lib合体パスの_hpDrawTextStrokesPdfLib190と同じ挙動)
+        _hpSetRunFont(pdf,'jp');
+        for(let i=0;i<lines.length;i++){
+          const ln=lines[i];
+          if(!ln.trim()) continue;
+          const curX=xmm, curY=ymm+fsMM*1.2*i; // V2_87: top基準なので下の行ほど+方向(行間は画面側と同じ1.2倍)
+          try{ pdf.text(ln,curX,curY,{baseline:'top'}); }catch(te81){}
+        }
+      }
+      pdf.setTextColor(0,0,0);
     }
 
     // V2_41: 「範囲指定書出」時、指定矩形(rangeRect238)と全く重ならない要素は
@@ -2297,6 +2377,8 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // 不具合の要因自体が構造的に無くなる。
     // V1_170: 蛍光ペンは7.6で文字より先に描画済みのため、ここではペンのみ描画する。
     _hpDrawStrokes170('pen');
+    // V2_82: 文字入力ツールの文字をペンと同じ最前面(上)に描画する
+    _hpDrawTextStrokes81();
 
     // ── 9. 寸法（dims）ベクター描画 ──
     // V1_155: 寸法線・矢印・センターマーク・寸法文字・アンダーバーを全てベクター化。
@@ -2340,13 +2422,32 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         pdf.setDrawColor(dr,dg,db); pdf.setFillColor(dr,dg,db); pdf.setTextColor(dr,dg,db);
         // V1_156: 画面表示(dimensionTextMode='fixed')の比率(17px基準)をmmへ換算
         const worldH=d.worldFontH||(17/(scale||1));
-        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5); // 文字サイズ(表示用、変更なし)
         // V2_43: 「範囲指定書出しの線が太すぎる」との要望により、寸法線・矢印・
-        // センターマークの太さ/サイズは、範囲指定書出時のみ全体書出相当の
-        // スケール(_lwScale242)を基準にする。文字サイズ(fsMM)・文字との間隔(gapMM)
-        // は従来通り拡大表示のまま(全体書出時はlwBaseMM===fsMMとなり計算結果は不変)
-        const _dimLwSc242=rangeRect238?_lwScale242:pdfScale;
-        const lwBaseMM=Math.max(DIM_MIN_TEXT_MM, worldH*_dimLwSc242*_sx*1.5);
+        // センターマークの太さ/サイズを、範囲指定書出時のみ全体書出相当の固定
+        // スケール(_lwScale242)を基準にする変更を行った。
+        // V2_110: 文字サイズ(fsMM)も同じ固定スケール(_lwScale242)に合わせて統一した
+        // (寸法値の文字が線・矢印に対して巨大化して見える不具合の対策として)。
+        // → しかしユーザー実機検証の結果、この診断は逆だったことが判明した。
+        // 範囲指定書出は「指定範囲をA3全面に拡大表示する」機能であり、その拡大率
+        // (pdfScale)に応じて寸法値の文字が大きく見えるのは本来正しい挙動だった。
+        // 真の原因は逆に、寸法線・矢印・センターマークの太さが_lwScale242という
+        // 「全体書出時相当の固定倍率」のまま拡大表示に追従せず「変わらなかった」
+        // ことで、文字だけが拡大されて線が取り残され、バランスが崩れて見えていた点
+        // にあった。V2_110で文字サイズの方を線に合わせて縮小してしまったため、
+        // 今度は逆に文字が小さすぎる結果になった。
+        // V2_111: 診断を訂正し、逆方向に修正する。文字サイズ(fsMM)はV2_109以前の
+        // pdfScale基準の計算に戻し(範囲指定時も拡大表示に追従、全体書出は元々不変)、
+        // 寸法線・矢印・センターマークの太さ(lwBaseMM)の方を、範囲指定書出時も
+        // 文字と同じpdfScale基準にする(=_lwScale242を使うのをやめる)。これにより
+        // 拡大率が変わっても文字と線が同じ比率で追従し、狭い範囲・広い範囲どちらを
+        // 指定してもバランスが保たれる。全体書出時はpdfScaleと_lwScale242が元々
+        // 実質同一のため、全体書出の見た目は本修正の前後で変化しない。
+        // (V2_43が対策した「範囲指定書出の線が太すぎる」問題は、DXF図形本体の線幅
+        // (_lwMM)・手書き線(_strokeSc242)・破線パターン(_dashMM)側の話であり、
+        // それらは本修正の対象外(_lwScale242基準のまま)なので、V2_43が解決した
+        // 問題が再発することはない)
+        const fsMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5);
+        const lwBaseMM=Math.max(DIM_MIN_TEXT_MM, worldH*pdfScale*_sx*1.5); // V2_111: pdfScale基準(fsMMと同じ拡大率)に統一
         const lineMM=Math.max(0.05, lwBaseMM/17);
         const arrowLenMM=lwBaseMM*(10/(17*1.5));
         const arrowWMM=lwBaseMM*(4/(17*1.5));
@@ -2477,7 +2578,7 @@ async function exportPdfMergedHybrid190(pageNums){
   if(btn190) btn190.disabled=true;
   showGuide('HD-PDFを生成中...');
   try{
-    var PDFDocument190=PDFLib.PDFDocument, rgb190=PDFLib.rgb, degrees190=PDFLib.degrees, LineCapStyle190=PDFLib.LineCapStyle;
+    var PDFDocument190=PDFLib.PDFDocument, rgb190=PDFLib.rgb, degrees190=PDFLib.degrees, LineCapStyle190=PDFLib.LineCapStyle, LineJoinStyle190=PDFLib.LineJoinStyle;
     var srcDoc190=await PDFDocument190.load(origBuf190.slice(0),{ignoreEncryption:true});
     var outDoc190=await PDFDocument190.create();
     if(typeof fontkit!=='undefined') outDoc190.registerFontkit(fontkit);
@@ -2508,9 +2609,10 @@ async function exportPdfMergedHybrid190(pageNums){
         var pgStrokes190=(typeof strokes!=='undefined'?strokes:[]).filter(function(s){return (s.page||1)===pg190;});
         var pgDims190=(typeof dims!=='undefined'?dims:[]).filter(function(d){return (d.page||1)===pg190;});
         // 蛍光ペン(下)→寸法(中)→ペン(上)の順で重ねる(exportHybridPDFの重ね順に倣う)
-        _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'hl',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190);
+        _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'hl',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
         _hpDrawDimsPdfLib190(copied190,pgDims190,jpFont190,rgb190,degrees190,pageH190,mapper190);
-        _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'pen',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190);
+        _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'pen',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
+        _hpDrawTextStrokesPdfLib190(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190);
         okCount190++;
       }catch(pe190){
         console.error('[PDF merge] page='+pg190,pe190);
@@ -2568,6 +2670,25 @@ function _buildSmoothSvgPath190(pts,h){
   return d.trim();
 }
 
+// V2_96: 図形ツール(四角・矢印・丸・楕円=s.shapeType)専用のSVGパス変換。
+// _buildSmoothSvgPath190のCatmull-Rom→ベジェ変換は頂点を通らず角を丸めてしまう
+// ため、図形ストロークには使わず、頂点をそのままL(直線)で結ぶだけのシンプルな
+// パスにする。closed=trueの場合は末尾にZを付けて確実に閉じる(四角・丸・楕円)
+function _buildStraightSvgPath190(pts,h,closed){
+  if(!pts||pts.length<2) return null;
+  var raw=[];
+  for(var i=0;i<pts.length;i++){
+    var x=pts[i].x, y=h-pts[i].y;
+    if(!isFinite(x)||!isFinite(y)) continue;
+    raw.push({x:+x.toFixed(3),y:+y.toFixed(3)});
+  }
+  if(raw.length<2) return null;
+  var d='M'+raw[0].x+' '+raw[0].y+' ';
+  for(var i=1;i<raw.length;i++) d+='L'+raw[i].x+' '+raw[i].y+' ';
+  if(closed) d+='Z';
+  return d.trim();
+}
+
 // V1_196: ページの/Rotate(90/180/270度)による座標系のずれを補正するマッパーを
 // 生成する。vp=pdfPage.getViewport({scale:1})(表示中の回転済みビジュアルフレーム)。
 // 本アプリの「ワールド座標」はY上向き(w2s系)だが、pdf.jsのconvertToPdfPointは
@@ -2590,7 +2711,16 @@ function _hpMakeRawMapper196(vp){
 // 別関数として実装している
 // V1_196: mapper引数を追加。ページ回転がある場合、各点をワールド座標→生PDF座標へ
 // 変換してから描画することで、書込みが回転してずれるバグを修正した
-function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,LineCapStyle,mapper){
+// V2_97: LineJoinStyle引数を追加。drawSvgPath自体にはlineJoinを指定するオプションが
+// 無く(pdf-libのAPI仕様、borderLineCapのみ)、PDFの既定のline joinはMiterのため、
+// 矢印の矢尻(軸→矢尻左→軸へ戻る→矢尻右、という1本の連続パス)にある「来た辺を
+// そのまま逆走する180度の折り返し」頂点で、miter joinがmiterLimitを超えてbevel
+// (面取り)へ自動的に切り替わり、ごくわずかな凹みが見えることがあった
+// (index.html描画・_hpDrawStrokes170と同根の問題。V2_97で3経路とも矢印だけ
+// round join/round capへ変更して修正)。drawSvgPathはlineJoinを渡せないため、
+// 矢印を描く直前だけ低レベルAPI(page.pushOperators+setLineJoin)でグラフィックス
+// ステートのline joinをRoundへ切り替え、描画後にMiterへ戻す
+function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,LineCapStyle,mapper,LineJoinStyle){
   for(var i=0;i<pgStrokes.length;i++){
     var s=pgStrokes[i];
     if(!s.pts||s.pts.length<2) continue;
@@ -2599,17 +2729,61 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
     var col=s.color||{r:0,g:0,b:0};
     var lwPt=Math.max(0.1, (s.hl?s.lw:Math.max(1,s.lw)) / fitRef);
     var rawPts196=mapper?s.pts.map(function(p){return mapper.pt(p.x,p.y);}):s.pts;
-    var svgPath=_buildSmoothSvgPath190(rawPts196,pageH);
+    // V2_96: 図形ツール(s.shapeType)はベジェ補間(_buildSmoothSvgPath190、ペン用)を
+    // 使わず、頂点を直線で結ぶ_buildStraightSvgPath190を使う(四角の角・矢印の矢尻を
+    // 鋭角に保ち、丸・楕円は多角形近似の頂点列をそのまま辿って輪郭を途切れさせない)
+    var svgPath=s.shapeType
+      ? _buildStraightSvgPath190(rawPts196,pageH,_isClosedShapeType(s.shapeType))
+      : _buildSmoothSvgPath190(rawPts196,pageH);
     if(!svgPath) continue;
+    var isArrow190=(s.shapeType==='arrow');
     try{
+      if(isArrow190&&LineJoinStyle&&page.pushOperators&&window.PDFLib&&PDFLib.setLineJoin){
+        try{ page.pushOperators(PDFLib.setLineJoin(LineJoinStyle.Round)); }catch(_je190){}
+      }
       page.drawSvgPath(svgPath,{
         x:0,y:pageH,
         borderColor:rgbFn(col.r/255,col.g/255,col.b/255),
         borderWidth:lwPt,
-        borderOpacity:s.hl?0.45:1,
-        borderLineCap:LineCapStyle?LineCapStyle.Round:undefined
+        borderOpacity:s.hl?(s.hlOpacity||0.45):1, // V2_98: 濃度を反映
+        borderLineCap:LineCapStyle?(isArrow190?LineCapStyle.Round:(s.shapeType?LineCapStyle.Butt:LineCapStyle.Round)):undefined
       });
     }catch(se190){ console.warn('[PDF merge] stroke draw fail',se190); }
+    finally{
+      if(isArrow190&&LineJoinStyle&&page.pushOperators&&window.PDFLib&&PDFLib.setLineJoin){
+        try{ page.pushOperators(PDFLib.setLineJoin(LineJoinStyle.Miter)); }catch(_je190b){}
+      }
+    }
+  }
+}
+
+// V2_82: 文字入力ツール(isText)をpdf-libで元PDFページへ直接ベクター描画する。
+// 太さ(ここではフォントサイズ)は_hpDrawStrokesPdfLib190のペン太さ計算式
+// (s.lw/fitRef)をそのまま流用し、20倍係数(画面側のフォント計算式と同じ比率)を
+// 掛けてpt単位のフォントサイズに変換する。位置は画面描画がtextBaseline='top'で
+// 描く仕様に合わせ、pdf-libのdrawText(ベースライン基準)へフォントサイズの
+// 約80%(一般的な欧文/和文フォントのアセント比率の近似値)を足して概ね同じ
+// 高さに見えるよう補正している(完全な一致ではなく近似)
+function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper){
+  if(!jpFont) return;
+  function P196(x,y){ return mapper?mapper.pt(x,y):{x:x,y:y}; }
+  for(var i=0;i<pgStrokes.length;i++){
+    var s=pgStrokes[i];
+    if(!s.isText) continue;
+    if(!s.text||!s.text.trim()) continue;
+    var col=s.color||{r:0,g:0,b:0};
+    var pdfCol=rgbFn(col.r/255,col.g/255,col.b/255);
+    var fsPt=Math.max(1,(s.lw||0.6)*20/fitRef);
+    var lines=_hpFixChars(s.text).split('\n');
+    for(var li=0;li<lines.length;li++){
+      var ln=lines[li];
+      if(!ln.trim()) continue;
+      var baseX=s.x, baseY=s.y+fsPt*0.8+fsPt*1.2*li; // V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
+      var q=P196(baseX,baseY);
+      try{
+        page.drawText(ln,{x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol});
+      }catch(txe82){ console.warn('[PDF merge] text draw fail',txe82); }
+    }
   }
 }
 
