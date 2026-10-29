@@ -189,7 +189,7 @@ function doSave(){
           currentFileIdx:currentFileIdx,
           files:_mStates
         }));
-      }catch(e2){localStorage.removeItem(MULTI_KEY);}
+      }catch(e2){ /* V3_16: 保存失敗時に前回の正常な複数タブ復元データを消さない(従来はremoveItemで全タブ復元不可になっていた) */ _lsFailNotice(); }
     }else{
       localStorage.removeItem(MULTI_KEY);
     }
@@ -198,7 +198,18 @@ function doSave(){
     _dvAutoSave(); // V0_127: .dxfview自動保存
     // V1_01: Supabaseへも現在ファイルの注記(strokes/dims)を自動保存（非同期・失敗しても無視）
     if(typeof _sbPushCurrentAnnotations==='function'){try{_sbPushCurrentAnnotations();}catch(e){}}
-  }catch(e){if(typeof verifyWarn==='function')verifyWarn('localStorage保存失敗');}
+  }catch(e){if(typeof verifyWarn==='function')verifyWarn('localStorage保存失敗'); _lsFailNotice();}
+}
+// V3_16: 自動保存(localStorage)が失敗した時、無言で握りつぶさず画面下に警告を出す(60秒に1回まで・6秒で消える)
+var _lsFailNoticeAt=0;
+function _lsFailNotice(){
+  try{
+    var now=Date.now(); if(now-_lsFailNoticeAt<60000) return; _lsFailNoticeAt=now;
+    var d=document.createElement('div');
+    d.textContent='自動保存に失敗しました(端末の保存容量不足の可能性)。「Backup」で手動保存してください。';
+    d.style.cssText='position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;background:#c0392b;color:#fff;font-size:13px;font-weight:700;padding:10px 16px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.5);max-width:90vw;pointer-events:none';
+    document.body.appendChild(d); setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); },6000);
+  }catch(e){}
 }
 
 // =========================================================

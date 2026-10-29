@@ -528,8 +528,17 @@ function _genExcelThumb201(f,W,H,cb){
   }catch(e){cb(null);}
 }
 function _genFileThumb201(f,W,H,cb){
-  if(f.fileKey&&_fileThumbCache201[f.fileKey]){cb(_fileThumbCache201[f.fileKey]);return;}
-  function done(url){ if(url&&f.fileKey) _fileThumbCache201[f.fileKey]=url; cb(url); }
+  if(f.fileKey&&_fileThumbCache201[f.fileKey]){var _hit=_fileThumbCache201[f.fileKey];delete _fileThumbCache201[f.fileKey];_fileThumbCache201[f.fileKey]=_hit;cb(_hit);return;} // V3_17: 使用順を更新
+  function done(url){
+    if(url&&f.fileKey){
+      // V3_17: キャッシュが無限に増えないよう最大30件に制限(古い順に破棄)。使った項目は末尾へ移して新しい扱いにする
+      delete _fileThumbCache201[f.fileKey];
+      _fileThumbCache201[f.fileKey]=url;
+      var _ks=Object.keys(_fileThumbCache201);
+      while(_ks.length>30){ delete _fileThumbCache201[_ks.shift()]; }
+    }
+    cb(url);
+  }
   if(f.pdfDoc)_genPdfThumb201(f,W,H,done);
   else if(f.excelWb)_genExcelThumb201(f,W,H,done);
   else if(f.doc)_genDxfThumb201(f,W,H,done);

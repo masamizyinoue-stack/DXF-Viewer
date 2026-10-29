@@ -1834,7 +1834,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_14';
+const APP_VERSION = 'V3_17';
 
 // =========================================================
 // グローバル状態
@@ -4714,6 +4714,15 @@ document.getElementById('shapeToolPopupDoneBtn').addEventListener('click',functi
   if(e&&e.stopPropagation) e.stopPropagation();
   _closeToolPopupById('shapeToolPopup');
 });
+// V3_15: ポップアップ枠の外(図面エリア)でペン等を使い始めたら、開いているポップアップを自動で閉じる。
+// 「決定」ボタンでも従来通り閉じられる。ポップアップ内やツールバーの操作では閉じない(キャプチャ段階で判定、描画処理は妨げない)
+stage.addEventListener('pointerdown',function(e){
+  if(e.target&&e.target.closest&&e.target.closest('#colorOverlay,#measureToolPopup,#shapeToolPopup')) return;
+  ['colorOverlay','measureToolPopup','shapeToolPopup'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el&&el.classList.contains('open')) _closeToolPopupById(id);
+  });
+},true);
 // 初期表示（ページ読み込み時: スケッチが選択済み）
 updateToolColorDots();
 // V0_80: ダブルタップ全体表示は誤操作防止のため一旦廃止し「全体」ボタン(fitBtn)のみに限定していたが、
