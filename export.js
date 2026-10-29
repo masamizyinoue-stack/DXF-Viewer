@@ -2070,7 +2070,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         if(s.shapeType==='arrow'){ pdf.setLineCap('round'); pdf.setLineJoin('round'); }
         else if(s.shapeType){ pdf.setLineCap('butt'); pdf.setLineJoin('miter'); }
         else { pdf.setLineCap('round'); pdf.setLineJoin('round'); }
-        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':(s.hlOpacity||0.45)})); // V2_98: 濃度を反映
+        if(s.hl) pdf.setGState(new pdf.GState({'stroke-opacity':(s.hlOpacity||0.5)})); // V2_98: 濃度を反映
         if(s.shapeType){
           // V2_96: 図形ストロークはベジェ補間(下のelse節、ペン用スムージング)を
           // 使わず、頂点をそのまま直線で結ぶ(範囲指定書出時は_clipLine242で
@@ -2745,7 +2745,7 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
         x:0,y:pageH,
         borderColor:rgbFn(col.r/255,col.g/255,col.b/255),
         borderWidth:lwPt,
-        borderOpacity:s.hl?(s.hlOpacity||0.45):1, // V2_98: 濃度を反映
+        borderOpacity:s.hl?(s.hlOpacity||0.5):1, // V2_98: 濃度を反映
         borderLineCap:LineCapStyle?(isArrow190?LineCapStyle.Round:(s.shapeType?LineCapStyle.Butt:LineCapStyle.Round)):undefined
       });
     }catch(se190){ console.warn('[PDF merge] stroke draw fail',se190); }

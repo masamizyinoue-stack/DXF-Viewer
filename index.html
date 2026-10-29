@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0b0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="DXF View"> <!-- V1_06: ホーム画面追加時の表示名 -->
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <!-- V1_06 -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black"> <!-- V1_06 / V3_13: iPadOS新バージョンで、black-translucent(状態バー下へ画面が潜り込む方式)だと状態バー領域に半透明ぼかしが掛かり、画面上部(ツールバー)がぼやけて見えるため、状態バーを不透明な黒(blackでアプリ領域が状態バーの下から始まる)に変更 -->
 <!-- V1_06: ホーム画面アイコンが表示されない不具合の修正。参照先の画像ファイルが
      存在していなかったため、実ファイル(apple-touch-icon.png等)を新規作成して追加。
      iOSは複数サイズのうち最適なものを自動選択するため主要サイズを列挙する -->
@@ -52,7 +52,8 @@
      定義して修正した */
   --bg-panel:#10151c;
 }
-body{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden;
+html{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none} /* V3_14: iPadOS新方式の上端ぼかし(スクロール端エフェクト)対策。文書自体を固定しスクロール対象から外す */
+body{position:fixed;inset:0;display:flex;flex-direction:column;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;
   background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;font-size:14px}
 .topbar{height:62px;min-height:62px;background:var(--topbar-bg);border-bottom:1px solid var(--border);
@@ -879,7 +880,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
        V1_45: 色丸ボタン(hlColorDot)は廃止。選択中に同じアイコンをもう一度押すと
        色・太さの選択ポップアップが開く
        V1_214: 蛍光ペンも3段表示(蛍光/アイコン/現在の線幅)にした -->
-  <button class="tb-tool-btn tool-btn" data-tool="hl" title="蛍光ペン"><span class="tb-tool-label">蛍光</span><svg id="hlToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id="hlToolIconFill" d="M15 3l6 6-11 11H4v-6L15 3z" fill="rgba(255,255,0,0.25)"/><line x1="11" y1="7" x2="17" y2="13"/></svg><span class="tb-tool-label-split" id="hlBottomRow"><span id="hlLwLabel">4</span><span id="hlAlphaLabel">45%</span></span></button>
+  <button class="tb-tool-btn tool-btn" data-tool="hl" title="蛍光ペン"><span class="tb-tool-label">蛍光</span><svg id="hlToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path id="hlToolIconFill" d="M15 3l6 6-11 11H4v-6L15 3z" fill="rgba(255,255,0,0.25)"/><line x1="11" y1="7" x2="17" y2="13"/></svg><span class="tb-tool-label-split" id="hlBottomRow"><span id="hlLwLabel">4</span><span id="hlAlphaLabel">50%</span></span></button>
   <!-- V2_89: 「文字コマンドは蛍光コマンドの右に配置して」との要望で、消しゴムより前
        (蛍光ペンの直後)へ移動した -->
   <!-- V2_80: 文字入力ツール。タップした位置にキーボードで文字を入力して配置する。
@@ -1586,13 +1587,13 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   </div>
   <div class="co-hl-section">
     <div class="co-label">濃度</div>
-    <!-- V2_98: 蛍光ペンの透明度を選べるようにした。既定45%は従来のハードコード値(0.45)を踏襲 -->
+    <!-- V2_98: 蛍光ペンの透明度を選べるようにした。V3_08: 選択肢を10/30/50/70/90%とし、標準(既定)を50%に変更 -->
     <div class="co-hl-alpha">
-      <button class="hl-alpha-btn" data-alpha="20">20%</button>
-      <button class="hl-alpha-btn" data-alpha="40">40%</button>
-      <button class="hl-alpha-btn active" data-alpha="45">45%</button>
-      <button class="hl-alpha-btn" data-alpha="60">60%</button>
-      <button class="hl-alpha-btn" data-alpha="80">80%</button>
+      <button class="hl-alpha-btn" data-alpha="10">10%</button>
+      <button class="hl-alpha-btn" data-alpha="30">30%</button>
+      <button class="hl-alpha-btn active" data-alpha="50">50%</button>
+      <button class="hl-alpha-btn" data-alpha="70">70%</button>
+      <button class="hl-alpha-btn" data-alpha="90">90%</button>
     </div>
   </div>
   <!-- V1_214: 寸法(計測)色選択は#measureToolPopupへ移設した(計測ツール選択と同じ
@@ -1821,7 +1822,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
      呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
 <script src="export.js?v=262"></script>
-<script src="tool.js?v=259"></script>
+<script src="tool.js?v=260"></script>
 <script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
 <script src="shxGlyphs.js?v=257"></script>
@@ -1833,7 +1834,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_04';
+const APP_VERSION = 'V3_14';
 
 // =========================================================
 // グローバル状態
@@ -1862,12 +1863,16 @@ var currentTextLW=0.5;   // 文字入力のフォントサイズ計算基準値(
 var currentShapeLW=0.6;  // 図形(四角/矢印/丸/楕円)の太さ(V2_103で新設、従来はcurrentLWを共有)
 var currentHL_Color={r:255,g:255,b:0}; // 蛍光ペン色（黄）
 var currentHL_LW=4;                     // 蛍光ペン線幅
-var currentHLAlpha=0.45;                // V2_98: 蛍光ペン濃度(透明度)。既定0.45は従来のハードコード値を踏襲
+var currentHLAlpha=0.5;                 // V2_98: 蛍光ペン濃度(透明度)。V3_08: 標準濃度を0.5(50%)に変更
 var currentDimColor='#f39c12';          // 寸法色
 var dims=[];
 var currentFileSize=0;   // V0_103: ファイルサイズ(自動保存ID用)
 var _searchMarks=[];       // V0_104: フォルダ検索マーク
 var _markKeyword=null;     // V0_104
+var _searchHighlightPage=null; // V3_10: _searchHighlight(点滅リング)が属するPDFページ番号。
+                                 // ページ切替時にリングが古いページの座標のまま新しいページへ
+                                 // 描画され続ける不具合を防ぐため、リング設置時のページ番号を記録し、
+                                 // 描画側でpdfPageNumと一致する場合のみ表示する（DXF時はnull比較なので従来通り常に表示）
 // V1_91: 「次へ」ナビゲーション用の状態。
 // PDF: _markNavList=[{page,x,y,h}, ...] 全ページ分の一致位置（キーワード設定時に事前計算）
 // Excel: _excelMatchCounts=[シート0の件数, シート1の件数, ...] （キーワード設定時に事前計算）
@@ -1997,7 +2002,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
     if(_sxMx<-_mgPx||_sxMn>_cwPx+_mgPx||_syMx<-_mgPx||_syMn>_chPx+_mgPx) continue;
     atc.save();
     if(s.hl){
-      atc.globalAlpha = s.hlOpacity||0.45; // V2_98: ストロークごとの濃度(未設定時は従来値0.45)
+      atc.globalAlpha = s.hlOpacity||0.5; // V2_98: ストロークごとの濃度(未設定時はV3_08標準値0.5)
       atc.strokeStyle = 'rgb('+s.color.r+','+s.color.g+','+s.color.b+')';
       atc.lineWidth = s.lw * (scale / lwRef) * dpr * PS;  // V0_87: zoom比例
       atc.lineCap = 'round';
@@ -2053,7 +2058,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
   if(sketching && sketchPts.length >= 2){
     atc.save();
     if(currentTool === 'hl'){
-      atc.globalAlpha = currentHLAlpha||0.45; // V2_98: 選択中の濃度をプレビューにも反映
+      atc.globalAlpha = currentHLAlpha||0.5; // V2_98: 選択中の濃度をプレビューにも反映
       atc.strokeStyle = 'rgb('+currentHL_Color.r+','+currentHL_Color.g+','+currentHL_Color.b+')';
       atc.lineWidth = currentHL_LW * (scale / lwRef) * dpr * PS;  // V0_87: zoom比例
     } else {
@@ -2286,7 +2291,10 @@ function drawOverlay(){
     }
   }
   // V0_98: 検索ハイライト点滅
-  if(typeof _searchHighlight!=='undefined'&&_searchHighlight){
+  // V3_10: PDFの場合、リング設置時のページ(_searchHighlightPage)と現在表示中のページ
+  // (pdfPageNum)が一致する場合のみ描画する。前へ/次へボタン等でページを切り替えた際に
+  // 古いページの位置のまま次のページ上にリングが残って見える不具合の修正
+  if(typeof _searchHighlight!=='undefined'&&_searchHighlight&&(!pdfDoc||_searchHighlightPage===pdfPageNum)){
     var[_shx,_shy]=w2s(_searchHighlight.x,_searchHighlight.y);
     var _shr=Math.max(20,(_searchHighlight.h||1)*scale*3);
     octx.save();octx.strokeStyle='#ffff00';octx.lineWidth=3;octx.globalAlpha=0.9;
@@ -2567,7 +2575,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
     // （四方の余白が異常に広い）不具合の原因になっていた
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
     // V0_131/V1_51: ファイル切替時にマーク自動クリア（従来DXF側にしか無かった処理をPDFにも適用）
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_searchHighlightPage=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     await loadPDF(buf);{const nd2=document.getElementById('noDrawingMsg');if(nd2)nd2.style.display='none';}
     if(typeof _updateTopbarForPdf==='function') _updateTopbarForPdf(true); // V1_116: 直前のrenderExcelView()呼び出し時点ではpdfDoc未設定だったため、loadPDF完了後に改めて反映する
     // V1_55: PDF分岐だけcurrentFileSizeが一度も設定されておらず、前に開いていた
@@ -2641,7 +2649,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
     // V1_76: Excel(.xlsx/.xls/.csv)はシンプルな表形式表示＋テキスト読込のみ対応。
     // 座標系を持たないため、DXF/PDFと異なり手書き・寸法計測(strokes/dims)は対象外とする
     hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i));
-    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+    _searchMarks=[];_markKeyword=null;_searchHighlight=null;_searchHighlightPage=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
     currentFileSize=f.size;
     var _excelOk176=loadExcel(buf,f.name.toLowerCase().endsWith('.csv')); // V1_106: CSVは文字コード自動判定させる
     if(_excelOk176){
@@ -2659,7 +2667,7 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
       currentFileSize=f.size; // V0_103
       hiddenLayers.clear();strokes=[];dims=[];images=[];[0,1,2,3,4].forEach(i=>updateViewmemoState(i)); // V0_160: savedViewsはファイル横断のグローバル項目のためここではリセットしない
       // V0_131: ファイル切替時にマーク自動クリア
-      _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+      _searchMarks=[];_markKeyword=null;_searchHighlight=null;_searchHighlightPage=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
       // V0_133: dxfViewerDxfviewDB(fileKey単位)から書き込みデータを復元
       // ※SAVE_KEY復元は廃止（異ファイル間でデータが混入するバグを修正）
       // V2_57: PDF分岐と同じ理由でindexedDB.open()の都度接続をやめ、_dvOpenIdb()
@@ -2875,7 +2883,7 @@ function switchToFile(idx){
   if(idx<0||idx>=openFiles.length) return;
   verify('switchToFile:before',{from:currentFileIdx,to:idx});
   // V0_131: タブ切替時にマーク自動クリア
-  _searchMarks=[];_markKeyword=null;_searchHighlight=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
+  _searchMarks=[];_markKeyword=null;_searchHighlight=null;_searchHighlightPage=null;_markNavList=null;_markNavIdx=-1;_excelMatchCounts=null;_excelMatchIdx=-1;_allSearchQueue=null;_allSearchQueueIdx=-1;(function(){var _mp=document.getElementById('markPopup');if(_mp)_mp.classList.remove('visible');if(typeof _updateMarkCountLabel==='function')_updateMarkCountLabel(-1,0);})();
   resetToolStates(true); // V0_139: タブ切替時に計測ツール状態をリセット / V1_234: 計測ツールは選択維持
   // V0_140: ビュー状態のみ同期（strokes/dimsは参照エイリアスで既に同期済み）
   if(currentFileIdx>=0&&currentFileIdx<openFiles.length){
@@ -3906,7 +3914,13 @@ document.getElementById('pdfThumbResetBtn').addEventListener('click',function(){
   _buildPdfThumbGrid();
 });
 
-function closePdfThumbOverlay(){document.getElementById('pdfThumbOverlay').classList.remove('open');}
+function closePdfThumbOverlay(){
+  document.getElementById('pdfThumbOverlay').classList.remove('open');
+  // V3_11: 一覧を閉じている間は画面内判定・生成処理を止める(背景でのメモリ消費防止)。
+  // _pdfThumbCache自体は保持したままにするので、次回開いた際は直前まで表示していた
+  // ページのサムネイルだけがそのまま残り、それ以外は再度スクロールに応じて生成される
+  if(_pdfThumbObserver){_pdfThumbObserver.disconnect();_pdfThumbObserver=null;}
+}
 document.getElementById('pdfThumbBtn').addEventListener('click',function(){
   if(!pdfDoc){showGuide('PDFが開かれていません',1500);return;}
   document.getElementById('pdfThumbOverlay').classList.add('open');
@@ -3997,6 +4011,29 @@ function _pdfThumbFillCell(cell,overview,crop){
 // 全ページの「全体」サムネイルを中解像度でレンダリングしグリッドに敷き詰め、図面番号
 // モードがONなら右下クロップも高解像度で別途生成する。既に同一pdfDoc・同一幅%/高さ%で
 // 生成済みのキャッシュがあればそれを再利用し、PDFの再描画は行わない
+// V3_11: 「PDFで一覧にして、プレビュー(サムネイル一覧)をスクロールさせていたら不具合が
+// 出て再起動が必要になった」との報告への対応。iPad(Safari)で確認されたこの症状は、
+// Safari自体が表示している「問題が繰り返し発生したため、Webページが再度読み込まれました」
+// という定型メッセージで、タブがメモリ不足で強制終了・再読込された状態を指す。
+// 【原因】従来の_buildPdfThumbGrid()は、一覧を開いた瞬間に「全ページ」分の
+// サムネイル(overview、幅900px基準)と図面番号欄クロップ(crop、最大25倍スケールで
+// ページ全体をレンダリングしてから一部を切り出す、V1_165の技法)を、表示位置に関係なく
+// 一括生成してcanvas要素のままキャッシュ配列(overviews/crops)に保持し続けていた。
+// 50ページを超える鉄骨図面PDF(1ページあたりのcanvasが数MB)では、これだけで数百MBの
+// メモリを一覧を開いた直後から専有し、スクロールで画面外のセルが増えてもキャッシュは
+// 一切解放されないため、ページ数が多いPDFほど確実にメモリ上限へ到達し、iPad Safariの
+// タブが強制終了(=ユーザーが見た「不具合」「再起動」)していた。
+// 【修正内容】IntersectionObserverを使い、実際に画面内(または近傍)に表示された
+// セルのみを都度生成する「遅延生成」に変更した。さらに、画面から大きく離れた
+// (rootMarginの外に出た)セルはoverview/cropのcanvasをキャッシュから解放し、
+// プレースホルダー表示に戻す「使用中解放(エビクション)」を行うことで、スクロール中に
+// 手元に保持され続けるサムネイルの数を常に一定範囲(画面内+前後の余白分)に抑える。
+// これにより総ページ数によらずメモリ使用量が頭打ちになり、再度スクロールして戻れば
+// 該当ページだけ即座に再生成される(生成自体は1ページあたり短時間で終わるため体感上の
+// 支障は小さい)。一覧を閉じた際はIntersectionObserverを破棄して背景での生成も止める
+var _pdfThumbObserver=null;
+var _pdfThumbGenerating=null; // Set<pageNo>: 生成処理が進行中のページ(同一ページの二重生成防止)
+
 async function _buildPdfThumbGrid(){
   var grid=document.getElementById('pdfThumbGrid');
   grid.innerHTML='';
@@ -4014,6 +4051,7 @@ async function _buildPdfThumbGrid(){
     cache.cropWPct=cfg.widthPct;cache.cropHPct=cfg.heightPct;
     cache.cropOffXPct=cfg.offXPct;cache.cropOffYPct=cfg.offYPct;
   }
+  _pdfThumbGenerating=new Set();
   var cells=[];
   for(var i=1;i<=total;i++){
     var cell=_pdfThumbCellHtml(i,total);
@@ -4021,12 +4059,45 @@ async function _buildPdfThumbGrid(){
     cells.push(cell);
     if(cache.overviews[i-1]) _pdfThumbFillCell(cell,cache.overviews[i-1],cache.crops[i-1]);
   }
+  // V3_11: 一括生成ループの代わりに、実際に画面内(rootMargin分の余白込み)へ入った
+  // セルだけを対象にする監視を張る。旧・古い監視は必ず破棄してから作り直す
+  if(_pdfThumbObserver) _pdfThumbObserver.disconnect();
+  // V3_11: #pdfThumbGrid自体がoverflow-y:autoのスクロールコンテナ(CSS参照)のため、
+  // それをそのままrootに指定する(ラップ要素を探す必要はない)
+  _pdfThumbObserver=new IntersectionObserver(function(entries){
+    entries.forEach(function(ent){
+      var cellEl=ent.target;
+      var pg=parseInt(cellEl.dataset.pg,10);
+      if(!pg||_pdfThumbCache!==cache||cache.doc!==pdfDoc) return;
+      if(ent.isIntersecting){
+        _pdfThumbGenPage(pg,cache,cells,cfg);
+      } else {
+        // V3_11: 画面から離れたセルはcanvasを解放してメモリを戻す(再度近づけば
+        // isIntersecting=trueで即座に作り直される。生成中のものは完了時の
+        // 「_pdfThumbCache!==cache」判定に引っかからないよう、値そのものは消すが
+        // 生成中フラグは自然に完了させる)
+        cache.overviews[pg-1]=null;
+        cache.crops[pg-1]=null;
+        var wrap=cellEl.querySelector('.pdf-thumb-imgwrap');
+        if(wrap){wrap.innerHTML='';wrap.textContent='…';}
+      }
+    });
+  },{root:grid,rootMargin:'600px 0px',threshold:0.01});
+  cells.forEach(function(c){_pdfThumbObserver.observe(c);});
+}
+
+// V3_11: 1ページ分の「全体」サムネイル(overview)と、必要なら図面番号欄クロップ(crop)を
+// 生成し、キャッシュとセル表示へ反映する。IntersectionObserverから、画面内に入った
+// ページ番号ごとに呼ばれる(同一ページの多重生成は_pdfThumbGeneratingで防止する)
+async function _pdfThumbGenPage(p,cache,cells,cfg){
+  if(cache.overviews[p-1]&&(!cfg.modeOn||cache.crops[p-1])) return; // 既に揃っている
+  if(_pdfThumbGenerating.has(p)) return; // 生成中(結果はどのみち反映されるため二重実行しない
+  _pdfThumbGenerating.add(p);
   var RENDER_TARGET_W=900; // 「全体」サムネイル用の基準幅(px)。図面番号欄の鮮明さは別途高解像度クロップが担う
-  for(var p=1;p<=total;p++){
-    if(_pdfThumbCache!==cache||cache.doc!==pdfDoc) return; // 生成中にファイル/ページ集合が変わったら中断
-    if(cache.overviews[p-1]) continue; // 生成済み
-    try{
+  try{
+    if(!cache.overviews[p-1]){
       var page=await pdfDoc.getPage(p);
+      if(_pdfThumbCache!==cache||cache.doc!==pdfDoc) return;
       var vp1=page.getViewport({scale:1});
       var rs=Math.min(3,Math.max(0.5,RENDER_TARGET_W/vp1.width));
       var vp=page.getViewport({scale:rs});
@@ -4048,24 +4119,25 @@ async function _buildPdfThumbGrid(){
           scale=_svScale234;tx=_svTx234;ty=_svTy234;fitScale=_svFit234;pdfPageNum=_svPn234;
         }
       }
-      cache.overviews[p-1]=c;
-      var cellNow=cells[p-1];
-      if(cellNow&&cellNow.isConnected) _pdfThumbFillCell(cellNow,c,cache.crops[p-1]);
-    }catch(e){console.warn('[ページサムネイル:全体]',e);}
-  }
-  if(!cfg.modeOn) return;
-  for(var q=1;q<=total;q++){
-    if(_pdfThumbCache!==cache||cache.doc!==pdfDoc) return;
-    if(cache.crops[q-1]) continue; // 生成済み
-    try{
-      var page2=await pdfDoc.getPage(q);
+      // V3_11: 生成が終わる間にセルが画面外へ出てエビクションされていたら、
+      // このページのcanvasは保持しない(結果を捨てる。再度近づけば作り直される)
+      var cellEl=cells[p-1];
+      var stillWanted=cellEl&&cellEl.isConnected&&_pdfThumbObserver;
+      if(stillWanted) cache.overviews[p-1]=c;
+      if(cellEl&&cellEl.isConnected) _pdfThumbFillCell(cellEl,stillWanted?c:null,cache.crops[p-1]);
+    }
+    if(!cfg.modeOn) return;
+    if(!cache.crops[p-1]){
+      var page2=await pdfDoc.getPage(p);
       var cropCanvas=await _pdfThumbRenderCrop(page2,cfg.widthPct,cfg.heightPct,cfg.offXPct,cfg.offYPct);
       if(_pdfThumbCache!==cache||cache.doc!==pdfDoc) return;
-      cache.crops[q-1]=cropCanvas;
-      var cellNow2=cells[q-1];
-      if(cellNow2&&cellNow2.isConnected) _pdfThumbFillCell(cellNow2,cache.overviews[q-1],cropCanvas);
-    }catch(e){console.warn('[ページサムネイル:図面番号クロップ]',e);}
-  }
+      var cellEl2=cells[p-1];
+      var stillWanted2=cellEl2&&cellEl2.isConnected&&_pdfThumbObserver;
+      if(stillWanted2) cache.crops[p-1]=cropCanvas;
+      if(cellEl2&&cellEl2.isConnected) _pdfThumbFillCell(cellEl2,cache.overviews[p-1],stillWanted2?cropCanvas:null);
+    }
+  }catch(e){console.warn('[ページサムネイル生成:'+p+']',e);}
+  finally{ _pdfThumbGenerating.delete(p); }
 }
 
 // =========================================================
@@ -7428,6 +7500,30 @@ function _swAttachInput(sw){
   });
   el.addEventListener('mouseleave',function(){_mDown=false;_swMouseUpOrLeave92();});
 
+  // V3_06: PC(マウス)でサブ窓内をホイールでズームできるようにする。iPadは指の
+  // ピンチ操作で既に対応済みだが、マウスホイールでの拡大縮小手段が一切無く、
+  // 「PCでサブ窓を作るとズーム(スクロール)できない」不具合の原因だった。
+  // メイン画面のホイールズーム処理(tool.js、ov.addEventListener('wheel',...))と
+  // 全く同じ計算式を、withCtx()でサブ窓自身の座標系に差し替えた上で適用する。
+  el.addEventListener('wheel',function(e){
+    if(window.SW&&window.SW.active)return;
+    e.preventDefault();
+    _swBringToFront();
+    var r=el.getBoundingClientRect();
+    var p={x:e.clientX-r.left,y:e.clientY-r.top};
+    var _wd=e.deltaY;
+    if(e.deltaMode===1) _wd*=16;
+    else if(e.deltaMode===2) _wd*=800;
+    _wd=Math.max(-800,Math.min(800,_wd));
+    var _wf=Math.pow(1.15,-_wd/100);
+    withCtx(function(){
+      if(typeof _beginInteraction==='function') _beginInteraction();
+      zoomAt(p.x,p.y,_wf);
+    });
+    sw._userNavigated=true; // V0_153.1: パン/ズーム済みかどうかのフラグ(既存のピンチ処理と同じ扱い)
+    scheduleDraw();
+  },{passive:false});
+
   // ── タッチ（iPad本番用。ペン/指分離・2本指パン+ピンチはメイン画面と同じロジック） ──
   el.addEventListener('touchstart',function(e){
     if(window.SW&&window.SW.active)return;
@@ -8225,6 +8321,17 @@ async function _jumpToPdfAllSearchResult(results,idx,kw){
   _markNavList=results.slice();
   _markNavIdx=idx;
   _allSearchQueue=null;_allSearchQueueIdx=-1; // V2_70: 全図面検索経由のキューではないため無効化
+  // V3_09: 「検索語を変えても同じページの場合、前の検索語の黄色マークが残る」不具合の修正。
+  // 従来はitem.page===pdfPageNum(表示中ページと同じ)の場合、下のif分岐が丸ごとスキップされ、
+  // _markKeywordを新しい語に更新したにも関わらず_searchMarks(黄色マーク一覧)の再計算が
+  // 一切行われなかったため、前の検索語(例:溶接)のマークがそのまま表示され続けていた。
+  // ページが変わらない場合でも必ず_rebuildSearchMarksForCurrentPage()を呼び、新しい
+  // _markKeywordで_searchMarksを作り直す(内部で_searchMarks=[]初期化→再構築するため、
+  // 前の語のマークは確実に消える)
+  if(item.page===pdfPageNum){
+    _rebuildSearchMarksForCurrentPage();
+    scheduleOverlay();
+  }
   if(item.page!==pdfPageNum){
     // V2_74: 「ページ検索でそのページにジャンプしない」不具合を修正。他のページ切替箇所
     // (prevPage/nextPage等)は全てrenderPdfPage()を呼ぶ前にグローバル変数pdfPageNumを
@@ -8284,6 +8391,11 @@ function jumpToSearchResult(item){
   ty=H/2+item.y*scale;
   scheduleDraw();scheduleOverlay();
   // ハイライト点滅（6回 ≈ 2.4秒）
+  // V3_10: このリングが属するページ番号を記録する(PDFの場合)。renderPdfPage()を経由する
+  // 他の全てのページ切替(前へ/次へボタン・ページ一覧クリック・ページ番号直接入力等)では
+  // ここが更新されないため、描画側でpdfPageNumとの一致を確認することで、リングが
+  // ジャンプ元のページに残ったまま次のページにも表示され続める不具合を防ぐ
+  _searchHighlightPage=pdfDoc?pdfPageNum:null;
   _searchHighlight=item;
   var cnt=0;
   var iv=setInterval(function(){

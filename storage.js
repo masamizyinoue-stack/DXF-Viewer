@@ -154,7 +154,7 @@ function doSave(){
       currentTextLW:(typeof currentTextLW!=='undefined'?currentTextLW:currentLW),
       currentShapeLW:(typeof currentShapeLW!=='undefined'?currentShapeLW:currentLW),
       currentHL_Color,currentHL_LW,currentDimColor,
-      currentHLAlpha:(typeof currentHLAlpha!=='undefined'?currentHLAlpha:0.45), // V2_98: 蛍光ペン濃度を保存
+      currentHLAlpha:(typeof currentHLAlpha!=='undefined'?currentHLAlpha:0.5), // V2_98: 蛍光ペン濃度を保存
       ERASER_RADIUS_PX:(typeof ERASER_RADIUS_PX!=='undefined'?ERASER_RADIUS_PX:20), // V1_207: 消しゴム範囲を保存
       _lastMeasureTool:(typeof _lastMeasureTool!=='undefined'?_lastMeasureTool:null), // V1_210: 前回選んだ計測ツールを保存
       dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
@@ -401,7 +401,7 @@ async function tryRestore(){
             const _tsl86=document.getElementById('textSizeLabel');if(_tsl86)_tsl86.textContent=currentTextLW; // V2_86/V2_103
             if(_d2.currentHL_Color)currentHL_Color=_d2.currentHL_Color;
             if(_d2.currentHL_LW)currentHL_LW=_d2.currentHL_LW;
-            if(_d2.currentHLAlpha)currentHLAlpha=_d2.currentHLAlpha; // V2_98: 旧データ(未設定)は初期値0.45のまま維持
+            if(_d2.currentHLAlpha)currentHLAlpha=_d2.currentHLAlpha; // V2_98: 旧データ(未設定)はV3_08初期値0.5のまま維持
             if(_d2.currentDimColor)currentDimColor=_d2.currentDimColor;
             if(_d2.ERASER_RADIUS_PX)ERASER_RADIUS_PX=_d2.ERASER_RADIUS_PX; // V1_207
             if(_d2._lastMeasureTool)_lastMeasureTool=_d2._lastMeasureTool; // V1_210: 前回の計測ツールを復元
@@ -533,7 +533,7 @@ async function tryRestore(){
     const tsl86=document.getElementById('textSizeLabel');if(tsl86)tsl86.textContent=currentTextLW; // V2_86/V2_103
     if(d.currentHL_Color)currentHL_Color=d.currentHL_Color;
     if(d.currentHL_LW)currentHL_LW=d.currentHL_LW;
-    if(d.currentHLAlpha)currentHLAlpha=d.currentHLAlpha; // V2_98: 旧データ(未設定)は初期値0.45のまま維持
+    if(d.currentHLAlpha)currentHLAlpha=d.currentHLAlpha; // V2_98: 旧データ(未設定)はV3_08初期値0.5のまま維持
     if(d.currentDimColor)currentDimColor=d.currentDimColor;
     if(d.ERASER_RADIUS_PX)ERASER_RADIUS_PX=d.ERASER_RADIUS_PX; // V1_207
     if(d._lastMeasureTool)_lastMeasureTool=d._lastMeasureTool; // V1_210: 前回の計測ツールを復元

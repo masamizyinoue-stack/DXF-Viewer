@@ -625,6 +625,22 @@ function handlePointerUp(sx,sy,isPenInput){
     _shapePointerUp();return;
   }
   if(isPenInput||currentTool==='sketch'||currentTool==='hl'){
+    // V3_12: 「蛍光ペンを選んだ状態で、ドラッグせずクリック(タップ)1回だけでも
+    // 蛍光の点を打てるようにしてほしい」との要望対応。従来はsketchPts.length>1
+    // (=実際に動かした場合)でなければストローク自体を破棄しており、ちょうど1点
+    // (ドラッグなしでクリック/タップしただけ)の場合は何も描画されなかった
+    // (viewer.js側の描画ループもpts.length<2のストロークを描画しない、
+    // smoothPath()もpts.length<2では何もしない、という二重の理由で元々
+    // 「点」を打つ手段が無かった)。ここでちょうど1点の場合は同じ座標をもう1点
+    // 複製して2点にし、以降の「2点ストローク」として保存する。描画側は
+    // lineCap='round'のため、同一座標の2点(長さ0の線)はまん丸の点として
+    // 描画される(ペン/蛍光ペンどちらでも、現在の太さに応じた大きさの点になる。
+    // 両ツールで共通のこの分岐を使っているため、ペン側でも同様にタップで
+    // 点が打てるようになるが、従来「タップでは何も起きない」だった状態からの
+    // 純粋な改善であり、既存のドラッグ描画の見た目・挙動は一切変更していない)
+    if(sketching&&sketchPts.length===1){
+      sketchPts.push({x:sketchPts[0].x,y:sketchPts[0].y});
+    }
     if(sketching&&sketchPts.length>1){
       snapshot();
       if(currentTool==='hl'){
@@ -1211,16 +1227,26 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
     // 入ってしまい、それより後にリセット処理を置いても実行されなかった
     if(window.SW&&window.SW.active&&typeof resetSW==='function'){resetSW();if(typeof _swUpdateBtnUI==='function')_swUpdateBtnUI(false);}
     const _mode=_TOOL_COLOR_MODE[btn.dataset.tool];
-    if(btn.classList.contains('active')&&_mode){
+    // V3_05: 「2線間が時々反応しない」不具合の修正。
+    // 従来はDIM/LP/LL/LLEN/ANG等の計測系('dim')ボタンも「既に選択中のアイコンの
+    // 再タップ」判定に含めてstopImmediatePropagation()で止めていたが、計測系は
+    // _mode==='dim'のため何もせずreturnするだけで、色ポップアップ等は一切開かない。
+    // その結果、計測途中(例:2線間で1本目だけ選んで2本目待ちのphase=1)で状態が
+    // 止まってしまった際、ユーザーが同じ計測ボタンを再タップして最初からやり直そう
+    // としても、このstopImmediatePropagation()によって各計測ツール自身が持つ
+    // リセット用フックリスナー(index.html側、D1〜D5セクションのquerySelectorAll
+    // ('.tool-btn[data-tool]')登録分。tool.js側のこのリスナーより後に登録されるため
+    // 同一要素上で後から呼ばれる)が一切発火せず、ボタンを何度押してもリセットされない
+    // ＝「反応しない」ように見える不具合があった。計測系('dim')は色/太さの専用
+    // ポップアップを持たない(常時表示の#measureToolPopupを使う)ため、再タップ時に
+    // ここで止める理由が本来ない。'dim'は「既に選択中」判定そのものから除外し、
+    // 通常の選択処理（各ツールのリセットフックが発火する経路）へ進めるようにした。
+    if(btn.classList.contains('active')&&_mode&&_mode!=='dim'){
       // 既に選択中のアイコンの再タップ：ツールの再選択・状態リセットは行わず、
-      // 色・太さの選択ポップアップだけを開く。DIM/LP/LL等、同じボタンに登録された
-      // 他のフックリスナー（計測状態のリセットを行う）が発火して計測途中の状態を
-      // 壊してしまわないよう、stopImmediatePropagation()で止める
+      // 色・太さの選択ポップアップだけを開く。同じボタンに登録された他のフック
+      // リスナー（計測状態のリセットを行う）が発火して状態を壊してしまわないよう、
+      // stopImmediatePropagation()で止める
       if(e&&e.stopImmediatePropagation)e.stopImmediatePropagation();
-      // V1_207: 計測系ツール('dim')は色選択が#measureToolPopupに常時表示されている
-      // ため、再タップで別ポップアップを開く必要がない。ここでは「状態リセットを
-      // しない」保護だけを効かせ、それ以外は何もしない(何も起きないのが正しい)
-      if(_mode==='dim') return;
       if(typeof openContextPopup==='function')openContextPopup(_mode,btn);
       return;
     }

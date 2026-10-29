@@ -143,36 +143,70 @@
   // 慣性(勢いで動き続ける効果)は付けない — ボタンを離した位置でぴたっと止まる。
   // 描画キャンバス(#ov)上のみで有効。左クリック(既存のtool.js側mousedown/mousemove/
   // mouseup)や右クリックメニューとは独立した、新規追加のイベントリスナーのみで完結する。
+  //
+  // V3_07: メイン画面(#ov)だけでなく、サブ窓(#subWinBtn)内でも中央ボタンドラッグで
+  // パンできるように拡張。サブ窓は自身のtx/ty/scaleを持つため、mousedown時の
+  // e.targetがどのサブ窓のcanvas(ovEl)かをwindow._swFindOwnerOfOv()で判定し、
+  // 該当すればそのサブ窓自身のtx/tyを直接書き換える(index.htmlのwheelズーム対応(V3_06)
+  // のようなwithCtxによるグローバル差し替えは不要。rafLoopが毎フレームサブ窓を再描画する
+  // 際にsw.tx/tyを直接参照するため、これだけで正しく反映される)。
   // =========================================================
-  var _pcMidPanning = false, _pcMidLastX = 0, _pcMidLastY = 0;
+  var _pcMidPanning = false, _pcMidLastX = 0, _pcMidLastY = 0, _pcMidSubWin = null;
 
   document.addEventListener('mousedown', function(e){
     if(e.button !== 1) return;
+    if(window.SW && window.SW.active) return; // サブ窓「新規作成」の範囲ドラッグ選択中は横取りしない
     var ov = document.getElementById('ov');
-    if(!ov || !ov.contains(e.target)) return;
+    var swOwner = (typeof window._swFindOwnerOfOv === 'function') ? window._swFindOwnerOfOv(e.target) : null;
+    if(!(ov && ov.contains(e.target)) && !swOwner) return;
     e.preventDefault(); // ブラウザ既定の中央ボタン自動スクロールアイコンを抑止
-    if(typeof getPos !== 'function') return;
-    var p = getPos(e);
+    _pcMidSubWin = swOwner; // null=メイン画面、オブジェクト=対象サブ窓
+    if(swOwner){
+      var r = swOwner.ovEl.getBoundingClientRect();
+      _pcMidLastX = e.clientX - r.left; _pcMidLastY = e.clientY - r.top;
+      // V3_07: 中央ボタンでパンを開始したサブ窓を最前面に持ってくる
+      // (index.html側の_swBringToFrontはcreateSubWindowのローカル関数でwindow公開
+      // されていないため、簡易的にこのサブ窓のz-indexだけ引き上げる)
+      if(swOwner.el) swOwner.el.style.zIndex = '5001';
+    } else {
+      if(typeof getPos !== 'function') return;
+      var p = getPos(e);
+      _pcMidLastX = p.x; _pcMidLastY = p.y;
+    }
     _pcMidPanning = true;
-    _pcMidLastX = p.x; _pcMidLastY = p.y;
   });
 
   document.addEventListener('mousemove', function(e){
     if(!_pcMidPanning) return;
-    if(typeof getPos !== 'function') return;
-    var p = getPos(e);
-    // V0_79等の既存パン処理(tool.js)と同じ「移動量をそのまま加算するだけ」の式。
-    // 減速・継続処理を一切行わないため、慣性は付かない
-    tx += p.x - _pcMidLastX;
-    ty += p.y - _pcMidLastY;
-    _pcMidLastX = p.x; _pcMidLastY = p.y;
-    if(typeof scheduleDraw === 'function') scheduleDraw();
+    if(_pcMidSubWin){
+      var sw = _pcMidSubWin;
+      // サブ窓が既に閉じられていたら安全に中断する(異常系対策)
+      if(typeof window._swFindOwnerOfOv !== 'function' || !window._swFindOwnerOfOv(sw.ovEl)){
+        _pcMidPanning = false; _pcMidSubWin = null; return;
+      }
+      var r = sw.ovEl.getBoundingClientRect();
+      var p = {x: e.clientX - r.left, y: e.clientY - r.top};
+      // V0_79等の既存パン処理(tool.js)と同じ「移動量をそのまま加算するだけ」の式。
+      // 減速・継続処理を一切行わないため、慣性は付かない
+      sw.tx += p.x - _pcMidLastX;
+      sw.ty += p.y - _pcMidLastY;
+      sw._userNavigated = true; // V0_153.1: 手動操作済みフラグ(既存のピンチ/ホイールズーム処理と同じ扱い)
+      _pcMidLastX = p.x; _pcMidLastY = p.y;
+      if(typeof scheduleDraw === 'function') scheduleDraw();
+    } else {
+      if(typeof getPos !== 'function') return;
+      var p = getPos(e);
+      tx += p.x - _pcMidLastX;
+      ty += p.y - _pcMidLastY;
+      _pcMidLastX = p.x; _pcMidLastY = p.y;
+      if(typeof scheduleDraw === 'function') scheduleDraw();
+    }
   });
 
   document.addEventListener('mouseup', function(e){
-    if(e.button === 1) _pcMidPanning = false;
+    if(e.button === 1){ _pcMidPanning = false; _pcMidSubWin = null; }
   });
   // ウィンドウ外でボタンを離した場合や、フォーカスが外れた場合もパン状態を残さない
-  window.addEventListener('blur', function(){ _pcMidPanning = false; });
+  window.addEventListener('blur', function(){ _pcMidPanning = false; _pcMidSubWin = null; });
 
 })();
