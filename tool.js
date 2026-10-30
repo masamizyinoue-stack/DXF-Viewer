@@ -1140,7 +1140,7 @@ const _SHAPE_TOOL_LABELS={rect:'四角',arrow:'矢印',circle:'丸',ellipse:'楕
 // V2_96: ヘッダーの図形ボタン(#shapeToggleBtn)を他ツールから押した時に、前回選んで
 // いた図形タイプを直接復元できるよう記憶する(_lastMeasureToolと同じ考え方)。
 // var宣言でグローバル公開(index.htmlの#shapeToggleBtnクリックハンドラが参照するため)
-var _lastShapeTool=null;
+var _lastShapeTool=(function(){try{var v=localStorage.getItem('dxfLastShapeTool');return ['rect','arrow','circle','ellipse','cloud'].indexOf(v)>=0?v:null;}catch(e){return null;}})(); // V3_29: 再読込・バージョンアップ後も図形の種類を保持
 // V1_219: 「計測ボタンのアイコンを、選択中の計測ツールのアイコンにしてほしい」との
 // 依頼への対応。ヘッダーの計測ボタン(#measureToolIcon)は従来ずっと定規アイコン固定
 // だったが、計測ツールが選択されている間はそのツール専用のアイコン(下記、
@@ -1154,9 +1154,9 @@ var _lastShapeTool=null;
 var _MEASURE_RULER_ICON_INNER='<rect x="2" y="9" width="20" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="10" y1="9" x2="10" y2="12"/><line x1="14" y1="9" x2="14" y2="12"/><line x1="18" y1="9" x2="18" y2="12"/>';
 var _MEASURE_TOOL_ICON_INNER={
   dxdy:'<line x1="3" y1="9" x2="15" y2="9"/><line x1="3" y1="6" x2="3" y2="12"/><line x1="15" y1="6" x2="15" y2="12"/><line x1="18" y1="9" x2="18" y2="21"/><line x1="15" y1="9" x2="21" y2="9"/><line x1="15" y1="21" x2="21" y2="21"/>',
-  diag:'<line x1="5" y1="19" x2="19" y2="5"/><polyline points="5 13 5 19 11 19"/><polyline points="13 5 19 5 19 11"/>',
+  diag:'<circle cx="5" cy="19" r="2.5" fill="currentColor"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 13 7 17 11 17"/><polyline points="13 7 17 7 17 11"/>',
   ll:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/><line x1="12" y1="7" x2="12" y2="17"/><polyline points="9 10 12 7 15 10"/><polyline points="9 14 12 17 15 14"/>',
-  lp:'<line x1="3" y1="21" x2="21" y2="3"/><circle cx="17" cy="17" r="3"/><line x1="17" y1="14" x2="12" y2="9" stroke-dasharray="2,2"/>',
+  lp:'<line x1="3" y1="20" x2="21" y2="20"/><circle cx="12" cy="4.5" r="2.5" fill="currentColor"/><line x1="12" y1="7.5" x2="12" y2="20"/><polyline points="9.5 10.5 12 7.5 14.5 10.5"/><polyline points="9.5 17 12 20 14.5 17"/>',
   circDim:'<circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/>',
   radDim:'<circle cx="12" cy="12" r="8"/><line x1="12" y1="12" x2="20" y2="12"/><text x="14" y="11" font-size="5" fill="currentColor" stroke="none">R</text>',
   lineLen:'<line x1="4" y1="12" x2="20" y2="12"/><polyline points="8 8 4 12 8 16"/><polyline points="16 8 20 12 16 16"/>', // V1_240: 線の長さ追加(#measureToolPopup内の.dimToolIconと同一形状)
@@ -1290,9 +1290,10 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
       // ポップアップを閉じるようにする。色/太さボタン(.color-btn/.lw-btn)側の
       // 「決定ボタンを押すまで閉じない」動作(V2_100)はそのまま維持し、ここでは
       // 触れない
-      if(typeof _closeShapeToolPopup==='function') _closeShapeToolPopup();
+      // V3_21: 図形の種類を選んでもポップアップを自動で閉じない(ペン/蛍光と同じ挙動に統一)。閉じるのは「決定」ボタン、
+      // 図形ボタン再タップ、または図面エリアで描き始めた時(V3_15の外側操作で閉じる処理)。従来のV2_102の自動クローズは廃止
       // 次に他ツールから図形ボタンを押した時にこのツールを直接復元できるよう記憶
-      _lastShapeTool=currentTool;
+      _lastShapeTool=currentTool; try{localStorage.setItem('dxfLastShapeTool',currentTool);}catch(e){} // V3_29
     }
     // 図形ボタン(#shapeToggleBtn)の枠は、図形ツールがcurrentToolの時だけ色付きにする
     // (#measureToggleBtnと同じ考え方)
@@ -1542,6 +1543,7 @@ function _ensureCanvasJPFont84(){
       await ff.load();
       document.fonts.add(ff);
       if(typeof scheduleOverlay==='function') scheduleOverlay();
+      if(typeof scheduleDraw==='function') scheduleDraw(); // V3_18: DXF文字(本体canvas)も再描画
     }catch(e){ console.warn('[文字入力] フォント読込失敗',e); }
   })();
 }

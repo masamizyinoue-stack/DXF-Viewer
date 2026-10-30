@@ -944,7 +944,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
        反映するようにした(updateToolColorDots()、.dimToolIconと同様の扱い)。3段目の
        ラベル(選択中の計測ツール名)は色分けが不要との指摘のため、他ツール(ペン等)の
        3段目ラベルと同じデフォルト色(白系)に統一(旧インラインstyleの橙色を削除) -->
-  <button class="tb-btn" id="measureToggleBtn" title="計測ツールを選ぶ（水・鉛/斜め/2線間/線と点/直径/半径）">
+  <button class="tb-btn" id="measureToggleBtn" title="計測ツールを選ぶ（水・鉛/2線間/点と点/線と点/直径/半径）">
   <span class="tb-tool-label">計測</span>
   <svg id="measureToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="6" rx="1"/><line x1="6" y1="9" x2="6" y2="12"/><line x1="10" y1="9" x2="10" y2="12"/><line x1="14" y1="9" x2="14" y2="12"/><line x1="18" y1="9" x2="18" y2="12"/></svg>
   <span class="tb-tool-label" id="measureCurrentLabel">未選択</span>
@@ -1083,9 +1083,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
            付与し、選択中の寸法色(currentDimColor)を反映する。選択中に同じアイコンを
            もう一度押すと色・太さの選択ポップアップが開く -->
       <button class="tb-tool-btn tool-btn" data-tool="dxdy" title="水平/鉛直寸法（自動判定）"><span class="tb-tool-label">水・鉛</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="9" x2="15" y2="9"/><line x1="3" y1="6" x2="3" y2="12"/><line x1="15" y1="6" x2="15" y2="12"/><line x1="18" y1="9" x2="18" y2="21"/><line x1="15" y1="9" x2="21" y2="9"/><line x1="15" y1="21" x2="21" y2="21"/></svg></button>
-      <button class="tb-tool-btn tool-btn" data-tool="diag" title="斜め寸法"><span class="tb-tool-label">斜め</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="5 13 5 19 11 19"/><polyline points="13 5 19 5 19 11"/></svg></button>
       <button class="tb-tool-btn tool-btn" data-tool="ll" title="2線間距離（平行な線を2本選択）"><span class="tb-tool-label">2線間</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/><line x1="12" y1="7" x2="12" y2="17"/><polyline points="9 10 12 7 15 10"/><polyline points="9 14 12 17 15 14"/></svg></button>
-      <button class="tb-tool-btn tool-btn" data-tool="lp" title="線と点 距離"><span class="tb-tool-label">線と点</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="21" x2="21" y2="3"/><circle cx="17" cy="17" r="3"/><line x1="17" y1="14" x2="12" y2="9" stroke-dasharray="2,2"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="diag" title="点と点 距離（斜め寸法）"><span class="tb-tool-label">点と点</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="19" r="2.5" fill="currentColor"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 13 7 17 11 17"/><polyline points="13 7 17 7 17 11"/></svg></button>
+      <button class="tb-tool-btn tool-btn" data-tool="lp" title="線と点 距離"><span class="tb-tool-label">線と点</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="3" y1="20" x2="21" y2="20"/><circle cx="12" cy="4.5" r="2.5" fill="currentColor"/><line x1="12" y1="7.5" x2="12" y2="20"/><polyline points="9.5 10.5 12 7.5 14.5 10.5"/><polyline points="9.5 17 12 20 14.5 17"/></svg></button>
       <button class="tb-tool-btn tool-btn" data-tool="circDim" title="直径寸法（φ）"><span class="tb-tool-label">直径</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="8"/><line x1="4" y1="12" x2="20" y2="12"/></svg></button>
       <button class="tb-tool-btn tool-btn" data-tool="radDim" title="半径寸法（R）"><span class="tb-tool-label">半径</span><svg class="dimToolIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="8"/><line x1="12" y1="12" x2="20" y2="12"/><text x="14" y="11" font-size="5" fill="currentColor" stroke="none">R</text></svg></button>
       <!-- V1_240: 「線の長さ」追加。既存の線を1回タップで選ぶだけで全長を自動計測する
@@ -1352,6 +1352,19 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
         <input type="radio" name="inputMode" id="inputModeFreehand" value="freehand" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
         <span>手書きモード<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">ペン/蛍光選択中：指1本で描画・指2本でパン/ズーム</small></span>
+      </label>
+    </div>
+  </div>
+  <div class="sp-section"> <!-- V3_18: DXF文字の字体 -->
+    <div class="sp-label">DXF文字の字体</div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
+        <input type="radio" name="dxfFontMode" id="dxfFontNoto" value="noto" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+        <span>Noto Sans JP<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">太字のゴシック体(初回のみ読込あり)</small></span>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
+        <input type="radio" name="dxfFontMode" id="dxfFontStd" value="std" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+        <span>標準(従来)</span>
       </label>
     </div>
   </div>
@@ -1834,7 +1847,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_17';
+const APP_VERSION = 'V3_31';
 
 // =========================================================
 // グローバル状態
@@ -2319,7 +2332,7 @@ function drawOverlay(){
   // ヒットテスト本体)と完全に同一の計算式を使う(DXF/PDFでパディング等の係数が異なる点も
   // _isDxfMoji203フラグで同様に分岐)。デフォルト非表示で、#textHitBoxToggleBtnを押した
   // 時(_showTextHitBoxes===true)かつ文字読込ピックモード中(_textPickTarget)のみ描く
-  if(_textPickTarget&&_showTextHitBoxes){
+  if(typeof _textPickTarget!=='undefined'&&_textPickTarget&&typeof _showTextHitBoxes!=='undefined'&&_showTextHitBoxes){ // V3_31: 起動時の宣言前参照エラーを防止
     var _isDxfMoji203=!!(doc&&doc.moji);
     var _mojiArr203=_isDxfMoji203?doc.moji:((typeof pdfMoji!=='undefined'&&pdfMoji)?pdfMoji:[]);
     if(_mojiArr203&&_mojiArr203.length>0){
@@ -4702,6 +4715,19 @@ function openContextPopup(mode,anchorEl){
 // 選択中のツールアイコンの再タップ(openContextPopupのトグル)だけで閉じるようにする
 // V2_100: 3つのポップアップ(#colorOverlay/#measureToolPopup/#shapeToolPopup)右上に
 // 新設した「決定」ボタン。押すと該当ポップアップだけを閉じる(他の状態には触れない)
+// V3_18: DXF文字の字体切替(設定パネル)。選択はlocalStorage('dxfNotoFont')に保存
+(function(){
+  var rN=document.getElementById('dxfFontNoto'),rS=document.getElementById('dxfFontStd');
+  if(!rN||!rS) return;
+  (_dxfNotoFontOn?rN:rS).checked=true;
+  function apply(){
+    _dxfNotoFontOn=rN.checked;
+    try{localStorage.setItem('dxfNotoFont',_dxfNotoFontOn?'1':'0');}catch(e){}
+    if(_dxfNotoFontOn&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84();
+    scheduleDraw();
+  }
+  rN.addEventListener('change',apply); rS.addEventListener('change',apply);
+})();
 document.getElementById('colorOverlayDoneBtn').addEventListener('click',function(e){
   if(e&&e.stopPropagation) e.stopPropagation();
   _closeToolPopupById('colorOverlay');
@@ -4971,12 +4997,36 @@ function _dimScaleFloor(){
   var fs=(typeof fitScale==='number'&&fitScale>0)?fitScale:(scale||1);
   return Math.max(scale||1, fs*3);
 }
+// V3_25: 寸法線の位置揃え。新しい寸法の寸法線位置を、既存の寸法線(同ページ・平行)に画面上で近い時(DIM_ALIGN_PX以内)、
+// 既存の寸法線と一直線になる位置へ吸着させる。coord=新寸法線の位置(単位ベクトル(ux,uy)方向の座標、原点(ox,oy))
+var DIM_ALIGN_PX=30;
+function _alignDimPos(coord,ux,uy,ox,oy,pt){ // V3_30: pt=ペン/マウス位置。既存寸法線(線分)自体に近い時だけ吸着
+  if(typeof dims==='undefined'||!dims||!dims.length) return coord;
+  var pg=_curPage(),best=coord,bd=DIM_ALIGN_PX/scale;
+  for(var i=0;i<dims.length;i++){
+    var d=dims[i];
+    if(!d||(d.page||1)!==pg||!d.arrows||d.arrows.length<2) continue;
+    var a0=d.arrows[0],a1=d.arrows[1];
+    var ex=a1.x-a0.x,ey=a1.y-a0.y,el=Math.hypot(ex,ey);
+    if(el<1e-9) continue;
+    // 既存の寸法線が(ux,uy)と直交している(=新寸法線と平行)ものだけ対象
+    if(Math.abs((ex*ux+ey*uy)/el)>0.02) continue;
+    var sE=(a0.x-ox)*ux+(a0.y-oy)*uy;
+    var dd=Math.abs(coord-sE);
+    if(pt){ // V3_30: 既存寸法線の線分までの距離が閾値より遠ければ対象外(遠くの寸法には吸着しない)
+      var tt=((pt.x-a0.x)*ex+(pt.y-a0.y)*ey)/(el*el); tt=Math.max(0,Math.min(1,tt));
+      if(Math.hypot(pt.x-(a0.x+ex*tt),pt.y-(a0.y+ey*tt))>DIM_ALIGN_PX/scale) continue;
+    }
+    if(dd<=bd){bd=dd;best=sE;}
+  }
+  return best;
+}
 function buildDim(p1,p2,pArrow,type){
   const sd=parseFloat(document.getElementById('scaleDenom').value)||1;
   const lines=[],arrows=[];
   let text='',tx2=0,ty2=0,tangle=0;
   if(type==='dx'){
-    const y=pArrow.y;
+    const y=_alignDimPos(pArrow.y,0,1,0,0,pArrow); // V3_25
     lines.push({x1:p1.x,y1:p1.y,x2:p1.x,y2:y});
     lines.push({x1:p2.x,y1:p2.y,x2:p2.x,y2:y});
     lines.push({x1:p1.x,y1:y,x2:p2.x,y2:y});
@@ -4985,7 +5035,7 @@ function buildDim(p1,p2,pArrow,type){
     arrows.push({x:p1.x,y,angle:Math.PI-dir});arrows.push({x:p2.x,y,angle:-dir});
     tx2=(p1.x+p2.x)/2;ty2=y;tangle=0;
   } else if(type==='dy'){
-    const x=pArrow.x;
+    const x=_alignDimPos(pArrow.x,1,0,0,0,pArrow); // V3_25
     lines.push({x1:p1.x,y1:p1.y,x2:x,y2:p1.y});
     lines.push({x1:p2.x,y1:p2.y,x2:x,y2:p2.y});
     lines.push({x1:x,y1:p1.y,x2:x,y2:p2.y});
@@ -5559,13 +5609,28 @@ function computeFoot(line,pt){
 
 // ─ 最近傍線 ─────────────────────────────────────────
 function findNearestSen(wx,wy){
-  if(!doc||!doc.sen) return null;
   var sr=30/scale,best=null,bestDist=sr;
-  for(var i=0;i<doc.sen.length;i++){
-    var e=doc.sen[i];
-    if(hiddenLayers.has(e.layer)) continue;
-    var d=distToSeg(wx,wy,e.x1,e.y1,e.x2,e.y2);
-    if(d<bestDist){bestDist=d;best=e;}
+  if(doc&&doc.sen){
+    for(var i=0;i<doc.sen.length;i++){
+      var e=doc.sen[i];
+      if(hiddenLayers.has(e.layer)) continue;
+      var d=distToSeg(wx,wy,e.x1,e.y1,e.x2,e.y2);
+      if(d<bestDist){bestDist=d;best=e;}
+    }
+  }
+  // V3_24: 図面の線が近くに無い時だけ、このアプリで作った寸法(dims)の線(寸法線・補助線)も選択対象にする
+  // (図面の線を優先。矢印・数値は対象外。PDFは現在ページの寸法のみ)
+  if(!best&&typeof dims!=='undefined'&&dims&&dims.length){
+    var _cpg=_curPage();
+    for(var di=0;di<dims.length;di++){
+      var dd=dims[di];
+      if(!dd||!dd.lines||(dd.page||1)!==_cpg) continue;
+      for(var li=0;li<dd.lines.length;li++){
+        var ln=dd.lines[li];
+        var d2=distToSeg(wx,wy,ln.x1,ln.y1,ln.x2,ln.y2);
+        if(d2<bestDist){bestDist=d2;best=ln;}
+      }
+    }
   }
   return best;
 }
@@ -6022,6 +6087,10 @@ function buildLLDim(line1,line2,pArrow){
   // 追従しなくなり「途中で引っかかって伸ばせない」という指摘を受けた。ペンの動きに
   // そのまま追従させるため、クランプを撤廃する(異常に長く伸びる懸念より、意図した
   // 位置まで自由に動かせないことの方が実用上の支障が大きいと判断)
+  // V3_25: 寸法線位置を既存の寸法線に揃える(line1方向の座標を吸着)
+  var _sA=(pArrow.x-line1.x1)*ux1+(pArrow.y-line1.y1)*uy1;
+  var _sB=_alignDimPos(_sA,ux1,uy1,line1.x1,line1.y1,pArrow);
+  if(_sB!==_sA) pArrow={x:pArrow.x+(_sB-_sA)*ux1,y:pArrow.y+(_sB-_sA)*uy1};
   var t1raw=((pArrow.x-line1.x1)*dx1+(pArrow.y-line1.y1)*dy1)/(len1*len1);
   var t1=t1raw;
   var foot1={x:line1.x1+t1*dx1,y:line1.y1+t1*dy1};
@@ -6059,7 +6128,13 @@ function buildLLDim(line1,line2,pArrow){
   var tangle=normalizeDimTextAngle(screenAng);
   var sd1=w2s(foot1.x,foot1.y),sd2=w2s(foot2.x,foot2.y);
   var pxLen=Math.hypot(sd2[0]-sd1[0],sd2[1]-sd1[1]);
-  if(pxLen<60){
+  // V3_22: 「寸法値が矢印の中央でなく右端の線の上へずれ、右の補助線だけ長く伸びる」との指摘への対応。
+  // 従来は寸法線が60px未満だと必ず数値を線の延長上へ逃がしていたが、数値は寸法線の上側に描くため
+  // 矢印とは重ならない。数値の幅(桁数×約10.5px)+8px未満の時だけ逃がし、それ以外は中央に置く
+  var _llTextW=String(formatDim(dist/sd)).length*10.5;
+  // V3_23: V3_22の条件でも、ズームアウトした状態で作成すると寸法線が数px〜20px程度になり逃がし配置が選ばれてしまう
+  // (その後ズームインして見ると右端の線だけ長く、数値が右にずれて見える)。寸法線がほぼ点(12px未満)の時だけ逃がす
+  if(pxLen<12){
     // 寸法線が短すぎて数値が収まらない場合、line1の方向へ数値を逃がす(既存LP版と同趣旨)
     // V2_114: buildLinePtDimと全く同じ理由(32/scaleが作成時のビュー拡大率に反比例し、
     // ズームアウトして作成すると引出線がワールド座標上で巨大化してdims[]に固定

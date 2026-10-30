@@ -1236,6 +1236,9 @@ function drawArc(ctx,e){
   }
 }
 
+// V3_18: DXF文字の字体。ONの時はNoto Sans JP(読込前・字形が無い文字は自動でsans-serifに切替)。設定パネルでON/OFF(既定ON)
+var _dxfNotoFontOn=(function(){try{return localStorage.getItem('dxfNotoFont')!=='0';}catch(e){return true;}})();
+function _dxfFontFamily(){return _dxfNotoFontOn?'"NotoSansJPCanvas", sans-serif':'sans-serif';}
 function drawText(ctx,e,darkBg){
   if(!e.text||!e.text.trim()) return;
   const[sx,sy]=w2s(e.x,e.y);
@@ -1247,7 +1250,9 @@ function drawText(ctx,e,darkBg){
   ctx.save();
   ctx.translate(sx,sy);ctx.rotate(-e.angle*Math.PI/180);
   if(e.widthFactor&&Math.abs(e.widthFactor-1)>0.01) ctx.scale(e.widthFactor,1);
-  ctx.font=`${fs}px sans-serif`;
+  if(_dxfNotoFontOn&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84(); // V3_18: 初回のみ読込(以降は即return)
+  // V3_20: Noto Sans JPは字面が小さく見えるため、字体ONの時だけ一律1.1倍で描く(行間・位置は従来のfsのまま)
+  ctx.font=`${_dxfNotoFontOn?'bold ':''}${_dxfNotoFontOn?fs*1.1:fs}px ${_dxfFontFamily()}`; // V3_19: Noto Sans JPは太字で表示(PDFの見た目に近づける)
   ctx.fillStyle=bwMode?'#000000':rgbCss(e.color,darkBg);
   ctx.textBaseline='alphabetic';
   const lines=e.text.split('\n');
