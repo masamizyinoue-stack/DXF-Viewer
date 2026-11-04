@@ -451,12 +451,15 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #colorOverlay[data-mode="sketch"][data-lwctx="text"] #coStampSection{display:block}
 #stampList{display:flex;flex-wrap:wrap;gap:6px;max-width:280px;margin-bottom:6px}
 .stamp-chip{display:inline-flex;align-items:center;border:1px solid #888;border-radius:6px;background:rgba(255,255,255,.08);color:inherit;font-size:13px;padding:0;overflow:hidden}
-.stamp-chip .st-t{padding:6px 8px;cursor:pointer;background:none;border:none;color:inherit;font:inherit}
+.stamp-chip .st-t{min-width:34px;padding:8px 10px;cursor:pointer;background:none;border:none;color:inherit;font:inherit}
 .stamp-chip .st-x{padding:6px 7px;cursor:pointer;background:none;border:none;border-left:1px solid #666;color:#f88;font:inherit}
 .stamp-chip.active{border-color:#00d4ff;background:rgba(0,212,255,.25)}
 #stampAddRow{display:flex;gap:6px}
 #stampInput{flex:1;min-width:0;font-size:14px;padding:5px 6px;border-radius:6px;border:1px solid #888;background:rgba(255,255,255,.1);color:inherit}
-#stampAddBtn{font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #00d4ff;background:rgba(0,212,255,.2);color:inherit;cursor:pointer}
+#stampList:not(.editing) .st-x{display:none}
+#stampList.editing .stamp-chip{border-color:#f88}
+#stampEditBtn.on{background:rgba(255,120,120,.35);border-color:#f88}
+#stampEditBtn,#stampAddBtn{font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid #00d4ff;background:rgba(0,212,255,.2);color:inherit;cursor:pointer}
 /* V2_101: 消しゴムは大きさを選んだ瞬間にポップアップが自動的に閉じる仕様に戻した
    (ユーザー指摘: 消しゴムは大きさしか選べないので決定ボタンは不要)ため、
    消しゴムモードの時だけ右上の「決定」ボタン(.popup-done-row)を非表示にする。
@@ -1580,7 +1583,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div class="co-sketch-section" id="coStampSection">
     <div class="co-label">スタンプ（選んで図面をタップ／再タップで解除）</div>
     <div id="stampList"></div>
-    <div id="stampAddRow"><input type="text" id="stampInput" maxlength="30" placeholder="登録する文字"><button type="button" id="stampAddBtn">登録</button></div>
+    <div id="stampAddRow"><input type="text" id="stampInput" maxlength="30" placeholder="登録する文字"><button type="button" id="stampAddBtn">登録</button><button type="button" id="stampEditBtn" title="削除モード">削除</button></div>
   </div>
   <div class="co-hl-section">
     <div class="co-label">蛍光色</div>
@@ -1864,7 +1867,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_32';
+const APP_VERSION = 'V3_33';
 
 // =========================================================
 // グローバル状態

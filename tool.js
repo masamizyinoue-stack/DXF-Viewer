@@ -1952,12 +1952,13 @@ function _syncLassoActionBar90(){
 // V3_32: 文字スタンプ(よく使う文字を登録し、タップで直接配置)
 // =========================================================
 var _STAMP_KEY='dxfTextStamps', _STAMP_MAX=30;
+var _stampEdit=false; // V3_33: 削除モード(ONの時だけ×を表示。誤削除防止)
 var _activeStamp=null; // 選択中のスタンプ文字(null=通常の文字入力)
 var _stamps=(function(){try{var a=JSON.parse(localStorage.getItem(_STAMP_KEY)||'[]');return Array.isArray(a)?a.filter(function(x){return typeof x==='string'&&x;}).slice(0,_STAMP_MAX):[];}catch(e){return [];}})();
 function _stampSave(){ try{localStorage.setItem(_STAMP_KEY,JSON.stringify(_stamps));}catch(e){} }
 function _stampRender(){
   var box=document.getElementById('stampList'); if(!box) return;
-  box.innerHTML='';
+  box.innerHTML=''; box.classList.toggle('editing',_stampEdit);
   _stamps.forEach(function(txt,i){
     var c=document.createElement('span'); c.className='stamp-chip'+(txt===_activeStamp?' active':'');
     var b=document.createElement('button'); b.type='button'; b.className='st-t'; b.textContent=txt.replace(/\n/g,' ');
@@ -1968,6 +1969,7 @@ function _stampRender(){
     });
     var x=document.createElement('button'); x.type='button'; x.className='st-x'; x.textContent='×'; x.title='削除';
     x.addEventListener('click',function(){
+      if(!_stampEdit) return;
       if(_activeStamp===txt) _activeStamp=null;
       _stamps.splice(i,1); _stampSave(); _stampRender();
     });
@@ -1984,6 +1986,8 @@ function _stampInit(){
     _stamps.push(v); _stampSave(); inp.value=''; _stampRender();
   }
   add.addEventListener('click',doAdd);
+  var eb=document.getElementById('stampEditBtn');
+  if(eb) eb.addEventListener('click',function(){ _stampEdit=!_stampEdit; eb.classList.toggle('on',_stampEdit); eb.textContent=_stampEdit?'完了':'削除'; _stampRender(); });
   inp.addEventListener('keydown',function(e){ e.stopPropagation(); if(e.key==='Enter'){e.preventDefault();doAdd();} });
   inp.addEventListener('keyup',function(e){ e.stopPropagation(); });
   _stampRender();
