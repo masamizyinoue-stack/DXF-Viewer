@@ -708,10 +708,15 @@ if(_fileBackupBtn234) _fileBackupBtn234.addEventListener('click',exportDxfviewMa
 // =========================================================
 async function _saveBlobWithFallback183(blob, fname, typeDesc){
   var _fsaSaved=false;
+  // V3_49: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
+  var _isPdf241=/\.pdf$/i.test(fname||'');
+  var _mime241=_isPdf241?'application/pdf':'application/zip';
+  var _ext241=_isPdf241?'.pdf':'.zip';
+  var _acc241={}; _acc241[_mime241]=[_ext241];
   if(typeof window.showSaveFilePicker==='function'){
     try{
       var _prevHandle=await _bkHandleLoad();
-      var opts={suggestedName:fname, types:[{description:typeDesc||'ZIP', accept:{'application/zip':['.zip']}}]};
+      var opts={suggestedName:fname, types:[{description:typeDesc||'ZIP', accept:_acc241}]};
       if(_prevHandle){ try{opts.startIn=_prevHandle;}catch(e){} }
       var fh=await window.showSaveFilePicker(opts);
       var writable=await fh.createWritable();
@@ -728,7 +733,7 @@ async function _saveBlobWithFallback183(blob, fname, typeDesc){
     var _isStandalone=(window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
     if(_isStandalone&&navigator.share&&typeof navigator.canShare==='function'){
       try{
-        var shareFile=new File([blob],fname,{type:'application/zip'});
+        var shareFile=new File([blob],fname,{type:_mime241});
         if(navigator.canShare({files:[shareFile]})){
           await navigator.share({files:[shareFile],text:fname});
           _fsaSaved=true;
@@ -2586,7 +2591,7 @@ async function exportPdfMergedHybrid190(pageNums){
     if(window._notoSansJPBase64){
       try{
         var fontBytes190=Uint8Array.from(atob(window._notoSansJPBase64),function(c){return c.charCodeAt(0);});
-        jpFont190=await outDoc190.embedFont(fontBytes190,{subset:true});
+        jpFont190=await outDoc190.embedFont(fontBytes190,{subset:false});
       }catch(fe190){ console.warn('[PDF merge] JPフォント埋込失敗',fe190); }
     }
     var fitRef190=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:(scale||1);
@@ -2612,7 +2617,7 @@ async function exportPdfMergedHybrid190(pageNums){
         _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'hl',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
         _hpDrawDimsPdfLib190(copied190,pgDims190,jpFont190,rgb190,degrees190,pageH190,mapper190);
         _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'pen',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
-        _hpDrawTextStrokesPdfLib190(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190);
+        _hpDrawTextStrokesPdfLib190(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190,degrees190);
         okCount190++;
       }catch(pe190){
         console.error('[PDF merge] page='+pg190,pe190);
@@ -2764,7 +2769,10 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
 // 描く仕様に合わせ、pdf-libのdrawText(ベースライン基準)へフォントサイズの
 // 約80%(一般的な欧文/和文フォントのアセント比率の近似値)を足して概ね同じ
 // 高さに見えるよう補正している(完全な一致ではなく近似)
-function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper){
+function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper,degreesFn){
+  // V3_49: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
+  // 寸法文字(_hpDrawDimsPdfLib190)と同様に、mapper.angleDeltaDegで文字の回転角を補正する
+  var angleDelta39=(mapper&&typeof mapper.angleDeltaDeg==='number')?mapper.angleDeltaDeg:0;
   if(!jpFont) return;
   function P196(x,y){ return mapper?mapper.pt(x,y):{x:x,y:y}; }
   for(var i=0;i<pgStrokes.length;i++){
@@ -2778,10 +2786,19 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     for(var li=0;li<lines.length;li++){
       var ln=lines[li];
       if(!ln.trim()) continue;
-      var baseX=s.x, baseY=s.y+fsPt*0.8+fsPt*1.2*li; // V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
+      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_49:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_49:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
       var q=P196(baseX,baseY);
       try{
-        page.drawText(ln,{x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol});
+        var _opt39={x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol};
+        if(degreesFn&&Math.abs(angleDelta39)>0.01) _opt39.rotate=degreesFn(angleDelta39);
+        // V3_49: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
+        var _d45=fsPt*0.022, _th45=angleDelta39*Math.PI/180, _c45=Math.cos(_th45), _s45=Math.sin(_th45);
+        var _offs45=[[0,0],[_d45*_c45,_d45*_s45],[-_d45*_s45,_d45*_c45],[_d45*(_c45-_s45),_d45*(_s45+_c45)]];
+        for(var _oi45=0;_oi45<_offs45.length;_oi45++){
+          var _o45={x:q.x+_offs45[_oi45][0],y:q.y+_offs45[_oi45][1],size:fsPt,font:jpFont,color:pdfCol};
+          if(_opt39.rotate) _o45.rotate=_opt39.rotate;
+          page.drawText(ln,_o45);
+        }
       }catch(txe82){ console.warn('[PDF merge] text draw fail',txe82); }
     }
   }

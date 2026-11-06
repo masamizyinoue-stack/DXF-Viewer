@@ -42,7 +42,7 @@ var shapeToolState={drawing:false,tool:null,start:null,cur:null};
 // 事前に全ファイル検索して確認済みの新規値のみを使う。
 // V2_108: 雲印(cloud)を図形ツールに追加。既存のcurrentTool値と衝突しないことを
 // 確認済みの新規値'cloud'を使う。
-function _isShapeTool(t){return t==='rect'||t==='arrow'||t==='circle'||t==='ellipse'||t==='cloud';}
+function _isShapeTool(t){return t==='rect'||t==='arrow'||t==='circle'||t==='ellipse'||t==='cloud'||t==='hvline';}
 
 // ── V3_04: 計測系「状態機械」ツール(IPX/DIM/LP/LL/LLEN/ANG)の一元管理 ──────
 // 改善点1対応: 「サブ窓で文字/図形/なげわが使えない」系の不具合(V3_01〜V3_03)が
@@ -200,8 +200,10 @@ function _shapeCloudPts(p0,p1){
   var perim=2*(w+h);
   var minSide=Math.min(w,h);
   var ARC_SEGS=10; // こぶ1個あたりの弧の分割数(8〜12分割の目安)
-  var targetChord=Math.max(minSide*0.30, perim*0.05);
-  targetChord=Math.min(targetChord, minSide*0.8); // 短辺に対してこぶが過大にならないようクランプ
+  // V3_46: 折返しを緩やかに。こぶを大きく(弦を長く)し、弧は半円(180°)ではなく浅い弧(約120°)にする
+  var CLOUD_SWEEP=Math.PI*2/3;
+  var targetChord=Math.max(minSide*0.40, perim*0.07);
+  targetChord=Math.min(targetChord, minSide*0.9); // 短辺に対してこぶが過大にならないようクランプ
   var corners=[{x:minX,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:minX,y:maxY}];
   var pts=[{x:corners[0].x,y:corners[0].y}];
   for(var side=0;side<4;side++){
@@ -210,17 +212,17 @@ function _shapeCloudPts(p0,p1){
     if(sideLen<1e-9) continue;
     var n=Math.max(2,Math.round(sideLen/targetChord)); // 1辺あたり最低2個のこぶを確保
     var chord=sideLen/n;
-    var r=chord/2;
     var dx=(b.x-a.x)/sideLen, dy=(b.y-a.y)/sideLen;
-    var theta=Math.atan2(dy,dx);
+    var R=chord/(2*Math.sin(CLOUD_SWEEP/2)); // 弧の半径
+    var dOff=R*Math.cos(CLOUD_SWEEP/2); // 弦の中点から弧の中心までの内側オフセット
+    var nx=dy, ny=-dx; // 外向き法線
+    var angN=Math.atan2(ny,nx);
     for(var i=0;i<n;i++){
-      var sx=a.x+dx*chord*i, sy=a.y+dy*chord*i; // このこぶの弦の始点(辺上)
-      var mx=sx+dx*r, my=sy+dy*r; // 弦の中点(=こぶの円弧の中心)
+      var mx=a.x+dx*chord*(i+0.5), my=a.y+dy*chord*(i+0.5); // 弦の中点
+      var cxp=mx-nx*dOff, cyp=my-ny*dOff; // 弧の中心
       for(var k=1;k<=ARC_SEGS;k++){
-        // theta+PIが弦の始点方向、theta+2PI(=theta)が弦の終点方向。この間を外向き
-        // (法線(dy,-dx)側)を通るように角度を単調に進めることで半円弧になる
-        var ang=theta+Math.PI+k*(Math.PI/ARC_SEGS);
-        pts.push({x:mx+r*Math.cos(ang), y:my+r*Math.sin(ang)});
+        var ang=angN-CLOUD_SWEEP/2+k*(CLOUD_SWEEP/ARC_SEGS);
+        pts.push({x:cxp+R*Math.cos(ang), y:cyp+R*Math.sin(ang)});
       }
     }
   }
@@ -255,6 +257,13 @@ function _shapeBuildPts(tool,p0,p1){
   }
   if(tool==='cloud'){
     return _shapeCloudPts(p0,p1);
+  }
+  if(tool==='hvline'){
+    // V3_34: 水・鉛線。ドラッグ量の大きい軸へ吸着して横一直線/縦一直線にする(開いた直線。
+    // 消しゴム判定用に中間点を追加)
+    var hx=Math.abs(p1.x-p0.x)>=Math.abs(p1.y-p0.y);
+    var he=hx?{x:p1.x,y:p0.y}:{x:p0.x,y:p1.y};
+    return _shapeEdgePts(p0,he,SHAPE_EDGE_SEGMENTS).concat([he]);
   }
   return null;
 }
@@ -1136,11 +1145,11 @@ const _MEASURE_TOOL_LABELS={dxdy:'水・鉛',diag:'斜め',ll:'2線間',lp:'線�
 // と全く同じ役割(選択された図形の名前をヘッダーの図形ボタン下段ラベル(#shapeCurrentLabel)
 // に表示し、ポップアップを閉じる)。currentTool自体は従来通り'rect'/'arrow'/'circle'/
 // 'ellipse'のまま(値は変更しない)なので、_isShapeTool/storage.js/guideMap等は無改修
-const _SHAPE_TOOL_LABELS={rect:'四角',arrow:'矢印',circle:'丸',ellipse:'楕円',cloud:'雲印'}; // V2_108: 雲印追加
+const _SHAPE_TOOL_LABELS={rect:'四角',arrow:'矢印',circle:'丸',ellipse:'楕円',cloud:'雲印',hvline:'水・鉛線'}; // V2_108: 雲印追加
 // V2_96: ヘッダーの図形ボタン(#shapeToggleBtn)を他ツールから押した時に、前回選んで
 // いた図形タイプを直接復元できるよう記憶する(_lastMeasureToolと同じ考え方)。
 // var宣言でグローバル公開(index.htmlの#shapeToggleBtnクリックハンドラが参照するため)
-var _lastShapeTool=(function(){try{var v=localStorage.getItem('dxfLastShapeTool');return ['rect','arrow','circle','ellipse','cloud'].indexOf(v)>=0?v:null;}catch(e){return null;}})(); // V3_29: 再読込・バージョンアップ後も図形の種類を保持
+var _lastShapeTool=(function(){try{var v=localStorage.getItem('dxfLastShapeTool');return ['rect','arrow','circle','ellipse','cloud','hvline'].indexOf(v)>=0?v:null;}catch(e){return null;}})(); // V3_29: 再読込・バージョンアップ後も図形の種類を保持
 // V1_219: 「計測ボタンのアイコンを、選択中の計測ツールのアイコンにしてほしい」との
 // 依頼への対応。ヘッダーの計測ボタン(#measureToolIcon)は従来ずっと定規アイコン固定
 // だったが、計測ツールが選択されている間はそのツール専用のアイコン(下記、
@@ -1194,6 +1203,7 @@ var _SHAPE_TOOL_ICON_INNER={
   arrow:'<line x1="4" y1="19" x2="18" y2="5"/><polyline points="9 5 18 5 18 14"/>',
   circle:'<circle cx="12" cy="12" r="8"/>',
   ellipse:'<ellipse cx="12" cy="12" rx="9" ry="6"/>',
+  hvline:'<line x1="3" y1="18" x2="21" y2="18"/><line x1="6" y1="4" x2="6" y2="14" stroke-dasharray="2,2"/>',
   // V2_108: 雲印。#shapeToolPopup内のボタンと同じ雲の輪郭パス
   cloud:'<path d="M6.5 17c-1.93 0-3.5-1.57-3.5-3.5 0-1.74 1.27-3.18 2.94-3.45C6.2 8.2 7.9 7 9.9 7c1.4 0 2.65.6 3.53 1.55C13.9 8.2 14.44 8 15 8c1.93 0 3.5 1.57 3.5 3.5 0 .16-.01.31-.03.46C19.9 12.3 21 13.6 21 15.1c0 1.6-1.4 3.9-3 3.9H6.5z"/>'
 };
@@ -1252,6 +1262,14 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
     }
     document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');currentTool=btn.dataset.tool;
+    // V3_48: 別のコマンドを選んだら、開いている色/太さ・計測・図形ポップアップを閉じる
+    // (ペン/蛍光ペン等のポップアップを開いたまま文字などへ切り替えても残っていた不具合の修正)。
+    // 計測/図形ポップアップ内で同系統のツールを選ぶ場合だけは開いたままにする
+    if(typeof _closeToolPopupById==='function'){
+      _closeToolPopupById('colorOverlay');
+      if(!_MEASURE_TOOL_LABELS[currentTool]) _closeToolPopupById('measureToolPopup');
+      if(!_SHAPE_TOOL_LABELS[currentTool]) _closeToolPopupById('shapeToolPopup');
+    }
     // V2_94: 文字ツール以外へ切り替えた際、指/ペンタップ保留中の_textToolPendingOpen92が
     // 残っていると、以後見当違いのタイミング(別ツール選択後のtouchend)で文字入力枠が
     // 開いてしまう可能性があるため必ず破棄する。_textInputTouchOrigin(消費型フラグ)も
@@ -1325,6 +1343,7 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
       'arrow':'ドラッグして矢印を描いてください(始点→終点)', // V2_95
       'circle':'ドラッグして丸を描いてください(始点が中心)', // V2_95
       'ellipse':'ドラッグして楕円を描いてください', // V2_95
+      'hvline':'ドラッグして水平/鉛直の直線を引いてください(動かした向きに吸着)', // V3_34
       'dxdy':'1点目を選択してください',
       'diag':'1点目を選択してください',
       'circDim':'円の円周にペンを近づける→離して確定→位置を指定',
@@ -1603,7 +1622,7 @@ function _openTextInputAt(wx,wy,sx,sy){
   if(typeof _activeStamp!=='undefined'&&_activeStamp){
     _textInputTouchOrigin=false;
     snapshot();
-    strokes.push({isText:true,text:_activeStamp,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage()});
+    strokes.push({isText:true,text:_activeStamp,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind});
     if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){ openFiles[currentFileIdx].strokes=strokes; }
     if(typeof verify==='function')verify('スタンプ配置',{len:strokes.length});
     scheduleOverlay();doSave();
@@ -1619,6 +1638,7 @@ function _openTextInputAt(wx,wy,sx,sy){
   var r=ov.getBoundingClientRect();
   var fontPx=_textInputFontPx85();
   inp.value='';
+  if(typeof DXF_FONTS!=='undefined'&&typeof _textFontKind!=='undefined'){ inp.style.fontFamily=DXF_FONTS[_textFontKind].stack; inp.style.fontWeight=_textFontBold()?'700':'400'; } // V3_38
   inp.style.fontSize=fontPx+'px';
   inp.style.lineHeight=(fontPx*1.2)+'px'; // V2_87: 画面描画の行間(1.2倍)と揃える
   inp.style.height=(fontPx*1.2)+'px';
@@ -1643,7 +1663,7 @@ function _openTextInputAt(wx,wy,sx,sy){
       snapshot();
       // V2_102: 文字は専用のcurrentTextColorを保存する(ペンのcurrentColorとは独立)
       // V2_103: 太さ(フォントサイズ)も専用のcurrentTextLWを保存する(ペンのcurrentLWとは独立)
-      strokes.push({isText:true,text:t,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage()});
+      strokes.push({isText:true,text:t,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind});
       if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){
         openFiles[currentFileIdx].strokes=strokes;
       }
@@ -1750,6 +1770,7 @@ function _lassoPointerDown(wx,wy){
   if(lassoState.selected&&lassoState.selected.length>0&&lassoState.bbox&&_pointInBBox(wx,wy,lassoState.bbox)){
     snapshot(); // V2_90: 移動前にundoチェックポイント
     lassoState.dragging=true;
+    lassoState.rangeOrig=lassoState.range?{minX:lassoState.range.minX,minY:lassoState.range.minY,maxX:lassoState.range.maxX,maxY:lassoState.range.maxY}:null; // V3_35
     lassoState.dragStart={wx:wx,wy:wy};
     lassoState.dragOrig=lassoState.selected.map(function(s){
       return s.isText?{s:s,x:s.x,y:s.y}:{s:s,pts:(s.pts||[]).map(function(p){return{x:p.x,y:p.y};})};
@@ -1783,6 +1804,7 @@ function _lassoPointerMove(wx,wy){
         o.s.pts=newPts;
       }
     }
+    if(lassoState.rangeOrig){ var _ro=lassoState.rangeOrig; lassoState.range={minX:_ro.minX+dx,minY:_ro.minY+dy,maxX:_ro.maxX+dx,maxY:_ro.maxY+dy}; } // V3_35
     _lassoRecomputeBBox();
     scheduleOverlay();
     return;
@@ -1827,6 +1849,11 @@ function _lassoFinishSelection(){
     }
   }
   lassoState.selected=sel;
+  // V3_35: 黄色点線枠(移動用の掴み枠)を、選択物の外形だけでなく「なげわで囲んだ範囲」まで広げる
+  // (選択物が小さい/細い時に枠が極小になり掴みにくい問題の対策)
+  var _rx0=Infinity,_ry0=Infinity,_rx1=-Infinity,_ry1=-Infinity;
+  for(var _k=0;_k<poly.length;_k++){ var _q=poly[_k]; if(_q.x<_rx0)_rx0=_q.x; if(_q.x>_rx1)_rx1=_q.x; if(_q.y<_ry0)_ry0=_q.y; if(_q.y>_ry1)_ry1=_q.y; }
+  lassoState.range=(sel.length>0)?{minX:_rx0,minY:_ry0,maxX:_rx1,maxY:_ry1}:null;
   if(sel.length>0){
     _lassoRecomputeBBox();
     _lassoShowActionBar();
@@ -1860,9 +1887,15 @@ function _lassoRecomputeBBox(){
   var wpad=Math.max((maxX-minX)*0.04,10/((typeof scale!=='undefined'&&scale)||1));
   var hpad=Math.max((maxY-minY)*0.04,10/((typeof scale!=='undefined'&&scale)||1));
   lassoState.bbox={minX:minX-wpad,minY:minY-hpad,maxX:maxX+wpad,maxY:maxY+hpad};
+  if(lassoState.range){ // V3_35: 囲んだ範囲も含める
+    var _g=lassoState.range,_b=lassoState.bbox;
+    _b.minX=Math.min(_b.minX,_g.minX); _b.minY=Math.min(_b.minY,_g.minY);
+    _b.maxX=Math.max(_b.maxX,_g.maxX); _b.maxY=Math.max(_b.maxY,_g.maxY);
+  }
 }
 // 選択・描画途中の状態を全てクリアし、アクションバーも隠す
 function _lassoClearSelection(){
+  lassoState.range=null; lassoState.rangeOrig=null; // V3_35
   lassoState.selected=[];
   lassoState.bbox=null;
   lassoState.drawing=false;

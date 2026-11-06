@@ -448,6 +448,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #colorOverlay[data-mode="sketch"][data-lwctx="text"] #coLwPenSection{display:none}
 /* V3_32: 文字スタンプ欄。文字ツール選択中だけ表示する */
 #colorOverlay #coStampSection{display:none}
+#colorOverlay #coTextFontSection{display:none}
+#colorOverlay[data-mode="sketch"][data-lwctx="text"] #coTextFontSection{display:block}
+#colorOverlay .fontSel{width:100%;font-size:14px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+.sp-section .fontSel{width:100%;font-size:14px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+#colorOverlay .fontSample,.sp-section .fontSample{display:block;font-size:15px;margin-top:6px}
 #colorOverlay[data-mode="sketch"][data-lwctx="text"] #coStampSection{display:block}
 #stampList{display:flex;flex-wrap:wrap;gap:6px;max-width:280px;margin-bottom:6px}
 .stamp-chip{display:inline-flex;align-items:center;border:1px solid #888;border-radius:6px;background:rgba(255,255,255,.08);color:inherit;font-size:13px;padding:0;overflow:hidden}
@@ -504,13 +509,13 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 #shapeToolPopup{display:none;position:fixed;z-index:400;top:0;left:0;
   background:var(--sb-bg);border:1px solid var(--border);border-radius:16px;
   padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.65);flex-direction:column;gap:8px;
-  min-width:252px;max-height:80vh;overflow-y:auto} /* V2_97: 色/太さ選択を追加したため#colorOverlayと同じ最小幅・スクロールにする */
+  min-width:300px;max-height:80vh;overflow-y:auto} /* V2_97: 色/太さ選択を追加したため#colorOverlayと同じ最小幅・スクロールにする */
 #shapeToolPopup.open{display:flex}
 #shapeToolPopup .co-label{margin-bottom:0}
 /* V2_109: 「1段(1行)に5個横並びにしてほしい」との指摘のため、V2_108の3列(3+2の
    2段)から5列(1段)に変更。5個収まるようボタン幅(.tb-tool-btn)もこのポップアップ
    内だけ少し縮小する(下記#shapeToolPopup .tb-tool-btn参照) */
-#shapeToolPopup .shape-group-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+#shapeToolPopup .shape-group-btns{display:grid;grid-template-columns:repeat(6,1fr);gap:6px} /* V3_36: 水・鉛線追加で6個を1段に */
 /* V2_109: 1行5列化に伴い、ボタン幅がポップアップ内に収まるよう縮小(44px→40px)。
    ヘッダー側の.tb-tool-btn(他ツール)には影響しないようこのポップアップ内のみに限定 */
 #shapeToolPopup .tb-tool-btn{width:40px;height:48px}
@@ -1154,6 +1159,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <!-- V2_108: 雲印(クラウド)。指摘・修正箇所を囲む吹き出し風のこぶ状ポリライン
            (詳細はtool.js _shapeCloudPts参照)。アイコンは雲の輪郭を模した固定パス -->
       <button class="tb-tool-btn tool-btn" data-tool="cloud" title="雲印"><span class="tb-tool-label">雲印</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 17c-1.93 0-3.5-1.57-3.5-3.5 0-1.74 1.27-3.18 2.94-3.45C6.2 8.2 7.9 7 9.9 7c1.4 0 2.65.6 3.53 1.55C13.9 8.2 14.44 8 15 8c1.93 0 3.5 1.57 3.5 3.5 0 .16-.01.31-.03.46C19.9 12.3 21 13.6 21 15.1c0 1.6-1.4 3.9-3 3.9H6.5z"/></svg></button>
+      <!-- V3_34: 水・鉛線(横一直線/縦一直線) -->
+      <button class="tb-tool-btn tool-btn" data-tool="hvline" title="水・鉛線（水平/鉛直の直線）"><span class="tb-tool-label">水・鉛線</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="18" x2="21" y2="18"/><line x1="6" y1="4" x2="6" y2="14" stroke-dasharray="2,2"/></svg></button>
     </div>
   </div>
   <!-- V2_97: 「図形ポップアップの中で色・太さも選びたい」との要望への対応。
@@ -1369,18 +1376,9 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       </label>
     </div>
   </div>
-  <div class="sp-section"> <!-- V3_18: DXF文字の字体 -->
+  <div class="sp-section"> <!-- V3_18/V3_37: DXF文字の字体(複数選択) -->
     <div class="sp-label">DXF文字の字体</div>
-    <div style="display:flex;flex-direction:column;gap:10px;padding:4px 0">
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="dxfFontMode" id="dxfFontNoto" value="noto" checked style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>Noto Sans JP<small style="display:block;font-size:11px;opacity:0.6;margin-top:2px">太字のゴシック体(初回のみ読込あり)</small></span>
-      </label>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:var(--text)">
-        <input type="radio" name="dxfFontMode" id="dxfFontStd" value="std" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
-        <span>標準(従来)</span>
-      </label>
-    </div>
+    <div id="dxfFontList" style="padding:4px 0"></div>
   </div>
   <div class="sp-section">
     <div class="sp-label">寸法文字サイズ</div>
@@ -1578,6 +1576,11 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="2">2</button>
       <button class="lw-btn" data-lw="3">3</button>
     </div>
+  </div>
+  <!-- V3_49: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
+  <div class="co-sketch-section" id="coTextFontSection">
+    <div class="co-label">字体</div>
+    <div id="textFontList" style="padding:2px 0"></div>
   </div>
   <!-- V3_32: 文字スタンプ(よく使う文字の登録)。選ぶと図面タップで直接配置、もう一度押すと解除 -->
   <div class="co-sketch-section" id="coStampSection">
@@ -1867,7 +1870,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_33';
+const APP_VERSION = 'V3_49';
 
 // =========================================================
 // グローバル状態
@@ -2012,7 +2015,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       // 同じNoto Sans JP(埋込フォント、tool.jsの_ensureCanvasJPFont80で
       // FontFaceとして読込・登録)を使う。読込前・読込失敗時はsans-serifへ
       // 自然にフォールバックする
-      atc.font=_tFontPx80+'px "NotoSansJPCanvas", sans-serif';
+      atc.font=(typeof _textFontCssFor==='function')?_textFontCssFor(s.font,_tFontPx80):((typeof _textFontCss==='function')?_textFontCss(_tFontPx80):(_tFontPx80+'px "NotoSansJPCanvas", sans-serif')); // V3_38: 文字ツールの字体選択
       atc.fillStyle='rgb('+s.color.r+','+s.color.g+','+s.color.b+')';
       atc.textBaseline='top';
       // V2_87: 「alt+Enterで次の行に入力出来る様にして」との要望で複数行に対応。
@@ -3771,7 +3774,7 @@ document.getElementById('measureToggleBtn').addEventListener('click',function(e)
 // ポップアップが開く挙動)に倣い、既に図形ツールが選択中の状態でこのボタンを押すと
 // (＝実質的な「再タップ」)ポップアップが開いて図形の種類を選び直せる
 function _closeShapeToolPopup(){ _closeToolPopupById('shapeToolPopup'); }
-var _SHAPE_TOOLS_96=['rect','arrow','circle','ellipse','cloud']; // V2_108: 雲印追加
+var _SHAPE_TOOLS_96=['rect','arrow','circle','ellipse','cloud','hvline']; // V2_108: 雲印追加
 document.getElementById('shapeToggleBtn').addEventListener('click',function(e){
   var popup=document.getElementById('shapeToolPopup');
   if(!popup) return;
@@ -4737,16 +4740,43 @@ function openContextPopup(mode,anchorEl){
 // 新設した「決定」ボタン。押すと該当ポップアップだけを閉じる(他の状態には触れない)
 // V3_18: DXF文字の字体切替(設定パネル)。選択はlocalStorage('dxfNotoFont')に保存
 (function(){
-  var rN=document.getElementById('dxfFontNoto'),rS=document.getElementById('dxfFontStd');
-  if(!rN||!rS) return;
-  (_dxfNotoFontOn?rN:rS).checked=true;
-  function apply(){
-    _dxfNotoFontOn=rN.checked;
-    try{localStorage.setItem('dxfNotoFont',_dxfNotoFontOn?'1':'0');}catch(e){}
-    if(_dxfNotoFontOn&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84();
-    scheduleDraw();
+  // V3_37/V3_38: 字体一覧を生成(各項目は実際の字体で見本表示)。DXF文字='dxfFontKind' / 文字ツール='textFontKind'をlocalStorageに保存
+  if(typeof DXF_FONTS==='undefined') return;
+  function build(boxId,radioName,getKind,setKind,isText){
+    // V3_49: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
+    var box=document.getElementById(boxId); if(!box) return;
+    var sel=document.createElement('select'); sel.className='fontSel';
+    Object.keys(DXF_FONTS).forEach(function(k){
+      var f=DXF_FONTS[k];
+      var o=document.createElement('option'); o.value=k;
+      o.textContent=(k==='noto'?'★ ':'')+f.label+(k==='noto'?'(PDFと同じ)':'');
+      sel.appendChild(o);
+    });
+    sel.value=getKind();
+    var sample=document.createElement('span'); sample.className='fontSample'; sample.textContent='寸法 ABC 123 基礎梁';
+    var note=document.createElement('small'); note.style.cssText='display:block;font-size:11px;opacity:0.6;margin-top:2px';
+    function refresh(){
+      var k=sel.value,f=DXF_FONTS[k];
+      var bold=isText?(k==='noto'?false:f.bold):f.bold;
+      sample.style.fontWeight=bold?'700':'400'; sample.style.fontFamily=f.stack;
+      note.textContent=(k==='noto'?'PDF書出しと同じ字体(印刷と一致)':'※PDF書出しは内蔵Noto Sans JPになります');
+    }
+    refresh();
+    box.appendChild(sel); box.appendChild(sample); box.appendChild(note);
+    sel.addEventListener('change',function(){ setKind(sel.value); refresh(); });
   }
-  rN.addEventListener('change',apply); rS.addEventListener('change',apply);
+  build('dxfFontList','dxfFontMode',function(){return _dxfFontKind;},function(k){
+    _dxfFontKind=k; _dxfNotoFontOn=(k==='noto');
+    try{localStorage.setItem('dxfFontKind',k);localStorage.setItem('dxfNotoFont',_dxfNotoFontOn?'1':'0');}catch(e){}
+    if(k==='noto'&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84();
+    scheduleDraw();
+  },false);
+  build('textFontList','textFontMode',function(){return _textFontKind;},function(k){
+    _textFontKind=k;
+    try{localStorage.setItem('textFontKind',k);}catch(e){}
+    if(k==='noto'&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84();
+    scheduleOverlay(); scheduleDraw();
+  },true);
 })();
 document.getElementById('colorOverlayDoneBtn').addEventListener('click',function(e){
   if(e&&e.stopPropagation) e.stopPropagation();

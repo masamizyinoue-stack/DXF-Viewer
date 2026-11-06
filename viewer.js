@@ -1237,8 +1237,26 @@ function drawArc(ctx,e){
 }
 
 // V3_18: DXF文字の字体。ONの時はNoto Sans JP(読込前・字形が無い文字は自動でsans-serifに切替)。設定パネルでON/OFF(既定ON)
-var _dxfNotoFontOn=(function(){try{return localStorage.getItem('dxfNotoFont')!=='0';}catch(e){return true;}})();
-function _dxfFontFamily(){return _dxfNotoFontOn?'"NotoSansJPCanvas", sans-serif':'sans-serif';}
+// V3_37: DXF文字の字体を複数から選べるようにした。noto以外は端末(iPad=ヒラギノ / Windows=游ゴシック・BIZ UD等)
+// に入っている字体を使う(追加の読込なし・日本語の欠け/文字化けが出にくい)。無い字体は次の候補→sans-serifへ自動で代替される
+var DXF_FONTS={
+  noto:{label:'Noto Sans JP',desc:'太字ゴシック(組込・初回のみ読込)',stack:'"NotoSansJPCanvas", sans-serif',bold:true,mul:1.1},
+  hira:{label:'ヒラギノ角ゴ / 游ゴシック',desc:'太めで読みやすい標準的なゴシック',stack:'"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","YuGothic","Meiryo","NotoSansJPCanvas",sans-serif',bold:true,mul:1.0},
+  ud:{label:'UDゴシック(読みやすさ重視)',desc:'BIZ UDゴシック(Windows)/ヒラギノ(iPad)',stack:'"BIZ UDPGothic","BIZ UDGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo","NotoSansJPCanvas",sans-serif',bold:true,mul:1.0},
+  maru:{label:'丸ゴシック',desc:'やわらかい太字(iPad=ヒラギノ丸ゴ)',stack:'"Hiragino Maru Gothic ProN","Hiragino Maru Gothic Pro","Yu Gothic","Meiryo","NotoSansJPCanvas",sans-serif',bold:true,mul:1.0},
+  mincho:{label:'明朝体',desc:'細めの明朝(印刷図面風)',stack:'"Hiragino Mincho ProN","Hiragino Mincho Pro","Yu Mincho","YuMincho","MS PMincho",serif',bold:false,mul:1.0},
+  std:{label:'標準(従来)',desc:'ブラウザ標準',stack:'sans-serif',bold:false,mul:1.0}
+};
+var _dxfFontKind=(function(){try{var k=localStorage.getItem('dxfFontKind');if(k&&DXF_FONTS[k]) return k;return localStorage.getItem('dxfNotoFont')==='0'?'std':'noto';}catch(e){return 'noto';}})();
+var _dxfNotoFontOn=(_dxfFontKind==='noto'); // 互換用(Noto選択中かどうか)
+function _dxfFontFamily(){return DXF_FONTS[_dxfFontKind].stack;}
+// V3_38: 文字ツール(書き込み文字)の字体。DXF文字とは別に選べる(既定=従来のNoto Sans JP・太字なし)。
+// 画面表示と入力枠のみに反映(PDF書出しは埋込のNoto Sans JPのまま)
+var _textFontKind=(function(){try{var k=localStorage.getItem('textFontKind');return (k&&DXF_FONTS[k])?k:'noto';}catch(e){return 'noto';}})();
+function _textFontBold(){ return _textFontKind==='noto'?false:!!DXF_FONTS[_textFontKind].bold; }
+function _textFontCss(px){ return (_textFontBold()?'bold ':'')+px+'px '+DXF_FONTS[_textFontKind].stack; }
+// V3_49: 書き込み文字ごとに「書いた時の字体」(s.font)を保持。未記録(旧データ)はnoto扱い
+function _textFontCssFor(kind,px){ var k=(kind&&DXF_FONTS[kind])?kind:'noto'; return ((k==='noto')?'':(DXF_FONTS[k].bold?'bold ':''))+px+'px '+DXF_FONTS[k].stack; }
 function drawText(ctx,e,darkBg){
   if(!e.text||!e.text.trim()) return;
   const[sx,sy]=w2s(e.x,e.y);
@@ -1250,9 +1268,10 @@ function drawText(ctx,e,darkBg){
   ctx.save();
   ctx.translate(sx,sy);ctx.rotate(-e.angle*Math.PI/180);
   if(e.widthFactor&&Math.abs(e.widthFactor-1)>0.01) ctx.scale(e.widthFactor,1);
-  if(_dxfNotoFontOn&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84(); // V3_18: 初回のみ読込(以降は即return)
+  var _ff37=DXF_FONTS[_dxfFontKind]||DXF_FONTS.std;
+  if(_dxfFontKind==='noto'&&typeof _ensureCanvasJPFont84==='function') _ensureCanvasJPFont84(); // V3_18: 初回のみ読込(以降は即return)
   // V3_20: Noto Sans JPは字面が小さく見えるため、字体ONの時だけ一律1.1倍で描く(行間・位置は従来のfsのまま)
-  ctx.font=`${_dxfNotoFontOn?'bold ':''}${_dxfNotoFontOn?fs*1.1:fs}px ${_dxfFontFamily()}`; // V3_19: Noto Sans JPは太字で表示(PDFの見た目に近づける)
+  ctx.font=`${_ff37.bold?'bold ':''}${fs*_ff37.mul}px ${_ff37.stack}`; // V3_37: 字体ごとの太さ・倍率 // V3_19: Noto Sans JPは太字で表示(PDFの見た目に近づける)
   ctx.fillStyle=bwMode?'#000000':rgbCss(e.color,darkBg);
   ctx.textBaseline='alphabetic';
   const lines=e.text.split('\n');
