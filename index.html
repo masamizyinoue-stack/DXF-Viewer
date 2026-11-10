@@ -1577,7 +1577,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="3">3</button>
     </div>
   </div>
-  <!-- V3_49: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
+  <!-- V3_50: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
   <div class="co-sketch-section" id="coTextFontSection">
     <div class="co-label">字体</div>
     <div id="textFontList" style="padding:2px 0"></div>
@@ -1870,7 +1870,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_49';
+const APP_VERSION = 'V3_50';
 
 // =========================================================
 // グローバル状態
@@ -2777,6 +2777,23 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
 // これにより、複数ファイルを開いている間はタブクリック・タブを閉じる操作が最後まで
 // 無効化され、処理途中でタブ操作されることによる状態の食い違いを防ぐ。1件のみの
 // 選択時は従来通り_openOneFile202が自分でbusyを管理する(挙動は完全に無変更)
+// V3_50: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
+// 受け取って既存のファイル読込処理(#fileのchange)へ渡す(manifestのfile_handlers+launchQueue)。
+// 非対応ブラウザ(iPad等)では何も起きない
+setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登録が遅れるため、同期処理の完了直後(0ms後)に登録
+  if(!('launchQueue' in window)||!window.launchQueue||typeof launchQueue.setConsumer!=='function') return;
+  launchQueue.setConsumer(async function(lp){
+    try{
+      if(!lp||!lp.files||!lp.files.length) return;
+      var fl=[];
+      for(var i=0;i<lp.files.length;i++){ try{ fl.push(await lp.files[i].getFile()); }catch(e){} }
+      if(!fl.length) return;
+      var dt=new DataTransfer(); fl.forEach(function(f){dt.items.add(f);});
+      fileInput.files=dt.files;
+      fileInput.dispatchEvent(new Event('change'));
+    }catch(e){ console.warn('[launchQueue]',e); }
+  });
+},0);
 fileInput.addEventListener('change',async e=>{
   const _files202=Array.from(e.target.files||[]);
   if(_files202.length===0){e.target.value='';return;}
@@ -4743,7 +4760,7 @@ function openContextPopup(mode,anchorEl){
   // V3_37/V3_38: 字体一覧を生成(各項目は実際の字体で見本表示)。DXF文字='dxfFontKind' / 文字ツール='textFontKind'をlocalStorageに保存
   if(typeof DXF_FONTS==='undefined') return;
   function build(boxId,radioName,getKind,setKind,isText){
-    // V3_49: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
+    // V3_50: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
     var box=document.getElementById(boxId); if(!box) return;
     var sel=document.createElement('select'); sel.className='fontSel';
     Object.keys(DXF_FONTS).forEach(function(k){
