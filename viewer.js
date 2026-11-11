@@ -228,7 +228,15 @@ function _beginInteraction(){
 function updateFileNameDisplay(){
   const el=document.getElementById('fileNameDisplay');
   if(!el)return;
-  el.textContent=currentFileName||'---';
+  // V3_57: 種類(PDF=青/DXF=緑など)のバッジをファイル名の前に表示する
+  el.textContent='';
+  if(currentFileName&&typeof _fileTypeInfo==='function'){
+    var ti=_fileTypeInfo(currentFileName),bd=document.createElement('span');
+    bd.textContent=ti.label;
+    bd.style.cssText='display:inline-block;background:'+ti.color+';color:#fff;font-weight:700;font-size:9px;line-height:1.2;padding:1px 4px;border-radius:3px;margin-right:4px;vertical-align:middle';
+    el.appendChild(bd);
+  }
+  el.appendChild(document.createTextNode(currentFileName||'---'));
   el.title=currentFileName||'';
 }
 

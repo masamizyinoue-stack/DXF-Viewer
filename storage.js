@@ -339,6 +339,21 @@ async function tryRestore(){
             _rbufs.push(_buf2);
           }catch(e2){}
         }
+        if(_restored.length>=1&&window._launched58){
+          // V3_58: 起動時にダブルクリックで開いたファイルがある場合は、それを表示したまま、
+          // 前回のタブだけ後ろへ追加する(画面を前回のファイルで上書きしない)
+          for(var _w58=0;_w58<150&&(openFiles.length===0||(typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy));_w58++){ await new Promise(function(r){setTimeout(r,200);}); }
+          for(var _k58=0;_k58<_restored.length;_k58++){
+            var _dup58=openFiles.some(function(x){return x.fileKey===_restored[_k58].fileKey;});
+            if(_dup58) continue;
+            openFiles.push(_restored[_k58]);
+            if(typeof openFilesBufs!=='undefined') openFilesBufs[openFiles.length-1]=_rbufs[_k58];
+          }
+          if(typeof updateFileNavUI==='function') updateFileNavUI();
+          scheduleSave();
+          if(typeof verify==='function')verify('tryRestore:done');
+          return;
+        }
         if(_restored.length>=1){// V0_113: 1ファイルのみ復元可能な場合もマルチパスを使用
           for(var _k=0;_k<_restored.length;_k++){
             openFiles.push(_restored[_k]);
@@ -474,6 +489,7 @@ async function tryRestore(){
     }
   }catch(e){}
   if(_multiOk) return;
+  if(window._launched58) return; // V3_58: 開いたファイルを単一ファイル復元で上書きしない
 
   // ── 単一ファイル復元（従来パス）─────────────────────────────
   try{
