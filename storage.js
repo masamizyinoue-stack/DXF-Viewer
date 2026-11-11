@@ -162,7 +162,7 @@ function doSave(){
       insetState:_insetSv162 // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
     }));
     // V0_112: マルチファイル保存
-    if(typeof openFiles!=='undefined'&&openFiles.length>1&&typeof openFilesBufs!=='undefined'){
+    if(typeof openFiles!=='undefined'&&openFiles.length>=1&&typeof openFilesBufs!=='undefined'){ // V3_61: 1件のみでも保存する(従来は2件以上のみ。1件だけ開いた状態で別PDFを開くと、前のファイルがタブから消えていた)
       var _mStates=openFiles.map(function(f){
         return {
           name:f.name,currentFileName:f.currentFileName,fileKey:f.fileKey||null,
@@ -233,7 +233,7 @@ async function tryRestore(){
     const _mr=localStorage.getItem(MULTI_KEY);
     if(_mr){
       const _md=JSON.parse(_mr);
-      if(_md.files&&_md.files.length>1){
+      if(_md.files&&_md.files.length>=1){ // V3_61
         var _restored=[];
         var _rbufs=[];
         var _activeLocal=-1;
