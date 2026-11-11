@@ -708,7 +708,7 @@ if(_fileBackupBtn234) _fileBackupBtn234.addEventListener('click',exportDxfviewMa
 // =========================================================
 async function _saveBlobWithFallback183(blob, fname, typeDesc){
   var _fsaSaved=false;
-  // V3_61: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
+  // V3_63: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
   var _isPdf241=/\.pdf$/i.test(fname||'');
   var _mime241=_isPdf241?'application/pdf':'application/zip';
   var _ext241=_isPdf241?'.pdf':'.zip';
@@ -2160,7 +2160,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         // isText側のこの分岐だけを常にNotoSansJP単一フォントに変更する
         // (pdf-lib合体パスの_hpDrawTextStrokesPdfLib190と同じ挙動)
         _hpSetRunFont(pdf,'jp');
-        if(s.bg){ // V3_61: 背景(白)塗り(jsPDF経路)
+        if(s.bg){ // V3_63: 背景(白)塗り(jsPDF経路)
           try{
             let _bw=0; for(let k=0;k<lines.length;k++){ const w=pdf.getTextWidth(lines[k]); if(w>_bw)_bw=w; }
             const _pad=fsMM*0.15;
@@ -2577,7 +2577,8 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
 // ぴったり収まるズーム)」を基準に太さを計算する。fitScaleは表示ウィンドウの
 // 大きさ(画面回転等)に依存するため厳密には完全固定ではないが、少なくとも
 // 「たまたまその瞬間どれだけ拡大して見ていたか」には左右されなくなる。
-async function exportPdfMergedHybrid190(pageNums){
+async function exportPdfMergedHybrid190(pageNums,_opts62){
+  _opts62=_opts62||{}; // V3_63: {print:true}で保存せず印刷 / {rectWorld}でその範囲だけに切り出す
   if(typeof PDFLib==='undefined'){showGuide('pdf-libが読み込まれていません',2000);return false;}
   // V2_53: index.html側でNotoSansJP.js(約3MB)の先読み<script>タグを廃止し、
   // exportHybridPDF()と同じ_loadJPFont()によるオンデマンド読み込みに一本化した。
@@ -2627,6 +2628,14 @@ async function exportPdfMergedHybrid190(pageNums){
         _hpDrawDimsPdfLib190(copied190,pgDims190,jpFont190,rgb190,degrees190,pageH190,mapper190);
         _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'pen',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
         _hpDrawTextStrokesPdfLib190(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190,degrees190);
+        // V3_63: 範囲指定の印刷。ワールド座標の矩形を生PDF座標へ変換し、ページの表示範囲(CropBox/MediaBox)を切り詰める
+        if(_opts62.rectWorld){
+          var _rw62=_opts62.rectWorld, _cs62=[mapper190.pt(_rw62.x1,_rw62.y1),mapper190.pt(_rw62.x2,_rw62.y1),mapper190.pt(_rw62.x2,_rw62.y2),mapper190.pt(_rw62.x1,_rw62.y2)];
+          var _x0=Math.min.apply(null,_cs62.map(function(c){return c.x;})), _x1=Math.max.apply(null,_cs62.map(function(c){return c.x;}));
+          var _y0=Math.min.apply(null,_cs62.map(function(c){return c.y;})), _y1=Math.max.apply(null,_cs62.map(function(c){return c.y;}));
+          copied190.setMediaBox(_x0,_y0,_x1-_x0,_y1-_y0);
+          copied190.setCropBox(_x0,_y0,_x1-_x0,_y1-_y0);
+        }
         okCount190++;
       }catch(pe190){
         console.error('[PDF merge] page='+pg190,pe190);
@@ -2639,6 +2648,11 @@ async function exportPdfMergedHybrid190(pageNums){
     }
     var bytes190=await outDoc190.save();
     var blob190=new Blob([bytes190],{type:'application/pdf'});
+    if(_opts62.print){ // V3_63: 保存せず印刷画面を開く
+      _printPdfBlob62(blob190);
+      showGuide('印刷画面を開いています...',2500);
+      return true;
+    }
     var fname190=(currentFileName||'drawing').replace(/\.[^.]+$/,'')+'_hd.pdf';
     await _saveBlobWithFallback183(blob190,fname190,'PDF (書込み・寸法付き)');
     showGuide(failedPages190.length?('HD-PDFを保存しました(失敗ページ:'+failedPages190.join(',')+')'):'HD-PDFを保存しました',2500);
@@ -2650,6 +2664,26 @@ async function exportPdfMergedHybrid190(pageNums){
   }finally{
     if(btn190) btn190.disabled=false;
   }
+}
+
+// V3_63: PDFのBlobを、見えないiframeに読み込んで印刷画面を開く(PC向け)。
+// iframeで印刷できない環境に備え、数秒後にも出なければ新しいウィンドウで開く案内を出す
+function _printPdfBlob62(blob){
+  var url=URL.createObjectURL(blob);
+  var old=document.getElementById('_printFrame62'); if(old) old.remove();
+  var fr=document.createElement('iframe');
+  fr.id='_printFrame62';
+  fr.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
+  var printed=false;
+  fr.onload=function(){
+    setTimeout(function(){
+      try{ fr.contentWindow.focus(); fr.contentWindow.print(); printed=true; }
+      catch(err){ console.warn('[print]',err); window.open(url,'_blank'); showGuide('開いたPDFの画面から印刷してください(Ctrl+P)',5000); }
+    },600);
+  };
+  fr.src=url;
+  document.body.appendChild(fr);
+  setTimeout(function(){ if(!printed) return; },100);
 }
 
 // V1_190: M_Viewer(参考実装)のCatmull-Rom→3次ベジェSVGパス変換を移植。
@@ -2779,7 +2813,7 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
 // 約80%(一般的な欧文/和文フォントのアセント比率の近似値)を足して概ね同じ
 // 高さに見えるよう補正している(完全な一致ではなく近似)
 function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper,degreesFn){
-  // V3_61: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
+  // V3_63: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
   // 寸法文字(_hpDrawDimsPdfLib190)と同様に、mapper.angleDeltaDegで文字の回転角を補正する
   var angleDelta39=(mapper&&typeof mapper.angleDeltaDeg==='number')?mapper.angleDeltaDeg:0;
   if(!jpFont) return;
@@ -2792,7 +2826,7 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     var pdfCol=rgbFn(col.r/255,col.g/255,col.b/255);
     var fsPt=Math.max(1,(s.lw||0.6)*20/fitRef);
     var lines=_hpFixChars(s.text).split('\n');
-    if(s.bg){ // V3_61: 背景(白)塗り。ワールドはY上向きのため上端=s.y+pad、下端は行数分だけ下
+    if(s.bg){ // V3_63: 背景(白)塗り。ワールドはY上向きのため上端=s.y+pad、下端は行数分だけ下
       try{
         var _bw=0; for(var _bi=0;_bi<lines.length;_bi++){ var _w=jpFont.widthOfTextAtSize(lines[_bi],fsPt); if(_w>_bw)_bw=_w; }
         var _pad=fsPt*0.15;
@@ -2805,12 +2839,12 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     for(var li=0;li<lines.length;li++){
       var ln=lines[li];
       if(!ln.trim()) continue;
-      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_61:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_61:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
+      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_63:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_63:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
       var q=P196(baseX,baseY);
       try{
         var _opt39={x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol};
         if(degreesFn&&Math.abs(angleDelta39)>0.01) _opt39.rotate=degreesFn(angleDelta39);
-        // V3_61: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
+        // V3_63: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
         var _d45=fsPt*0.022, _th45=angleDelta39*Math.PI/180, _c45=Math.cos(_th45), _s45=Math.sin(_th45);
         var _offs45=[[0,0],[_d45*_c45,_d45*_s45],[-_d45*_s45,_d45*_c45],[_d45*(_c45-_s45),_d45*(_s45+_c45)]];
         for(var _oi45=0;_oi45<_offs45.length;_oi45++){
@@ -2916,6 +2950,41 @@ function _hpDrawDimsPdfLib190(page,pgDims,jpFont,rgbFn,degreesFn,pageH,mapper){
 // V1_190: PDFを開いている場合は、元PDF+書込み・寸法を合体するページ選択付きの
 // 専用フロー(exportPdfMergedHybrid190)を使う。DXF等それ以外は従来通り
 // exportHybridPDF()を呼ぶ(挙動は一切変更していない)
+// V3_63: 印刷ボタン(PC向け)。PDFを開いている時のみ。「全体(ページ指定)」か「範囲指定」を選ぶ。
+// 印刷画面(Windows標準)で、プリンター・用紙サイズ・向きを選べる
+(function(){
+  var pb=document.getElementById('printBtn'); if(!pb) return;
+  pb.addEventListener('click',function(){
+    if(!(typeof pdfDoc!=='undefined'&&pdfDoc)){ showGuide('印刷はPDFを開いている時に使えます',2000); return; }
+    var ex=document.getElementById('_printMenu62'); if(ex){ex.remove();return;}
+    var menu=document.createElement('div'); menu.id='_printMenu62';
+    menu.style.cssText='position:fixed;z-index:9999;background:#1e3a5f;border:2px solid #4a9eff;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:230px;box-shadow:0 4px 20px rgba(0,0,0,.5)';
+    var r=pb.getBoundingClientRect(); menu.style.top=(r.bottom+6)+'px'; menu.style.right=Math.max(4,window.innerWidth-r.right)+'px';
+    var bs='background:#0a0c10;color:#eee;border:1px solid #2a3040;border-radius:8px;padding:10px 8px;font-size:13px;cursor:pointer;text-align:center';
+    menu.innerHTML='<div style="color:#aac8e8;font-size:12px;font-weight:bold;text-align:center">印刷(書き込み込み)</div>'
+      +'<button type="button" id="_prAll62" style="'+bs+'">全体を印刷<div style="font-size:10px;color:#888;margin-top:2px">ページを選んで、図面全体を印刷します</div></button>'
+      +'<button type="button" id="_prRange62" style="'+bs+'">範囲を選んで印刷<div style="font-size:10px;color:#888;margin-top:2px">いまのページの、印刷したい範囲を四角で囲みます</div></button>'
+      +'<button type="button" id="_prCnl62" style="background:#333;color:#aaa;border:none;border-radius:8px;padding:8px;font-size:12px;cursor:pointer">キャンセル</button>';
+    document.body.appendChild(menu);
+    function close(){ if(document.getElementById('_printMenu62')) menu.remove(); }
+    document.getElementById('_prCnl62').onclick=close;
+    document.getElementById('_prAll62').onclick=function(){
+      close();
+      if(typeof _showPdfHdExportPageDialog190==='function'){
+        _showPdfHdExportPageDialog190(pb,function(pages){ exportPdfMergedHybrid190(pages,{print:true}); });
+      } else exportPdfMergedHybrid190([pdfPageNum||1],{print:true});
+    };
+    document.getElementById('_prRange62').onclick=function(){
+      close();
+      if(typeof resetToolStates==='function') resetToolStates();
+      if(typeof resetSW==='function') resetSW();
+      if(window.SW){ window.SW.active=true; window.SW.purpose='print'; }
+      document.querySelectorAll('.tool-btn').forEach(function(b){b.classList.remove('active');});
+      showGuide('印刷範囲:印刷したい範囲を対角にドラッグしてください',0);
+    };
+  });
+})();
+
 document.getElementById('hybridPDFBtn').addEventListener('click',function(){
   if(typeof pdfDoc!=='undefined'&&pdfDoc){
     if(typeof _showPdfHdExportPageDialog190==='function'){
