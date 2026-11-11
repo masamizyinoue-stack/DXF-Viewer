@@ -1622,7 +1622,7 @@ function _openTextInputAt(wx,wy,sx,sy){
   if(typeof _activeStamp!=='undefined'&&_activeStamp){
     _textInputTouchOrigin=false;
     snapshot();
-    strokes.push({isText:true,text:_activeStamp,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind});
+    strokes.push({isText:true,text:_activeStamp,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind,bg:!!_textBgOn});
     if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){ openFiles[currentFileIdx].strokes=strokes; }
     if(typeof verify==='function')verify('スタンプ配置',{len:strokes.length});
     scheduleOverlay();doSave();
@@ -1643,6 +1643,7 @@ function _openTextInputAt(wx,wy,sx,sy){
   inp.style.lineHeight=(fontPx*1.2)+'px'; // V2_87: 画面描画の行間(1.2倍)と揃える
   inp.style.height=(fontPx*1.2)+'px';
   // V2_102: 文字入力は専用のcurrentTextColorを使う(ペンのcurrentColorとは独立)
+  inp.style.background=_textBgOn?'#fff':''; // V3_53
   inp.style.color='rgb('+currentTextColor.r+','+currentTextColor.g+','+currentTextColor.b+')';
   box.style.left=(r.left+sx)+'px';
   box.style.top=(r.top+sy)+'px';
@@ -1663,7 +1664,7 @@ function _openTextInputAt(wx,wy,sx,sy){
       snapshot();
       // V2_102: 文字は専用のcurrentTextColorを保存する(ペンのcurrentColorとは独立)
       // V2_103: 太さ(フォントサイズ)も専用のcurrentTextLWを保存する(ペンのcurrentLWとは独立)
-      strokes.push({isText:true,text:t,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind});
+      strokes.push({isText:true,text:t,x:wx,y:wy,color:{...currentTextColor},lw:currentTextLW,page:_curPage(),font:_textFontKind,bg:!!_textBgOn});
       if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){
         openFiles[currentFileIdx].strokes=strokes;
       }

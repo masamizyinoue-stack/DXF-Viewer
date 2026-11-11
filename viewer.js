@@ -1253,6 +1253,8 @@ function _dxfFontFamily(){return DXF_FONTS[_dxfFontKind].stack;}
 // V3_38: 文字ツール(書き込み文字)の字体。DXF文字とは別に選べる(既定=従来のNoto Sans JP・太字なし)。
 // 画面表示と入力枠のみに反映(PDF書出しは埋込のNoto Sans JPのまま)
 var _textFontKind=(function(){try{var k=localStorage.getItem('textFontKind');return (k&&DXF_FONTS[k])?k:'noto';}catch(e){return 'noto';}})();
+// V3_53: 文字の背景を白で塗って図面が透けないようにする(文字ごとにs.bgへ記録)
+var _textBgOn=(function(){try{return localStorage.getItem('textBgOn')==='1';}catch(e){return false;}})();
 function _textFontBold(){ return _textFontKind==='noto'?false:!!DXF_FONTS[_textFontKind].bold; }
 function _textFontCss(px){ return (_textFontBold()?'bold ':'')+px+'px '+DXF_FONTS[_textFontKind].stack; }
 // V3_49: 書き込み文字ごとに「書いた時の字体」(s.font)を保持。未記録(旧データ)はnoto扱い
