@@ -1134,6 +1134,11 @@ function draw(){
   ctx.fillRect(0,0,W,H);
   if(!doc&&!pdfImage){ctx.restore();return;}
   if(pdfImage){
+    // V3_60: 高解像度タイルの外側(パン直後・サブ窓の範囲外)が黒く抜けないよう、ページ全体の低解像度画像を下に敷く
+    if(pdfImage.base&&pdfImage.base.img){
+      const[bx,by]=w2s(pdfImage.base.wx,pdfImage.base.wy);
+      ctx.drawImage(pdfImage.base.img,bx,by,pdfImage.base.ww*scale,pdfImage.base.wh*scale);
+    }
     const[sx,sy]=w2s(pdfImage.wx,pdfImage.wy);
     ctx.drawImage(pdfImage.img,sx,sy,pdfImage.ww*scale,pdfImage.wh*scale);
     // V1_85: 現在の表示(このdraw()がメイン画面/サブ窓のどちらであっても)を踏まえて、
@@ -1601,7 +1606,10 @@ async function _pdfRenderVisibleTile(page,rect,targetScale,curPdfDoc,curPageNum,
   await page.render({canvasContext:tileCanvas.getContext('2d'),viewport:fullVp,transform:[1,0,0,1,-px0,-py0]}).promise;
   // レンダリング完了時点でタブ切替・ページ送りが起きていたら、古い結果は反映しない
   if(pdfDoc!==curPdfDoc||pdfPageNum!==curPageNum) return;
-  pdfImage={img:tileCanvas,wx:rect.x0,wy:rect.y1,ww:rect.x1-rect.x0,wh:rect.y1-rect.y0};
+  // V3_60: 位置は「実際に描いたピクセル境界(px0,py0,cw,ch)」から決める。従来は丸め前の範囲を使っていたため、
+  // 再レンダリングのたびに最大で約1px内容がズレて見えた(サブ窓で拡大していると目立つ)
+  var _base60=(pdfImage&&pdfImage.base)?pdfImage.base:pdfImage;
+  pdfImage={img:tileCanvas,wx:px0/s,wy:pageRawH-py0/s,ww:cw/s,wh:ch/s,base:_base60};
   scheduleDraw();
 }
 

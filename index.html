@@ -1577,7 +1577,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="3">3</button>
     </div>
   </div>
-  <!-- V3_58: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
+  <!-- V3_60: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
   <div class="co-sketch-section" id="coTextFontSection">
     <div class="co-label">字体</div>
     <div id="textFontList" style="padding:2px 0"></div>
@@ -1871,7 +1871,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_58';
+const APP_VERSION = 'V3_60';
 
 // =========================================================
 // グローバル状態
@@ -2024,7 +2024,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       // 下にずらして描画する(行間はPDF書出(_hpDrawTextStrokes81等)と揃えて
       // フォントサイズの1.2倍)
       var _tLines80=(s.text||'').split('\n');
-      if(s.bg){ // V3_58: 背景(白)塗り
+      if(s.bg){ // V3_60: 背景(白)塗り
         var _bw53=0; for(var _bi53=0;_bi53<_tLines80.length;_bi53++){ var _m53=atc.measureText(_tLines80[_bi53]).width; if(_m53>_bw53)_bw53=_m53; }
         var _pad53=_tFontPx80*0.15;
         atc.fillStyle='#ffffff';
@@ -2505,7 +2505,7 @@ function _fileTypeInfo(name){
   if(n.endsWith('.csv')) return {label:'CSV',color:'#f39c12'};
   if(_isExcelName(n)) return {label:'XLS',color:'#217346'};
   if(n.endsWith('.tdf')) return {label:'TDF',color:'#e74c3c'}; // V1_175: DXF(青)と同色でかぶって見分けづらいとの指摘で赤に変更
-  return {label:'DXF',color:'#2e9e5b'}; // V3_58: PDF(青)と区別するためDXFは緑(アイコンの線の色)
+  return {label:'DXF',color:'#2e9e5b'}; // V3_60: PDF(青)と区別するためDXFは緑(アイコンの線の色)
 }
 
 // ファイル
@@ -2785,16 +2785,16 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
 // これにより、複数ファイルを開いている間はタブクリック・タブを閉じる操作が最後まで
 // 無効化され、処理途中でタブ操作されることによる状態の食い違いを防ぐ。1件のみの
 // 選択時は従来通り_openOneFile202が自分でbusyを管理する(挙動は完全に無変更)
-// V3_58: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
+// V3_60: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
 // 受け取って既存のファイル読込処理(#fileのchange)へ渡す(manifestのfile_handlers+launchQueue)。
 // 非対応ブラウザ(iPad等)では何も起きない
 setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登録が遅れるため、同期処理の完了直後(0ms後)に登録
   if(!('launchQueue' in window)||!window.launchQueue||typeof launchQueue.setConsumer!=='function') return;
-  // V3_58: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
+  // V3_60: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
   var _launchChain54=Promise.resolve();
   function _front55(){ try{ window.focus(); }catch(e){} }
   launchQueue.setConsumer(function(lp){
-    // V3_58: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
+    // V3_60: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
     _front55();
     _launchChain54=_launchChain54.then(function(){ return _handleLaunch54(lp); }).catch(function(){});
     return _launchChain54;
@@ -2802,11 +2802,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
   async function _handleLaunch54(lp){
     try{
       if(!lp||!lp.files||!lp.files.length){ return; }
-      window._launched58=true; // V3_58: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
-      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_58: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
+      window._launched58=true; // V3_60: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
+      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_60: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
       var fl=[],errName='';
       for(var i=0;i<lp.files.length;i++){
-        // V3_58: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
+        // V3_60: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
         for(var t=0;t<4;t++){
           try{ fl.push(await lp.files[i].getFile()); errName=''; break; }
           catch(e){ errName=(e&&e.name)||'Error'; await new Promise(function(r){setTimeout(r,600);}); }
@@ -2814,11 +2814,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
       }
       if(!fl.length){ if(typeof showGuide==='function') showGuide((errName==='SecurityError'?'メールの添付はこのアプリで直接開けません。デスクトップなどに保存してから開いてください':'ファイルを読み込めませんでした。デスクトップなどに保存してから開いてください')+'('+errName+')',7000); return; }
       // 起動直後で他のファイルを開いている最中なら、終わるまで少し待つ
-      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_58: 60秒まで待つ(従来6秒で諦めて開かなかった)
+      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_60: 60秒まで待つ(従来6秒で諦めて開かなかった)
       var dt=new DataTransfer(); fl.forEach(function(f){dt.items.add(f);});
       fileInput.files=dt.files;
       fileInput.dispatchEvent(new Event('change'));
-      // V3_58: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
+      // V3_60: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
       for(var w2=0;w2<100&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w2++){ await new Promise(function(r){setTimeout(r,200);}); }
       _front55();
     }catch(e){
@@ -4793,7 +4793,7 @@ function openContextPopup(mode,anchorEl){
   // V3_37/V3_38: 字体一覧を生成(各項目は実際の字体で見本表示)。DXF文字='dxfFontKind' / 文字ツール='textFontKind'をlocalStorageに保存
   if(typeof DXF_FONTS==='undefined') return;
   function build(boxId,radioName,getKind,setKind,isText){
-    // V3_58: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
+    // V3_60: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
     var box=document.getElementById(boxId); if(!box) return;
     var sel=document.createElement('select'); sel.className='fontSel';
     Object.keys(DXF_FONTS).forEach(function(k){
@@ -4828,7 +4828,7 @@ function openContextPopup(mode,anchorEl){
     scheduleOverlay(); scheduleDraw();
   },true);
 })();
-(function(){ // V3_58: 文字の背景(白)切替
+(function(){ // V3_60: 文字の背景(白)切替
   var c=document.getElementById('textBgChk'); if(!c) return;
   c.checked=!!_textBgOn;
   c.addEventListener('change',function(){ _textBgOn=c.checked; try{localStorage.setItem('textBgOn',c.checked?'1':'0');}catch(e){} });
@@ -4866,9 +4866,29 @@ updateToolColorDots();
 
 // リサイズ
 const ro=new ResizeObserver(resizeCanvas);ro.observe(stage);
-// V3_58: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
+// V3_60: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
 // 画面を前回のファイルで上書きしていた。復元の完了を待てるようPromiseで保持する
-window._restoreP54=Promise.resolve(tryRestore()).catch(function(){});
+// V3_60(実験): PDF/DXFのダブルクリックは「新しいウィンドウ」で開く(manifestのnavigate-new)。開いたままの
+// アプリは裏に回って前面化できないが、新しいウィンドウなら前面に出るため。古いウィンドウが残ると二重に
+// 保存し合うので、新しいウィンドウが起動したら古いウィンドウは保存してから自分で閉じる
+window._restoreP54=(async function(){
+  try{
+    if('launchQueue' in window&&typeof BroadcastChannel!=='undefined'){
+      var ch=new BroadcastChannel('dxfv59'),myId=Date.now()+'_'+Math.random(),got=false;
+      ch.onmessage=function(ev){
+        var d=ev.data||{};
+        if(d.t==='hello'&&d.id!==myId){
+          try{ doSave(); }catch(e){}
+          ch.postMessage({t:'ack',to:d.id});
+          setTimeout(function(){ try{ window.close(); }catch(e){} },80);
+        }else if(d.t==='ack'&&d.to===myId){ got=true; }
+      };
+      ch.postMessage({t:'hello',id:myId});
+      for(var i=0;i<12&&!got;i++){ await new Promise(function(r){setTimeout(r,30);}); } // 古いウィンドウがあれば最新の保存を待つ(無ければ約0.35秒で進む)
+    }
+  }catch(e){}
+  try{ await tryRestore(); }catch(e){}
+})();
 resizeCanvas();scheduleDraw();
 const vd = document.getElementById('ver-label'); // V0_138: versionDisplay→ver-label（ID不一致修正）
 if(vd) vd.textContent = APP_VERSION;
