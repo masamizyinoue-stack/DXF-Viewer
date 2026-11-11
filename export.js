@@ -708,7 +708,7 @@ if(_fileBackupBtn234) _fileBackupBtn234.addEventListener('click',exportDxfviewMa
 // =========================================================
 async function _saveBlobWithFallback183(blob, fname, typeDesc){
   var _fsaSaved=false;
-  // V3_54: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
+  // V3_55: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
   var _isPdf241=/\.pdf$/i.test(fname||'');
   var _mime241=_isPdf241?'application/pdf':'application/zip';
   var _ext241=_isPdf241?'.pdf':'.zip';
@@ -2160,7 +2160,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
         // isText側のこの分岐だけを常にNotoSansJP単一フォントに変更する
         // (pdf-lib合体パスの_hpDrawTextStrokesPdfLib190と同じ挙動)
         _hpSetRunFont(pdf,'jp');
-        if(s.bg){ // V3_54: 背景(白)塗り(jsPDF経路)
+        if(s.bg){ // V3_55: 背景(白)塗り(jsPDF経路)
           try{
             let _bw=0; for(let k=0;k<lines.length;k++){ const w=pdf.getTextWidth(lines[k]); if(w>_bw)_bw=w; }
             const _pad=fsMM*0.15;
@@ -2779,7 +2779,7 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
 // 約80%(一般的な欧文/和文フォントのアセント比率の近似値)を足して概ね同じ
 // 高さに見えるよう補正している(完全な一致ではなく近似)
 function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper,degreesFn){
-  // V3_54: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
+  // V3_55: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
   // 寸法文字(_hpDrawDimsPdfLib190)と同様に、mapper.angleDeltaDegで文字の回転角を補正する
   var angleDelta39=(mapper&&typeof mapper.angleDeltaDeg==='number')?mapper.angleDeltaDeg:0;
   if(!jpFont) return;
@@ -2792,7 +2792,7 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     var pdfCol=rgbFn(col.r/255,col.g/255,col.b/255);
     var fsPt=Math.max(1,(s.lw||0.6)*20/fitRef);
     var lines=_hpFixChars(s.text).split('\n');
-    if(s.bg){ // V3_54: 背景(白)塗り。ワールドはY上向きのため上端=s.y+pad、下端は行数分だけ下
+    if(s.bg){ // V3_55: 背景(白)塗り。ワールドはY上向きのため上端=s.y+pad、下端は行数分だけ下
       try{
         var _bw=0; for(var _bi=0;_bi<lines.length;_bi++){ var _w=jpFont.widthOfTextAtSize(lines[_bi],fsPt); if(_w>_bw)_bw=_w; }
         var _pad=fsPt*0.15;
@@ -2805,12 +2805,12 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     for(var li=0;li<lines.length;li++){
       var ln=lines[li];
       if(!ln.trim()) continue;
-      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_54:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_54:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
+      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_55:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_55:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
       var q=P196(baseX,baseY);
       try{
         var _opt39={x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol};
         if(degreesFn&&Math.abs(angleDelta39)>0.01) _opt39.rotate=degreesFn(angleDelta39);
-        // V3_54: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
+        // V3_55: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
         var _d45=fsPt*0.022, _th45=angleDelta39*Math.PI/180, _c45=Math.cos(_th45), _s45=Math.sin(_th45);
         var _offs45=[[0,0],[_d45*_c45,_d45*_s45],[-_d45*_s45,_d45*_c45],[_d45*(_c45-_s45),_d45*(_s45+_c45)]];
         for(var _oi45=0;_oi45<_offs45.length;_oi45++){
