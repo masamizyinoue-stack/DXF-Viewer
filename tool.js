@@ -1322,6 +1322,7 @@ document.querySelectorAll('.tool-btn').forEach(btn=>{
     // V2_90: 他ツールへ切り替えたら、なげわ(lasso)の選択状態(バウンディングボックス・
     // アクションバー含む)は必ずクリアする
     if(currentTool!=='lasso'&&typeof _lassoClearSelection==='function') _lassoClearSelection();
+    if(currentTool!=='lasso') _lassoPasteArmed=false; // V3_68
     // V2_95: 他ツールへ切り替えたら、図形ツール(四角・矢印・丸・楕円)のドラッグ中
     // プレビュー状態も必ずクリアする(なげわの選択状態クリアと同じ考え方)
     if(typeof shapeToolState!=='undefined'){shapeToolState.drawing=false;shapeToolState.tool=null;shapeToolState.start=null;shapeToolState.cur=null;}
@@ -1768,6 +1769,8 @@ function _pointInBBox(x,y,b){
 
 // ポインタダウン: バウンディングボックス内→移動開始、それ以外→新規の囲み描画開始
 function _lassoPointerDown(wx,wy){
+  // V3_68: コピー後の貼り付け待ち中は、タップした位置へ貼り付ける(囲み開始・移動開始より優先)
+  if(_lassoPasteArmed&&_lassoClip){ _lassoPasteAt(wx,wy); return; }
   if(lassoState.selected&&lassoState.selected.length>0&&lassoState.bbox&&_pointInBBox(wx,wy,lassoState.bbox)){
     snapshot(); // V2_90: 移動前にundoチェックポイント
     lassoState.dragging=true;
@@ -1907,6 +1910,70 @@ function _lassoClearSelection(){
   _lassoHideActionBar();
   if(typeof scheduleOverlay==='function') scheduleOverlay();
 }
+// =========================================================
+// V3_68: なげわで囲んだ書き込みのコピー&貼り付け
+//  ・「コピー」ボタン(またはCtrl+C)で、選択中の書き込み(ペン・蛍光・図形・文字)を複製用に記憶する
+//  ・コピー後は貼り付け待ち状態になり、次にタップ(クリック)した位置へ、記憶した範囲の中心が来るように貼り付ける
+//  ・貼り付けた書き込みはそのまま選択状態になり、ドラッグで位置調整・削除できる
+//  ・別ページ・別ファイルへも貼り付け可(再度「貼付」ボタンかCtrl+Vで貼り付け待ちにする)
+// =========================================================
+var _lassoClip=null;          // {items:[ストロークの複製], cx, cy}
+var _lassoPasteArmed=false;   // trueの間、次のタップで貼り付ける
+function _lassoClipExtent(items){
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  items.forEach(function(s){
+    if(s.isText){ if(s.x<minX)minX=s.x; if(s.x>maxX)maxX=s.x; if(s.y<minY)minY=s.y; if(s.y>maxY)maxY=s.y; }
+    else (s.pts||[]).forEach(function(p){ if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; });
+  });
+  return {minX:minX,minY:minY,maxX:maxX,maxY:maxY};
+}
+function _lassoCopySelected(){
+  if(!lassoState.selected||lassoState.selected.length===0) return false;
+  var items=lassoState.selected.map(function(s){return JSON.parse(JSON.stringify(s));});
+  var e=_lassoClipExtent(items);
+  if(e.minX===Infinity) return false;
+  _lassoClip={items:items,cx:(e.minX+e.maxX)/2,cy:(e.minY+e.maxY)/2};
+  _lassoPasteArmed=true;
+  var pb=document.getElementById('lassoPasteBtn'); if(pb) pb.style.display='';
+  showGuide(items.length+'個をコピーしました。貼り付けたい場所をクリック(タップ)してください(Escで中止)',5000);
+  return true;
+}
+function _lassoArmPaste(){
+  if(!_lassoClip){ showGuide('コピーした書き込みがありません',1800); return; }
+  _lassoPasteArmed=true;
+  showGuide('貼り付けたい場所をクリック(タップ)してください(Escで中止)',4000);
+}
+function _lassoPasteAt(wx,wy){
+  if(!_lassoClip) { _lassoPasteArmed=false; return; }
+  snapshot(); // 貼り付け前のundoチェックポイント
+  var dx=wx-_lassoClip.cx, dy=wy-_lassoClip.cy, pg=(typeof _curPage==='function')?_curPage():1, made=[];
+  _lassoClip.items.forEach(function(it){
+    var s=JSON.parse(JSON.stringify(it));
+    if(s.isText){ s.x+=dx; s.y+=dy; }
+    else (s.pts||[]).forEach(function(p){ p.x+=dx; p.y+=dy; });
+    s.page=pg;
+    strokes.push(s); made.push(s);
+  });
+  _lassoPasteArmed=false;
+  if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]) openFiles[currentFileIdx].strokes=strokes;
+  _lassoClearSelection();
+  lassoState.selected=made; lassoState.range=null;
+  _lassoRecomputeBBox();
+  _lassoShowActionBar();
+  if(typeof verify==='function')verify('なげわ貼付',{len:made.length});
+  showGuide('貼り付けました(ドラッグで位置調整できます)',2200);
+  scheduleOverlay();doSave();
+}
+document.addEventListener('keydown',function(e){
+  if(currentTool!=='lasso') return;
+  var ae=document.activeElement, tag=(ae&&ae.tagName)||'';
+  if(tag==='INPUT'||tag==='TEXTAREA'||(ae&&ae.isContentEditable)) return;
+  if(e.key==='Escape'&&_lassoPasteArmed){ _lassoPasteArmed=false; showGuide('貼り付けを中止しました',1500); return; }
+  if(!(e.ctrlKey||e.metaKey)) return;
+  var k=(e.key||'').toLowerCase();
+  if(k==='c'&&lassoState.selected&&lassoState.selected.length>0){ e.preventDefault(); _lassoCopySelected(); }
+  else if(k==='v'&&_lassoClip){ e.preventDefault(); _lassoArmPaste(); }
+});
 // 選択中の全ストロークをstrokes配列から削除する(インデックスの大きい順にsplice)
 function _lassoDeleteSelected(){
   if(!lassoState.selected||lassoState.selected.length===0) return;
@@ -1931,6 +1998,7 @@ function _lassoShowActionBar(){
   if(!bar) return;
   _lassoActionBarSubWin90=(typeof window._swFindOwnerOfOv==='function')?window._swFindOwnerOfOv(ov):null; // V3_02
   bar.style.display='flex';
+  var _pb68=document.getElementById('lassoPasteBtn'); if(_pb68) _pb68.style.display=_lassoClip?'':'none'; // V3_68
   _syncLassoActionBar90();
 }
 function _lassoHideActionBar(){
@@ -1972,6 +2040,11 @@ function _syncLassoActionBar90(){
 }
 // 削除ボタンのクリックリスナー(DOM要素はindex.htmlに存在、tool.jsは常にそれより
 // 後に読み込まれるため、ここで直接addEventListenerして問題ない)
+(function(){ // V3_68: コピー/貼付ボタン
+  var cb=document.getElementById('lassoCopyBtn'), pb=document.getElementById('lassoPasteBtn');
+  if(cb) cb.addEventListener('click',function(e){ if(e&&e.stopPropagation)e.stopPropagation(); _lassoCopySelected(); });
+  if(pb) pb.addEventListener('click',function(e){ if(e&&e.stopPropagation)e.stopPropagation(); _lassoArmPaste(); });
+})();
 (function(){
   var _lassoDelBtn90=document.getElementById('lassoDeleteBtn');
   if(_lassoDelBtn90){
