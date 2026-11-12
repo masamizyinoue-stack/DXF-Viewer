@@ -865,7 +865,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   .tab-item:hover{background:#161c26;}
   #_pcCtxMenu button:not(:disabled):hover{background:#2a4a70;}
 }
-@media (pointer:coarse){#printBtn{display:none!important}} /* V3_69 */
+@media (pointer:coarse){#printBtn{display:none!important}} /* V3_70 */
 </style>
 </head>
 <body>
@@ -1062,7 +1062,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 </button>
   <!-- V0_147: スクショボタン削除 / V0_154: PDF書出ボタンは設定パネルへ移動 -->
   <!-- V1_168: 書込バックアップは設定パネル(PDF書出の下)へ移動し、この位置にはHD-PDF書出を配置 -->
-  <!-- V3_69: 印刷(PDF用・PC向け。タッチ端末では非表示) -->
+  <!-- V3_70: 印刷(PDF用・PC向け。タッチ端末では非表示) -->
   <button class="tb-btn" id="printBtn" title="PDFを印刷(全体/範囲指定。書き込み込み)" style="display:none;border:2px solid #9b59b6">
   <span class="tb-tool-label">印刷</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -1583,7 +1583,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="3">3</button>
     </div>
   </div>
-  <!-- V3_69: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
+  <!-- V3_70: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
   <div class="co-sketch-section" id="coTextFontSection">
     <div class="co-label">字体</div>
     <div id="textFontList" style="padding:2px 0"></div>
@@ -1877,7 +1877,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_69';
+const APP_VERSION = 'V3_70';
 
 // =========================================================
 // グローバル状態
@@ -2006,7 +2006,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
   const _mgPx=(atc.canvas.width>0?60*(window.devicePixelRatio||1):0);
   const _cwPx=atc.canvas.width, _chPx=atc.canvas.height;
   var _curPg65=_curPage(); // V1_65: PDFページごとに書き込みを分離するため、現在ページ以外は描画しない
-  // V3_69: 文字の白い背景を先に全部敷いてから、手書き線・図形・文字を描く(背景が自分の書込みを隠さない)
+  // V3_70: 文字の白い背景を先に全部敷いてから、手書き線・図形・文字を描く(背景が自分の書込みを隠さない)
   if(strokeFilter!=='hl'){
     for(var bi64=0; bi64<strokes.length; bi64++){
       var sb=strokes[bi64];
@@ -2522,7 +2522,7 @@ function _fileTypeInfo(name){
   if(n.endsWith('.csv')) return {label:'CSV',color:'#f39c12'};
   if(_isExcelName(n)) return {label:'XLS',color:'#217346'};
   if(n.endsWith('.tdf')) return {label:'TDF',color:'#e74c3c'}; // V1_175: DXF(青)と同色でかぶって見分けづらいとの指摘で赤に変更
-  return {label:'DXF',color:'#2e9e5b'}; // V3_69: PDF(青)と区別するためDXFは緑(アイコンの線の色)
+  return {label:'DXF',color:'#2e9e5b'}; // V3_70: PDF(青)と区別するためDXFは緑(アイコンの線の色)
 }
 
 // ファイル
@@ -2802,16 +2802,16 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
 // これにより、複数ファイルを開いている間はタブクリック・タブを閉じる操作が最後まで
 // 無効化され、処理途中でタブ操作されることによる状態の食い違いを防ぐ。1件のみの
 // 選択時は従来通り_openOneFile202が自分でbusyを管理する(挙動は完全に無変更)
-// V3_69: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
+// V3_70: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
 // 受け取って既存のファイル読込処理(#fileのchange)へ渡す(manifestのfile_handlers+launchQueue)。
 // 非対応ブラウザ(iPad等)では何も起きない
 setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登録が遅れるため、同期処理の完了直後(0ms後)に登録
   if(!('launchQueue' in window)||!window.launchQueue||typeof launchQueue.setConsumer!=='function') return;
-  // V3_69: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
+  // V3_70: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
   var _launchChain54=Promise.resolve();
   function _front55(){ try{ window.focus(); }catch(e){} }
   launchQueue.setConsumer(function(lp){
-    // V3_69: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
+    // V3_70: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
     _front55();
     _launchChain54=_launchChain54.then(function(){ return _handleLaunch54(lp); }).catch(function(){});
     return _launchChain54;
@@ -2819,11 +2819,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
   async function _handleLaunch54(lp){
     try{
       if(!lp||!lp.files||!lp.files.length){ return; }
-      window._launched58=true; // V3_69: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
-      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_69: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
+      window._launched58=true; // V3_70: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
+      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_70: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
       var fl=[],errName='';
       for(var i=0;i<lp.files.length;i++){
-        // V3_69: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
+        // V3_70: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
         for(var t=0;t<4;t++){
           try{ fl.push(await lp.files[i].getFile()); errName=''; break; }
           catch(e){ errName=(e&&e.name)||'Error'; await new Promise(function(r){setTimeout(r,600);}); }
@@ -2831,11 +2831,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
       }
       if(!fl.length){ if(typeof showGuide==='function') showGuide((errName==='SecurityError'?'メールの添付はこのアプリで直接開けません。デスクトップなどに保存してから開いてください':'ファイルを読み込めませんでした。デスクトップなどに保存してから開いてください')+'('+errName+')',7000); return; }
       // 起動直後で他のファイルを開いている最中なら、終わるまで少し待つ
-      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_69: 60秒まで待つ(従来6秒で諦めて開かなかった)
+      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_70: 60秒まで待つ(従来6秒で諦めて開かなかった)
       var dt=new DataTransfer(); fl.forEach(function(f){dt.items.add(f);});
       fileInput.files=dt.files;
       fileInput.dispatchEvent(new Event('change'));
-      // V3_69: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
+      // V3_70: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
       for(var w2=0;w2<100&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w2++){ await new Promise(function(r){setTimeout(r,200);}); }
       _front55();
     }catch(e){
@@ -3230,7 +3230,7 @@ function _updateWriteBackupBtnVisibility(){
   var isDxf=(currentFileName||'').toLowerCase().endsWith('.dxf');
   var isPdf191=(currentFileName||'').toLowerCase().endsWith('.pdf');
   btn.style.display=(isDxf||isPdf191)?'':'none';
-  var pr63=document.getElementById('printBtn'); // V3_69: 印刷はPDFを開いている時だけ表示する(DXFでは非表示)
+  var pr63=document.getElementById('printBtn'); // V3_70: 印刷はPDFを開いている時だけ表示する(DXFでは非表示)
   if(pr63) pr63.style.display=isPdf191?'':'none';
 }
 // V1_234: ヘッダーの「記憶VIEW」「全体」ボタンは、writeBackupBtnと同様にDXF/PDFを
@@ -3783,6 +3783,37 @@ document.getElementById('tabListBtn').addEventListener('click',function(e){
 // ようにした。3つのポップアップ(#colorOverlay/#measureToolPopup/#shapeToolPopup)で
 // 閉じ方(対象要素・連動して外すべきトグルボタンのactive)が異なるため、共通関数
 // _closeToolPopupById(popupId)にidベースの分岐だけをまとめ、重複を避ける
+// V3_70: ポップアップ(ペン/蛍光/文字/消しゴム/計測/図形)が開いた時、サブ窓や図面番号欄インセットと重なるなら、
+// 重ならない一番近い位置へずらす(ボタン直下が基本位置。画面外にはみ出さない)
+function _avoidObstacles70(popup){
+  try{
+    if(!popup||!popup.classList.contains('open')) return;
+    var obs=[].slice.call(document.querySelectorAll('.sw-window,#detailInsetEl')).map(function(el){
+      var r=el.getBoundingClientRect(); return (r.width>0&&r.height>0&&getComputedStyle(el).display!=='none')?r:null;
+    }).filter(Boolean);
+    if(!obs.length) return;
+    var pr=popup.getBoundingClientRect(), pw=pr.width, ph=pr.height, vw=window.innerWidth, vh=window.innerHeight;
+    function hit(x,y){ for(var i=0;i<obs.length;i++){ var o=obs[i]; if(x<o.right&&x+pw>o.left&&y<o.bottom&&y+ph>o.top) return true; } return false; }
+    if(!hit(pr.left,pr.top)) return;
+    var best=null,bd=Infinity;
+    for(var y=4;y<=vh-ph-4;y+=16){
+      for(var x=4;x<=vw-pw-4;x+=16){
+        if(hit(x,y)) continue;
+        var d=Math.abs(x-pr.left)+Math.abs(y-pr.top);
+        if(d<bd){ bd=d; best={x:x,y:y}; }
+      }
+    }
+    if(best){ popup.style.left=best.x+'px'; popup.style.top=best.y+'px'; }
+  }catch(e){}
+}
+(function(){
+  ['colorOverlay','measureToolPopup','shapeToolPopup'].forEach(function(id){
+    var p=document.getElementById(id); if(!p) return;
+    new MutationObserver(function(){
+      if(p.classList.contains('open')) requestAnimationFrame(function(){ _avoidObstacles70(p); }); // 各ハンドラが基本位置を設定し終えてから
+    }).observe(p,{attributes:true,attributeFilter:['class']});
+  });
+})();
 function _closeToolPopupById(popupId){
   var popup=document.getElementById(popupId);
   if(popup) popup.classList.remove('open');
@@ -4812,7 +4843,7 @@ function openContextPopup(mode,anchorEl){
   // V3_37/V3_38: 字体一覧を生成(各項目は実際の字体で見本表示)。DXF文字='dxfFontKind' / 文字ツール='textFontKind'をlocalStorageに保存
   if(typeof DXF_FONTS==='undefined') return;
   function build(boxId,radioName,getKind,setKind,isText){
-    // V3_69: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
+    // V3_70: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
     var box=document.getElementById(boxId); if(!box) return;
     var sel=document.createElement('select'); sel.className='fontSel';
     Object.keys(DXF_FONTS).forEach(function(k){
@@ -4847,7 +4878,7 @@ function openContextPopup(mode,anchorEl){
     scheduleOverlay(); scheduleDraw();
   },true);
 })();
-(function(){ // V3_69: 文字の背景(白)切替
+(function(){ // V3_70: 文字の背景(白)切替
   var c=document.getElementById('textBgChk'); if(!c) return;
   c.checked=!!_textBgOn;
   c.addEventListener('change',function(){ _textBgOn=c.checked; try{localStorage.setItem('textBgOn',c.checked?'1':'0');}catch(e){} });
@@ -4885,9 +4916,9 @@ updateToolColorDots();
 
 // リサイズ
 const ro=new ResizeObserver(resizeCanvas);ro.observe(stage);
-// V3_69: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
+// V3_70: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
 // 画面を前回のファイルで上書きしていた。復元の完了を待てるようPromiseで保持する
-// V3_69(実験): PDF/DXFのダブルクリックは「新しいウィンドウ」で開く(manifestのnavigate-new)。開いたままの
+// V3_70(実験): PDF/DXFのダブルクリックは「新しいウィンドウ」で開く(manifestのnavigate-new)。開いたままの
 // アプリは裏に回って前面化できないが、新しいウィンドウなら前面に出るため。古いウィンドウが残ると二重に
 // 保存し合うので、新しいウィンドウが起動したら古いウィンドウは保存してから自分で閉じる
 window._restoreP54=(async function(){
@@ -7234,7 +7265,7 @@ SW.handleUp=function(sx,sy){
     // V2_38: 「範囲指定書出」中に確定した場合は、サブ窓を作らずHD-PDF書出へ渡す
     if(_purpose238==='hdpdf'){
       if(typeof exportHybridPDF==='function') exportHybridPDF(null,rectWorld);
-    }else if(_purpose238==='print'){ // V3_69: PDF範囲指定の印刷
+    }else if(_purpose238==='print'){ // V3_70: PDF範囲指定の印刷
       if(typeof exportPdfMergedHybrid190==='function') exportPdfMergedHybrid190([pdfPageNum||1],{print:true,rectWorld:rectWorld});
     }else{
       createSubWindow(rectWorld); // 上限チェック(2個まで)はcreateSubWindow内で実施
@@ -8126,7 +8157,7 @@ function _hist(expr,result){
   histEl.appendChild(hi);histEl.scrollTop=histEl.scrollHeight;
 }
 
-// V3_69: PCのキーボードで計算機を操作する(計算機を開いている間のみ)。数字・小数点・+ - * /・Enter(=)・
+// V3_70: PCのキーボードで計算機を操作する(計算機を開いている間のみ)。数字・小数点・+ - * /・Enter(=)・
 // Backspace(⌫)・Delete/C(クリア)。ボタンを押したのと同じ処理(clickを呼ぶ)なので、動作は画面タップと同一
 document.addEventListener('keydown',function(e){
   if(!_calcEl.classList.contains('on')) return;
@@ -8177,7 +8208,7 @@ function _updateTsuizunBtnUI(){
 // 打ち始めた」のと同じ状態にする(_afterEq/_justOpをリセット)ことで、続けて
 // 演算子や次の数字をボタンで押して計算を続けられる
 window._calcInputFromPick=function(text){
-  // V3_69: 全角の数字(１２３)・小数点(．)・マイナス(－ − ー)も半角に直してから数値を探す
+  // V3_70: 全角の数字(１２３)・小数点(．)・マイナス(－ − ー)も半角に直してから数値を探す
   text=(text||'').replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
                  .replace(/[．]/g,'.').replace(/[－−―‐]/g,'-').replace(/ー(?=\d)/g,'-').replace(/(\d)[，,](?=\d{3}(\D|$))/g,'$1');
   var m=(text||'').match(/-?\d+(\.\d+)?/);
