@@ -113,6 +113,29 @@ function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(doSave,800)
 // =========================================================
 // localStorage へ保存（DXFバイナリはIndexedDBへ）
 // =========================================================
+// V3_69: ツール設定(色・太さ・蛍光濃度・文字/図形の設定など)だけを、書込みデータとは別の小さな保存場所にも持つ。
+// 従来は書込み(strokes)や寸法と同じ1つの大きな保存データに入っていたため、書込みが多くて保存容量を超えた時や、
+// 保存処理の途中で失敗した時に、設定だけが巻き添えで保存されず初期値へ戻っていた
+var TOOLSET_KEY='dxfview_toolsettings_v1';
+function _saveToolSettings69(){
+  try{
+    localStorage.setItem(TOOLSET_KEY,JSON.stringify({
+      bwMode:bwMode,colorLightBg:(typeof colorLightBg!=='undefined'?colorLightBg:false),
+      currentTool:currentTool,currentColor:currentColor,currentLW:currentLW,
+      currentTextColor:(typeof currentTextColor!=='undefined'?currentTextColor:currentColor),
+      currentShapeColor:(typeof currentShapeColor!=='undefined'?currentShapeColor:currentColor),
+      currentTextLW:(typeof currentTextLW!=='undefined'?currentTextLW:currentLW),
+      currentShapeLW:(typeof currentShapeLW!=='undefined'?currentShapeLW:currentLW),
+      currentHL_Color:currentHL_Color,currentHL_LW:currentHL_LW,
+      currentHLAlpha:(typeof currentHLAlpha!=='undefined'?currentHLAlpha:0.5),
+      currentDimColor:currentDimColor,
+      ERASER_RADIUS_PX:(typeof ERASER_RADIUS_PX!=='undefined'?ERASER_RADIUS_PX:20),
+      _lastMeasureTool:(typeof _lastMeasureTool!=='undefined'?_lastMeasureTool:null),
+      scaleDenom:parseFloat((document.getElementById('scaleDenom')||{}).value)||1,
+      dimensionTextMode:dimensionTextMode,inputMode:inputMode
+    }));
+  }catch(e){}
+}
 function doSave(){
   // V2_17: 複数/単一ファイルオープン処理中(_isOpeningFileBusy)は、currentFileIdxと
   // currentFileNameが一時的に食い違う瞬間があるため、doSave()を実行するとタブへの
@@ -126,6 +149,7 @@ function doSave(){
     return;
   }
   if(typeof verify==='function')verify('doSave:start');
+  _saveToolSettings69(); // V3_69: 設定は最初に小さな別保存へ(以降の大きな保存が失敗しても設定は残す)
   try{
     // V0_140: saveCurrentFileState廃止 — openFiles[]は常に最新（参照エイリアス）
     // ビュー状態（tx/ty/scale/hiddenLayersArr）のみ現在ファイルに同期する
@@ -227,9 +251,13 @@ function saveFile(buf,name){
 // V3_66: 保存済みのツール設定(色・太さ・文字/図形の設定・ツール等)を復元する。通常の復元と、起動時にファイルを渡された時の
 // 復元(前回タブだけ後ろへ追加する経路)の両方から使う。以前は後者で呼ばれず、設定が初期値に戻って上書き保存されていた
 function _applySavedToolSettings66(){
-  const _raw2=localStorage.getItem(SAVE_KEY);
+  // V3_69: 小さな設定専用の保存(TOOLSET_KEY)があれば、それを優先して従来の保存データへ上書きして使う
+  var _raw2=localStorage.getItem(SAVE_KEY), _tsRaw69=null;
+  try{ _tsRaw69=localStorage.getItem(TOOLSET_KEY); }catch(e){}
+  if(!_raw2&&_tsRaw69) _raw2='{}';
   if(_raw2){
-    const _d2=JSON.parse(_raw2);
+    var _d2=JSON.parse(_raw2);
+    if(_tsRaw69){ try{ var _ts69=JSON.parse(_tsRaw69); for(var _k69 in _ts69){ if(_ts69[_k69]!==undefined&&_ts69[_k69]!==null) _d2[_k69]=_ts69[_k69]; } }catch(e){} }
     bwMode=!!_d2.bwMode;
     colorLightBg=!!_d2.colorLightBg; // V2_48: カラー(背景白)状態を復元
     currentTool=_d2.currentTool||'sketch';
@@ -526,6 +554,7 @@ async function tryRestore(){
     const _rawParsed=JSON.parse(raw);
     if(_restoreBuf&&_rawParsed.fileSize&&_rawParsed.fileSize!==currentFileSize){buildLayerModal();scheduleDraw();return;}
     const d=_rawParsed;
+    try{ var _ts69b=localStorage.getItem(TOOLSET_KEY); if(_ts69b){ var _o69=JSON.parse(_ts69b); for(var _k69b in _o69){ if(_o69[_k69b]!==undefined&&_o69[_k69b]!==null) d[_k69b]=_o69[_k69b]; } } }catch(e69){} // V3_69: 設定専用の保存を優先
     strokes=d.strokes||[];dims=d.dims||[];
     {const sv=d.savedViews||[];savedViews=[sv[0]||null,sv[1]||null,sv[2]||null,sv[3]||null,sv[4]||null];}
     tx=d.tx||0;ty=d.ty||0;scale=d.scale||1;
