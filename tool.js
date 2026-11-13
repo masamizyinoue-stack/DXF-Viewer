@@ -533,6 +533,8 @@ function handlePointerDown(sx,sy,isPenInput){
   if(currentTool==='text'){
     _openTextInputAt(wx,wy,sx,sy);return;
   }
+  // V3_72: 画像ツール(PC専用)。画像の上なら選択/移動/拡大縮小、空きならパン
+  if(currentTool==='image'){ if(_imgPointerDown72(sx,sy,wx,wy)) return; }
   // V2_90: なげわ(lasso)ツール。選択中バウンディングボックス内なら移動開始、
   // それ以外なら選択解除して新規に囲み線の描画を開始する
   if(currentTool==='lasso'){
@@ -577,6 +579,7 @@ function handlePointerMove(sx,sy,isPenInput){
   }
   snapPt=null;
   // 消しゴム
+  if(currentTool==='image'&&_imgDrag72){ _imgPointerMove72(wx,wy);return; } // V3_72
   if(currentTool==='eraser'){
     eraserPos={x:wx,y:wy};if(mouseDown)eraseAt(wx,wy);scheduleOverlay();return;
   }
@@ -624,6 +627,7 @@ function handlePointerUp(sx,sy,isPenInput){
       return;
     }
   }
+  if(currentTool==='image'&&_imgDrag72){ _imgPointerUp72();return; } // V3_72
   if(currentTool==='eraser'){eraserPos=null;scheduleOverlay();scheduleSave();return;}
   // V2_90: なげわ(lasso)ツール。描画中なら囲み線を確定して選択、移動中なら保存して終了
   if(currentTool==='lasso'){
@@ -2100,3 +2104,216 @@ function _stampInit(){
   _stampRender();
 }
 _stampInit();
+
+// =========================================================
+// V3_72: 画像貼付(PC専用)。PNG/JPEGを図面(PDF/DXF)の上に貼り、移動・拡大縮小・削除できる。
+// 設計: 画像は strokes の1要素 {isImage:true,shapeType:'image',imgId,pts(閉じた四角5点:左上→右上→右下→左下→左上),...}
+//   ・ptsを持つため、なげわ移動/コピー/取消/保存/全体表示など既存のpts前提コードがそのまま動く
+//   ・画像データ本体は重いのでlocalStorage保存の対象(strokes)に入れず、別のIndexedDB('dxfv_img72')へ保存し、
+//     strokesにはimgIdだけを持たせる(保存容量超過で他の保存が失敗するのを防ぐ)
+// =========================================================
+window._imgData72=window._imgData72||{};   // imgId -> dataURL(メモリ)
+window._imgEl72=window._imgEl72||{};       // imgId -> {img,ok}
+var _imgSel72=null, _imgDrag72=null;
+var _IMG_MAXPX72=1600;                     // 取込時に長辺をこの px へ縮小(保存容量・動作速度の対策)
+function _imgDb72(){
+  return new Promise(function(res,rej){
+    try{
+      var r=indexedDB.open('dxfv_img72',1);
+      r.onupgradeneeded=function(e){e.target.result.createObjectStore('i',{keyPath:'id'});};
+      r.onsuccess=function(e){res(e.target.result);};
+      r.onerror=function(){rej(r.error);};
+    }catch(err){rej(err);}
+  });
+}
+function _imgPut72(id,url){
+  return _imgDb72().then(function(db){return new Promise(function(res,rej){
+    var tx=db.transaction('i','readwrite');tx.objectStore('i').put({id:id,url:url});
+    tx.oncomplete=function(){res(true);};tx.onerror=function(){rej(tx.error);};
+  });});
+}
+function _imgGetDb72(id){
+  return _imgDb72().then(function(db){return new Promise(function(res,rej){
+    var g=db.transaction('i','readonly').objectStore('i').get(id);
+    g.onsuccess=function(){res(g.result?g.result.url:null);};g.onerror=function(){rej(g.error);};
+  });});
+}
+// dataURLを(メモリ→IndexedDBの順で)取得する(書出し用)
+function _imgGetUrlAsync72(id){
+  if(window._imgData72[id]) return Promise.resolve(window._imgData72[id]);
+  return _imgGetDb72(id).then(function(u){if(u)window._imgData72[id]=u;return u;}).catch(function(){return null;});
+}
+// 描画用: 読込済みならImageを返す。未読込なら読込を始め(完了時に再描画)、今回はnullを返す
+function _imgGetEl72(id){
+  var e=window._imgEl72[id];
+  if(e) return e.ok?e.img:null;
+  e=window._imgEl72[id]={img:null,ok:false};
+  _imgGetUrlAsync72(id).then(function(u){
+    if(!u){ return; }
+    var im=new Image();
+    im.onload=function(){e.img=im;e.ok=true;if(typeof scheduleDraw==='function')scheduleDraw();};
+    im.onerror=function(){};
+    im.src=u;
+  });
+  return null;
+}
+function _imgRect72(s){ // 左上(x0,y0)・右下(x1,y1) ワールド座標(Y上向き)
+  return {x0:s.pts[0].x,y0:s.pts[0].y,x1:s.pts[2].x,y1:s.pts[2].y};
+}
+function _imgSetRect72(s,x0,y0,x1,y1){
+  s.pts=[{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1},{x:x0,y:y0}];
+}
+// ファイル(File/Blob)を読み込み、縮小してから貼り付ける
+function _imgImportFile72(file){
+  if(!file||!/^image\/(png|jpeg|jpg)$/i.test(file.type||'')){
+    if(typeof showGuide==='function')showGuide('PNG/JPEGの画像を選んでください',2000);return;
+  }
+  if(typeof currentFileName==='undefined'||!currentFileName){ if(typeof showGuide==='function')showGuide('先に図面(PDF/DXF)を開いてください',2000);return; }
+  var rd=new FileReader();
+  rd.onerror=function(){ if(typeof showGuide==='function')showGuide('画像を読み込めませんでした',2000); };
+  rd.onload=function(){
+    var im=new Image();
+    im.onerror=function(){ if(typeof showGuide==='function')showGuide('画像を読み込めませんでした',2000); };
+    im.onload=function(){
+      try{
+        var k=Math.min(1,_IMG_MAXPX72/Math.max(im.naturalWidth,im.naturalHeight));
+        var w=Math.max(1,Math.round(im.naturalWidth*k)), h=Math.max(1,Math.round(im.naturalHeight*k));
+        var c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');
+        var isPng=/png/i.test(file.type);
+        var url=null;
+        if(isPng){ x.clearRect(0,0,w,h);x.drawImage(im,0,0,w,h);url=c.toDataURL('image/png'); }
+        if(!isPng||url.length>1500000){ // 写真等でPNGが重い場合はJPEG(白背景)に変換
+          x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);url=c.toDataURL('image/jpeg',0.85);
+        }
+        var id='im'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        window._imgData72[id]=url;
+        _imgPut72(id,url).catch(function(){ if(typeof showGuide==='function')showGuide('画像の保存に失敗しました(再起動で消える場合があります)',3000); });
+        _imgPlace72(id,w,h);
+      }catch(err){ if(typeof showGuide==='function')showGuide('画像の取り込みに失敗しました',2500); }
+    };
+    im.src=rd.result;
+  };
+  rd.readAsDataURL(file);
+}
+function _imgPlace72(id,iw,ih){
+  var W=ov.clientWidth||ov.width, H=ov.clientHeight||ov.height;
+  var c=s2w(W/2,H/2);
+  var ww=Math.min(W*0.35,iw)/scale, hh=ww*ih/iw; // 画面幅の35%(元画像より大きくしない)
+  if(hh*scale>H*0.6){ hh=H*0.6/scale; ww=hh*iw/ih; }
+  var s={pts:[],color:{r:0,g:0,b:0},lw:1,page:_curPage(),shapeType:'image',isImage:true,imgId:id,iw:iw,ih:ih};
+  _imgSetRect72(s,c[0]-ww/2,c[1]+hh/2,c[0]+ww/2,c[1]-hh/2);
+  if(typeof snapshot==='function')snapshot();
+  strokes.push(s);
+  if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])openFiles[currentFileIdx].strokes=strokes;
+  _imgSel72=s;
+  if(currentTool!=='image'){ var _bt=document.getElementById('imageToolBtn72'); if(_bt){ window._imgNoPick72=true; _bt.click(); window._imgNoPick72=false; _imgSel72=s; } }
+  scheduleDraw();doSave();
+}
+function _imgPick72(){
+  var inp=document.getElementById('imgFileInput72');
+  if(!inp){
+    inp=document.createElement('input');inp.type='file';inp.id='imgFileInput72';inp.accept='image/png,image/jpeg';inp.style.display='none';
+    inp.addEventListener('change',function(){var f=inp.files&&inp.files[0];inp.value='';if(f)_imgImportFile72(f);});
+    document.body.appendChild(inp);
+  }
+  inp.click();
+}
+// ---- 選択・移動・拡大縮小 ----
+function _imgHit72(sx,sy){ // 選択中画像のハンドル/削除ボタン/本体、または他の画像の本体
+  var cur=_curPage();
+  if(_imgSel72&&strokes.indexOf(_imgSel72)>=0&&(_imgSel72.page||1)===cur){
+    var r=_imgRect72(_imgSel72);
+    var a=w2s(r.x0,r.y0), b=w2s(r.x1,r.y1);
+    var xl=Math.min(a[0],b[0]),xr=Math.max(a[0],b[0]),yt=Math.min(a[1],b[1]),yb=Math.max(a[1],b[1]);
+    if(Math.hypot(sx-(xr+14),sy-(yt-14))<=11) return {kind:'del'};
+    var cs=[{n:'tl',x:xl,y:yt},{n:'tr',x:xr,y:yt},{n:'br',x:xr,y:yb},{n:'bl',x:xl,y:yb}];
+    for(var i=0;i<cs.length;i++) if(Math.abs(sx-cs[i].x)<=9&&Math.abs(sy-cs[i].y)<=9) return {kind:'size',corner:cs[i].n,s:_imgSel72};
+  }
+  for(var j=strokes.length-1;j>=0;j--){
+    var t=strokes[j];
+    if(!t.isImage||(t.page||1)!==cur||!t.pts||t.pts.length<4) continue;
+    var q=_imgRect72(t), p1=w2s(q.x0,q.y0), p2=w2s(q.x1,q.y1);
+    if(sx>=Math.min(p1[0],p2[0])&&sx<=Math.max(p1[0],p2[0])&&sy>=Math.min(p1[1],p2[1])&&sy<=Math.max(p1[1],p2[1])) return {kind:'move',s:t};
+  }
+  return null;
+}
+function _imgPointerDown72(sx,sy,wx,wy){
+  var h=_imgHit72(sx,sy);
+  if(!h){ if(_imgSel72){_imgSel72=null;scheduleOverlay();} return false; } // 空き地: 選択を外し、通常(パン)へ
+  if(h.kind==='del'){ _imgDeleteSel72(); return true; }
+  if(typeof snapshot==='function')snapshot();
+  _imgSel72=h.s;
+  var r=_imgRect72(h.s);
+  _imgDrag72={kind:h.kind,corner:h.corner,s:h.s,wx:wx,wy:wy,r:r};
+  scheduleOverlay();return true;
+}
+function _imgPointerMove72(wx,wy){
+  var d=_imgDrag72; if(!d) return;
+  var r=d.r, s=d.s;
+  if(d.kind==='move'){
+    var dx=wx-d.wx, dy=wy-d.wy;
+    _imgSetRect72(s,r.x0+dx,r.y0+dy,r.x1+dx,r.y1+dy);
+  } else { // 対角を固定して縦横比を保ったまま拡大縮小
+    var ax,ay,sgx,sgy;
+    if(d.corner==='br'){ax=r.x0;ay=r.y0;sgx=1;sgy=-1;}
+    else if(d.corner==='bl'){ax=r.x1;ay=r.y0;sgx=-1;sgy=-1;}
+    else if(d.corner==='tr'){ax=r.x0;ay=r.y1;sgx=1;sgy=1;}
+    else {ax=r.x1;ay=r.y1;sgx=-1;sgy=1;}
+    var asp=(r.x1-r.x0)/Math.max(1e-9,(r.y0-r.y1)); // 幅/高さ
+    var nw=Math.max(8/scale,Math.abs(wx-ax)), nh=nw/asp;
+    var nx=ax+sgx*nw, ny=ay+sgy*nh;
+    _imgSetRect72(s,Math.min(ax,nx),Math.max(ay,ny),Math.max(ax,nx),Math.min(ay,ny));
+  }
+  scheduleDraw();
+}
+function _imgPointerUp72(){
+  if(!_imgDrag72) return;
+  _imgDrag72=null;scheduleDraw();doSave();
+}
+function _imgDeleteSel72(){
+  if(!_imgSel72) return;
+  var i=strokes.indexOf(_imgSel72); if(i<0){_imgSel72=null;return;}
+  if(typeof snapshot==='function')snapshot();
+  strokes.splice(i,1);_imgSel72=null;_imgDrag72=null;
+  if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx])openFiles[currentFileIdx].strokes=strokes;
+  scheduleDraw();doSave();
+}
+// 選択枠とハンドル(オーバーレイへ描画。ctxはdprスケール済みのCSS px座標系)
+function _imgDrawSel72(octx){
+  if(currentTool!=='image'||!_imgSel72||strokes.indexOf(_imgSel72)<0||(_imgSel72.page||1)!==_curPage()) return;
+  var r=_imgRect72(_imgSel72), a=w2s(r.x0,r.y0), b=w2s(r.x1,r.y1);
+  var xl=Math.min(a[0],b[0]),xr=Math.max(a[0],b[0]),yt=Math.min(a[1],b[1]),yb=Math.max(a[1],b[1]);
+  octx.save();
+  octx.strokeStyle='#e91e63';octx.lineWidth=2;octx.setLineDash([5,4]);octx.strokeRect(xl,yt,xr-xl,yb-yt);octx.setLineDash([]);
+  octx.fillStyle='#e91e63';
+  [[xl,yt],[xr,yt],[xr,yb],[xl,yb]].forEach(function(p){octx.fillRect(p[0]-5,p[1]-5,10,10);});
+  octx.beginPath();octx.arc(xr+14,yt-14,10,0,Math.PI*2);octx.fillStyle='#c62828';octx.fill();
+  octx.strokeStyle='#fff';octx.lineWidth=2;octx.beginPath();octx.moveTo(xr+10,yt-18);octx.lineTo(xr+18,yt-10);octx.moveTo(xr+18,yt-18);octx.lineTo(xr+10,yt-10);octx.stroke();
+  octx.restore();
+}
+// 画像ツールボタン: 押すと画像選択ダイアログを開く(キャンセルしても画像ツールのまま。既存の画像は直接クリックで選択できる)
+(function(){
+  var b=document.getElementById('imageToolBtn72'); if(!b) return;
+  b.addEventListener('click',function(){ if(window._imgNoPick72){window._imgNoPick72=false;return;} setTimeout(_imgPick72,0); },true); // 捕捉段階: 既存の「選択中アイコン再タップ」処理より先に動かす
+})();
+// Delete/Backspaceで削除、Escで選択解除(画像ツールの時だけ。入力欄での入力は妨げない)
+window.addEventListener('keydown',function(e){
+  if(currentTool!=='image'||!_imgSel72) return;
+  var t=e.target, tn=t&&t.tagName;
+  if(tn==='INPUT'||tn==='TEXTAREA'||(t&&t.isContentEditable)) return;
+  if(e.key==='Delete'||e.key==='Backspace'){ e.preventDefault();_imgDeleteSel72(); }
+  else if(e.key==='Escape'){ _imgSel72=null;scheduleOverlay(); }
+});
+// Ctrl+Vで貼り付け(クリップボードに画像がある時だけ。なげわの貼付等は妨げない)
+window.addEventListener('paste',function(e){
+  try{
+    var t=e.target, tn=t&&t.tagName; if(tn==='INPUT'||tn==='TEXTAREA'||(t&&t.isContentEditable)) return;
+    if(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches) return; // PC専用
+    var its=(e.clipboardData&&e.clipboardData.items)||[];
+    for(var i=0;i<its.length;i++){
+      if(its[i].kind==='file'&&/^image\/(png|jpeg)$/i.test(its[i].type)){
+        var f=its[i].getAsFile(); if(f){ e.preventDefault(); _imgImportFile72(f); } return;
+      }
+    }
+  }catch(err){}
+});

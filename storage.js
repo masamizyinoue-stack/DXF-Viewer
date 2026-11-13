@@ -260,7 +260,7 @@ function _applySavedToolSettings66(){
     if(_tsRaw69){ try{ var _ts69=JSON.parse(_tsRaw69); for(var _k69 in _ts69){ if(_ts69[_k69]!==undefined&&_ts69[_k69]!==null) _d2[_k69]=_ts69[_k69]; } }catch(e){} }
     bwMode=!!_d2.bwMode;
     colorLightBg=!!_d2.colorLightBg; // V2_48: カラー(背景白)状態を復元
-    currentTool=_d2.currentTool||'sketch';
+    currentTool=_d2.currentTool||'sketch'; if(currentTool==='image')currentTool='sketch'; // V3_72
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
     if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
     if(_d2.currentColor)currentColor=_d2.currentColor;
@@ -562,7 +562,7 @@ async function tryRestore(){
     bwMode=!!d.bwMode;
     colorLightBg=!!d.colorLightBg; // V2_48: カラー(背景白)状態を復元
     if(d.hiddenLayers)hiddenLayers=new Set(d.hiddenLayers);
-    currentTool=d.currentTool||'sketch';
+    currentTool=d.currentTool||'sketch'; if(currentTool==='image')currentTool='sketch'; // V3_72
     if(currentTool==='dx'||currentTool==='dy')currentTool='dxdy';
     if(currentTool==='circDim'||currentTool==='radDim'||currentTool==='lp'||currentTool==='lineLen')currentTool='sketch'; // V0_148.1: DIM/LP系は状態機械(active)を復元できずボタン表示と実動作が食い違うためsketchに正規化 / V1_240: 線の長さも同様の理由でここに追加
     if(d.currentColor)currentColor=d.currentColor;

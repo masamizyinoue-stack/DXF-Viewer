@@ -708,7 +708,7 @@ if(_fileBackupBtn234) _fileBackupBtn234.addEventListener('click',exportDxfviewMa
 // =========================================================
 async function _saveBlobWithFallback183(blob, fname, typeDesc){
   var _fsaSaved=false;
-  // V3_71: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
+  // V3_73: 拡張子に応じてMIME/拡張子を切替(PDF保存時に.zipが付く不具合の修正)
   var _isPdf241=/\.pdf$/i.test(fname||'');
   var _mime241=_isPdf241?'application/pdf':'application/zip';
   var _ext241=_isPdf241?'.pdf':'.zip';
@@ -1786,7 +1786,7 @@ function _loadJPFont(){
   return new Promise(function(resolve){
     if(_jpFontLoaded||window._notoSansJPBase64){_jpFontLoaded=true;resolve();return;}
     var s=document.createElement('script');
-    s.src='./fonts/NotoSansJP.js';
+    s.src='./fonts/NotoSansJP.js?v=73';
     s.onload=function(){_jpFontLoaded=true;resolve();};
     s.onerror=function(){console.warn('[HybridPDF] フォント読み込み失敗');resolve();};
     document.head.appendChild(s);
@@ -2037,6 +2037,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
       const _curPg155=_curPage();
       const lwRef155=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:scale;
       for(const s of strokes){
+        if(s.isImage) continue; // V3_73: 画像は別処理で描く(枠線を描かない)
         if(!s.pts||s.pts.length<2) continue;
         if((s.page||1)!==_curPg155) continue;
         if(filterMode==='hl'&&!s.hl) continue;
@@ -2136,8 +2137,21 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // 見えるのが自然な挙動(doc.mojiは常にpdfScaleを使っており、この不具合は
     // 無い)。線と同じ考え方を誤って流用していたのが原因のため、常にpdfScale
     // (範囲指定時は拡大された値)を使うよう修正した。
-    // V3_71: 文字の白い背景は、手書き線・図形(楕円など)より先(下)に敷く。従来は文字と同時に描いていたため、
+    // V3_73: 文字の白い背景は、手書き線・図形(楕円など)より先(下)に敷く。従来は文字と同時に描いていたため、
     // 文字の背景が自分で描いた楕円などの上にかぶって隠していた(図面だけを隠し、書込みは隠さない)
+    // V3_73: 貼り付け画像(isImage)をjsPDFで描く(左上基準のmm座標)
+    async function _hpDrawImages72(){
+      if(typeof strokes==='undefined') return;
+      const _pg=_curPage();
+      for(const s of strokes){
+        if(!s.isImage||!s.pts||s.pts.length<4||(s.page||1)!==_pg) continue;
+        try{
+          const url=await _imgGetUrlAsync72(s.imgId); if(!url) continue;
+          const x0=w2mx(s.pts[0].x), y0=w2my(s.pts[0].y), x1=w2mx(s.pts[2].x), y1=w2my(s.pts[2].y);
+          pdf.addImage(url,/^data:image\/png/i.test(url)?'PNG':'JPEG',Math.min(x0,x1),Math.min(y0,y1),Math.abs(x1-x0),Math.abs(y1-y0));
+        }catch(ie72){ console.warn('[HD-PDF] image fail',ie72); }
+      }
+    }
     function _hpDrawTextBg64(){
       if(typeof strokes==='undefined'||strokes.length===0) return;
       if(!window._notoSansJPBase64) return;
@@ -2303,6 +2317,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
     // ── 7.6 蛍光ペンのみ先行描画（V1_170）──
     // DXF線・文字より先に(下に)描画することで、印刷時に黒文字が蛍光の半透明色で
     // 薄く見えてしまう問題を解消する。ペンは従来通り8.で文字の後(上)に描画する。
+    await _hpDrawImages72(); // V3_73: 貼り付け画像(最背面)
     _hpDrawTextBg64();
     _hpDrawStrokes170('hl');
 
@@ -2594,7 +2609,7 @@ async function exportHybridPDF(_collectInto182,rangeRect238){
 // 大きさ(画面回転等)に依存するため厳密には完全固定ではないが、少なくとも
 // 「たまたまその瞬間どれだけ拡大して見ていたか」には左右されなくなる。
 async function exportPdfMergedHybrid190(pageNums,_opts62){
-  _opts62=_opts62||{}; // V3_71: {print:true}で保存せず印刷 / {rectWorld}でその範囲だけに切り出す
+  _opts62=_opts62||{}; // V3_73: {print:true}で保存せず印刷 / {rectWorld}でその範囲だけに切り出す
   if(typeof PDFLib==='undefined'){showGuide('pdf-libが読み込まれていません',2000);return false;}
   // V2_53: index.html側でNotoSansJP.js(約3MB)の先読み<script>タグを廃止し、
   // exportHybridPDF()と同じ_loadJPFont()によるオンデマンド読み込みに一本化した。
@@ -2640,12 +2655,13 @@ async function exportPdfMergedHybrid190(pageNums,_opts62){
         var pgStrokes190=(typeof strokes!=='undefined'?strokes:[]).filter(function(s){return (s.page||1)===pg190;});
         var pgDims190=(typeof dims!=='undefined'?dims:[]).filter(function(d){return (d.page||1)===pg190;});
         // 蛍光ペン(下)→寸法(中)→ペン(上)の順で重ねる(exportHybridPDFの重ね順に倣う)
+        await _hpDrawImagesPdfLib72(copied190,outDoc190,pgStrokes190,mapper190,degrees190); // V3_73: 貼り付け画像(最背面)
         _hpDrawTextBgPdfLib64(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190);
         _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'hl',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
         _hpDrawDimsPdfLib190(copied190,pgDims190,jpFont190,rgb190,degrees190,pageH190,mapper190);
         _hpDrawStrokesPdfLib190(copied190,pgStrokes190,'pen',fitRef190,pageH190,rgb190,LineCapStyle190,mapper190,LineJoinStyle190);
         _hpDrawTextStrokesPdfLib190(copied190,pgStrokes190,jpFont190,rgb190,fitRef190,pageH190,mapper190,degrees190);
-        // V3_71: 範囲指定の印刷。ワールド座標の矩形を生PDF座標へ変換し、ページの表示範囲(CropBox/MediaBox)を切り詰める
+        // V3_73: 範囲指定の印刷。ワールド座標の矩形を生PDF座標へ変換し、ページの表示範囲(CropBox/MediaBox)を切り詰める
         if(_opts62.rectWorld){
           var _rw62=_opts62.rectWorld, _cs62=[mapper190.pt(_rw62.x1,_rw62.y1),mapper190.pt(_rw62.x2,_rw62.y1),mapper190.pt(_rw62.x2,_rw62.y2),mapper190.pt(_rw62.x1,_rw62.y2)];
           var _x0=Math.min.apply(null,_cs62.map(function(c){return c.x;})), _x1=Math.max.apply(null,_cs62.map(function(c){return c.x;}));
@@ -2665,7 +2681,7 @@ async function exportPdfMergedHybrid190(pageNums,_opts62){
     }
     var bytes190=await outDoc190.save();
     var blob190=new Blob([bytes190],{type:'application/pdf'});
-    if(_opts62.print){ // V3_71: 保存せず印刷画面を開く
+    if(_opts62.print){ // V3_73: 保存せず印刷画面を開く
       _printPdfBlob62(blob190);
       showGuide('印刷画面を開いています...',2500);
       return true;
@@ -2683,7 +2699,7 @@ async function exportPdfMergedHybrid190(pageNums,_opts62){
   }
 }
 
-// V3_71: PDFのBlobを、見えないiframeに読み込んで印刷画面を開く(PC向け)。
+// V3_73: PDFのBlobを、見えないiframeに読み込んで印刷画面を開く(PC向け)。
 // iframeで印刷できない環境に備え、数秒後にも出なければ新しいウィンドウで開く案内を出す
 function _printPdfBlob62(blob){
   var url=URL.createObjectURL(blob);
@@ -2788,6 +2804,7 @@ function _hpMakeRawMapper196(vp){
 function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,LineCapStyle,mapper,LineJoinStyle){
   for(var i=0;i<pgStrokes.length;i++){
     var s=pgStrokes[i];
+    if(s.isImage) continue; // V3_73
     if(!s.pts||s.pts.length<2) continue;
     if(filterMode==='hl'&&!s.hl) continue;
     if(filterMode==='pen'&&s.hl) continue;
@@ -2829,7 +2846,27 @@ function _hpDrawStrokesPdfLib190(page,pgStrokes,filterMode,fitRef,pageH,rgbFn,Li
 // 描く仕様に合わせ、pdf-libのdrawText(ベースライン基準)へフォントサイズの
 // 約80%(一般的な欧文/和文フォントのアセント比率の近似値)を足して概ね同じ
 // 高さに見えるよう補正している(完全な一致ではなく近似)
-// V3_71: 文字の白い背景だけを先に描く(手書き線・寸法より下)。書込み(楕円など)が文字の背景に隠れないようにする
+// V3_73: 貼り付け画像(isImage)をpdf-libで元PDFページへ描く。ページ回転(/Rotate)に対応するため、左下・右下・左上の
+// 3点を生PDF座標へ変換し、幅・高さ・回転角を求めて描画する
+async function _hpDrawImagesPdfLib72(page,outDoc,pgStrokes,mapper,degreesFn){
+  function P(x,y){ return mapper?mapper.pt(x,y):{x:x,y:y}; }
+  for(var i=0;i<pgStrokes.length;i++){
+    var s=pgStrokes[i];
+    if(!s.isImage||!s.pts||s.pts.length<4) continue;
+    try{
+      var url=await _imgGetUrlAsync72(s.imgId); if(!url) continue;
+      var isPng=/^data:image\/png/i.test(url);
+      var bin=atob(url.split(',')[1]); var bytes=new Uint8Array(bin.length); for(var k=0;k<bin.length;k++) bytes[k]=bin.charCodeAt(k);
+      var img=isPng?await outDoc.embedPng(bytes):await outDoc.embedJpg(bytes);
+      var r={x0:s.pts[0].x,y0:s.pts[0].y,x1:s.pts[2].x,y1:s.pts[2].y};
+      var bl=P(r.x0,r.y1), br=P(r.x1,r.y1), tl=P(r.x0,r.y0);
+      var wPt=Math.hypot(br.x-bl.x,br.y-bl.y), hPt=Math.hypot(tl.x-bl.x,tl.y-bl.y);
+      var ang=Math.atan2(br.y-bl.y,br.x-bl.x)*180/Math.PI;
+      page.drawImage(img,{x:bl.x,y:bl.y,width:wPt,height:hPt,rotate:degreesFn(ang)});
+    }catch(ie){ console.warn('[PDF merge] image fail',ie); }
+  }
+}
+// V3_73: 文字の白い背景だけを先に描く(手書き線・寸法より下)。書込み(楕円など)が文字の背景に隠れないようにする
 function _hpDrawTextBgPdfLib64(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper){
   if(!jpFont) return;
   function P(x,y){ return mapper?mapper.pt(x,y):{x:x,y:y}; }
@@ -2850,7 +2887,7 @@ function _hpDrawTextBgPdfLib64(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper){
 }
 
 function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,mapper,degreesFn){
-  // V3_71: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
+  // V3_73: 元PDFのページが/Rotate(90/270等)を持つ場合、文字が回転して出力される不具合を修正。
   // 寸法文字(_hpDrawDimsPdfLib190)と同様に、mapper.angleDeltaDegで文字の回転角を補正する
   var angleDelta39=(mapper&&typeof mapper.angleDeltaDeg==='number')?mapper.angleDeltaDeg:0;
   if(!jpFont) return;
@@ -2866,12 +2903,12 @@ function _hpDrawTextStrokesPdfLib190(page,pgStrokes,jpFont,rgbFn,fitRef,pageH,ma
     for(var li=0;li<lines.length;li++){
       var ln=lines[li];
       if(!ln.trim()) continue;
-      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_71:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_71:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
+      var baseX=s.x, baseY=s.y-fsPt*0.88-fsPt*1.2*li; /* V3_73:ワールドはY上向きのため下方向は減算(符号誤りで文字が上にずれていた) */ // V3_73:0.8→0.88(画面のtop基準と実測一致) V2_87: top基準→ベースライン近似・複数行対応(行間は画面側と同じ1.2倍)
       var q=P196(baseX,baseY);
       try{
         var _opt39={x:q.x,y:q.y,size:fsPt,font:jpFont,color:pdfCol};
         if(degreesFn&&Math.abs(angleDelta39)>0.01) _opt39.rotate=degreesFn(angleDelta39);
-        // V3_71: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
+        // V3_73: 疑似太字(Lightのみ内蔵のため、ごく小さくずらして重ね描きして太く見せる)
         var _d45=fsPt*0.022, _th45=angleDelta39*Math.PI/180, _c45=Math.cos(_th45), _s45=Math.sin(_th45);
         var _offs45=[[0,0],[_d45*_c45,_d45*_s45],[-_d45*_s45,_d45*_c45],[_d45*(_c45-_s45),_d45*(_s45+_c45)]];
         for(var _oi45=0;_oi45<_offs45.length;_oi45++){
@@ -2977,7 +3014,7 @@ function _hpDrawDimsPdfLib190(page,pgDims,jpFont,rgbFn,degreesFn,pageH,mapper){
 // V1_190: PDFを開いている場合は、元PDF+書込み・寸法を合体するページ選択付きの
 // 専用フロー(exportPdfMergedHybrid190)を使う。DXF等それ以外は従来通り
 // exportHybridPDF()を呼ぶ(挙動は一切変更していない)
-// V3_71: 印刷ボタン(PC向け)。PDFを開いている時のみ。「全体(ページ指定)」か「範囲指定」を選ぶ。
+// V3_73: 印刷ボタン(PC向け)。PDFを開いている時のみ。「全体(ページ指定)」か「範囲指定」を選ぶ。
 // 印刷画面(Windows標準)で、プリンター・用紙サイズ・向きを選べる
 (function(){
   var pb=document.getElementById('printBtn'); if(!pb) return;
