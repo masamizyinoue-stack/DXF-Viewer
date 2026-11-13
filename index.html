@@ -528,6 +528,14 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V2_96: ヘッダーの図形ボタンは、選択中(いずれかの図形ツールがcurrentTool)の時だけ
    枠に色を付ける(#measureToggleBtn.tool-activeと同じ水色glow) */
 #shapeToggleBtn.tool-active{background:rgba(0,212,255,0.22);border-color:#00d4ff}
+/* V3_99: 画面検索/検索開く等のパネルが、ツールバー・ファイルタブに被らないよう、画面エリア(#stage)の上端から下に表示する(--ovtop95はpc.jsが設定) */
+#searchOverlay,#allSearchOverlay,#openFileOverlay{top:var(--ovtop95,0px)!important}
+/* V3_99: 計算機の追寸/読込ボタンのショートカット表示 */
+#calcTsuizunBtn98[data-key],#calcPickBtn[data-key]{position:relative}
+#calcTsuizunBtn98[data-key]::after,#calcPickBtn[data-key]::after{content:attr(data-key);position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
+/* V3_99: ページ送りボタンのショートカット表示 */
+#pdfPageCtrl .sp-page-btn[data-key]{position:relative}
+#pdfPageCtrl .sp-page-btn[data-key]::after{content:attr(data-key);position:absolute;top:-3px;right:-3px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
 /* V0_98: 文字検索パネル */
 #searchOverlay{display:none;position:fixed;inset:0;z-index:299}
 #searchOverlay.open{display:block}
@@ -865,10 +873,10 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   .tab-item:hover{background:#161c26;}
   #_pcCtxMenu button:not(:disabled):hover{background:#2a4a70;}
 }
-/* V3_81: ショートカットキー表示(PC)。pc.jsがdata-key属性を付ける(タッチ端末では付けない) */
+/* V3_99: ショートカットキー表示(PC)。pc.jsがdata-key属性を付ける(タッチ端末では付けない) */
 .tb-tool-btn[data-key],.tb-btn[data-key]{position:relative}
 .tb-tool-btn[data-key]::after,.tb-btn[data-key]::after{content:attr(data-key);position:absolute;top:-3px;right:-3px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
-@media (pointer:coarse){#printBtn{display:none!important}#imageToolBtn72{display:none!important}} /* V3_81/V3_81 */
+@media (pointer:coarse){#printBtn{display:none!important}#imageToolBtn72{display:none!important}} /* V3_99/V3_99 */
 </style>
 </head>
 <body>
@@ -980,7 +988,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
        囲んだ範囲のペン/文字ストロークを選択→バウンディングボックス内ドラッグで移動、
        ✕ボタンで削除できる(resize/rotateは今回スコープ外) -->
   <button class="tb-tool-btn tool-btn" data-tool="lasso" title="なげわ"><span class="tb-tool-label">なげわ</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 3 6 3 10c0 2.6 1.8 4.8 4.5 6L7 20l3-1.6c.6.1 1.3.2 2 .2 5 0 9-3 9-7.3S17 3 12 3z"/><circle cx="7.3" cy="19.3" r="1.4" fill="currentColor" stroke="none"/></svg></button>
-  <!-- V3_81: 画像貼付(PC専用。タッチ端末では非表示) -->
+  <!-- V3_99: 画像貼付(PC専用。タッチ端末では非表示) -->
   <button class="tb-tool-btn tool-btn" id="imageToolBtn72" data-tool="image" title="画像(PNG/JPEG)を貼る。貼った画像はドラッグで移動・四隅で拡大縮小・Deleteで削除"><span class="tb-tool-label">画像</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
   <div class="tb-sep"></div>
   <button class="tb-btn" id="undoBtn" title="元に戻す" style="font-size:18px;opacity:0.35"><span class="tb-tool-label">戻る</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg></button>
@@ -991,7 +999,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <span class="tb-tool-label" id="bwToggleLabel">画面</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor"/></svg>
 </button>
-  <button class="tb-btn" id="subWinBtn" title="サブ窓（範囲を拡大表示する独立ウィンドウ）" style="border:2px solid #2ecc71"> <!-- V0_154: 画面ボタンの右に移動 / V1_54: 緑枠 -->
+  <button class="tb-btn" id="subWinBtn" title="サブ窓（範囲を拡大表示する独立ウィンドウ）。範囲選択中にもう一度押すと、サブ窓の配置の登録/呼出" style="border:2px solid #2ecc71"> <!-- V0_154: 画面ボタンの右に移動 / V1_54: 緑枠 -->
   <span class="tb-tool-label">サブ窓</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="12" y="12" width="7" height="7" rx="1" fill="currentColor" fill-opacity="0.25"/></svg>
 </button>
@@ -1067,7 +1075,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 </button>
   <!-- V0_147: スクショボタン削除 / V0_154: PDF書出ボタンは設定パネルへ移動 -->
   <!-- V1_168: 書込バックアップは設定パネル(PDF書出の下)へ移動し、この位置にはHD-PDF書出を配置 -->
-  <!-- V3_81: 印刷(PDF用・PC向け。タッチ端末では非表示) -->
+  <!-- V3_99: 印刷(PDF用・PC向け。タッチ端末では非表示) -->
   <button class="tb-btn" id="printBtn" title="PDFを印刷(全体/範囲指定。書き込み込み)" style="display:none;border:2px solid #9b59b6">
   <span class="tb-tool-label">印刷</span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
@@ -1588,7 +1596,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
       <button class="lw-btn" data-lw="3">3</button>
     </div>
   </div>
-  <!-- V3_81: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
+  <!-- V3_99: 文字ツールの字体(設定メニューから移設)。文字ツールのポップアップ(data-lwctx="text")のみ表示 -->
   <div class="co-sketch-section" id="coTextFontSection">
     <div class="co-label">字体</div>
     <div id="textFontList" style="padding:2px 0"></div>
@@ -1877,12 +1885,12 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="stroke-text.js?v=257"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=261"></script>
+<script src="pc.js?v=273"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_81';
+const APP_VERSION = 'V3_99';
 
 // =========================================================
 // グローバル状態
@@ -2011,7 +2019,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
   const _mgPx=(atc.canvas.width>0?60*(window.devicePixelRatio||1):0);
   const _cwPx=atc.canvas.width, _chPx=atc.canvas.height;
   var _curPg65=_curPage(); // V1_65: PDFページごとに書き込みを分離するため、現在ページ以外は描画しない
-  // V3_81: 貼り付け画像は最背面(文字の背景・手書き・図形より下)に描く
+  // V3_99: 貼り付け画像は最背面(文字の背景・手書き・図形より下)に描く
   if(strokeFilter!=='hl'){
     for(var ii72=0; ii72<strokes.length; ii72++){
       var si72=strokes[ii72];
@@ -2023,7 +2031,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       atc.save(); atc.imageSmoothingEnabled=true; atc.imageSmoothingQuality='high'; atc.globalAlpha=1; atc.drawImage(im72,l72,t72,w72,h72); atc.restore();
     }
   }
-  // V3_81: 文字の白い背景を先に全部敷いてから、手書き線・図形・文字を描く(背景が自分の書込みを隠さない)
+  // V3_99: 文字の白い背景を先に全部敷いてから、手書き線・図形・文字を描く(背景が自分の書込みを隠さない)
   if(strokeFilter!=='hl'){
     for(var bi64=0; bi64<strokes.length; bi64++){
       var sb=strokes[bi64];
@@ -2071,7 +2079,7 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       atc.restore();
       continue;
     }
-    if(s.isImage) continue; // V3_81: 画像は上で描画済み
+    if(s.isImage) continue; // V3_99: 画像は上で描画済み
     if(!s.pts || s.pts.length < 2) continue;
     if((s.page||1)!==_curPg65) continue;
     if(strokeFilter==='hl' && !s.hl) continue; // V1_170
@@ -2194,7 +2202,7 @@ function drawOverlay(){
       });
     }
   }
-  if(typeof _imgDrawSel72==='function') _imgDrawSel72(octx); // V3_81: 画像の選択枠
+  if(typeof _imgDrawSel72==='function') _imgDrawSel72(octx); // V3_99: 画像の選択枠
   // Dims（V0_119: ビューポートカリング追加）
   // V1_65: PDFページごとに書き込みを分離するため、現在ページ以外のdimは描画しない
   {const _mgD=60;const _curPgD65=_curPage();for(const d of dims){
@@ -2541,7 +2549,7 @@ function _fileTypeInfo(name){
   if(n.endsWith('.csv')) return {label:'CSV',color:'#f39c12'};
   if(_isExcelName(n)) return {label:'XLS',color:'#217346'};
   if(n.endsWith('.tdf')) return {label:'TDF',color:'#e74c3c'}; // V1_175: DXF(青)と同色でかぶって見分けづらいとの指摘で赤に変更
-  return {label:'DXF',color:'#2e9e5b'}; // V3_81: PDF(青)と区別するためDXFは緑(アイコンの線の色)
+  return {label:'DXF',color:'#2e9e5b'}; // V3_99: PDF(青)と区別するためDXFは緑(アイコンの線の色)
 }
 
 // ファイル
@@ -2821,16 +2829,16 @@ async function _openOneFile202(f, e, _busyManagedByCaller){
 // これにより、複数ファイルを開いている間はタブクリック・タブを閉じる操作が最後まで
 // 無効化され、処理途中でタブ操作されることによる状態の食い違いを防ぐ。1件のみの
 // 選択時は従来通り_openOneFile202が自分でbusyを管理する(挙動は完全に無変更)
-// V3_81: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
+// V3_99: PCのChrome/Edgeでインストール済みの場合、エクスプローラーのDXF/PDFを「プログラムから開く」で
 // 受け取って既存のファイル読込処理(#fileのchange)へ渡す(manifestのfile_handlers+launchQueue)。
 // 非対応ブラウザ(iPad等)では何も起きない
 setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登録が遅れるため、同期処理の完了直後(0ms後)に登録
   if(!('launchQueue' in window)||!window.launchQueue||typeof launchQueue.setConsumer!=='function') return;
-  // V3_81: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
+  // V3_99: 起動直後の「前回の復元」の完了を待ち、複数回の起動(連続ダブルクリック)も1件ずつ順番に処理する
   var _launchChain54=Promise.resolve();
   function _front55(){ try{ window.focus(); }catch(e){} }
   launchQueue.setConsumer(function(lp){
-    // V3_81: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
+    // V3_99: 前面化は起動の直後(復元待ちの前)に行う。待ってから呼ぶとウィンドウが裏のままになりやすい
     _front55();
     _launchChain54=_launchChain54.then(function(){ return _handleLaunch54(lp); }).catch(function(){});
     return _launchChain54;
@@ -2838,11 +2846,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
   async function _handleLaunch54(lp){
     try{
       if(!lp||!lp.files||!lp.files.length){ return; }
-      window._launched58=true; // V3_81: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
-      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_81: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
+      window._launched58=true; // V3_99: 復元は待たずに開く。復元側がこの印を見て、開いたファイルを上書きしないようにする
+      _front55(); setTimeout(_front55,300); setTimeout(_front55,1000); // V3_99: ファイルを開く間も数回呼ぶ: 起動時にウィンドウを前面へ(効かない環境もあるためmanifestのfocus-existingも併用)
       var fl=[],errName='';
       for(var i=0;i<lp.files.length;i++){
-        // V3_81: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
+        // V3_99: メールアプリの添付(一時ファイル)は読込が一瞬ロックされることがあるため数回やり直す。失敗理由は画面に表示する
         for(var t=0;t<4;t++){
           try{ fl.push(await lp.files[i].getFile()); errName=''; break; }
           catch(e){ errName=(e&&e.name)||'Error'; await new Promise(function(r){setTimeout(r,600);}); }
@@ -2850,11 +2858,11 @@ setTimeout(function(){ // load待ちだと外部CDN読込が遅い環境で登�
       }
       if(!fl.length){ if(typeof showGuide==='function') showGuide((errName==='SecurityError'?'メールの添付はこのアプリで直接開けません。デスクトップなどに保存してから開いてください':'ファイルを読み込めませんでした。デスクトップなどに保存してから開いてください')+'('+errName+')',7000); return; }
       // 起動直後で他のファイルを開いている最中なら、終わるまで少し待つ
-      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_81: 60秒まで待つ(従来6秒で諦めて開かなかった)
+      for(var w=0;w<200&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w++){ await new Promise(function(r){setTimeout(r,300);}); } // V3_99: 60秒まで待つ(従来6秒で諦めて開かなかった)
       var dt=new DataTransfer(); fl.forEach(function(f){dt.items.add(f);});
       fileInput.files=dt.files;
       fileInput.dispatchEvent(new Event('change'));
-      // V3_81: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
+      // V3_99: 開き終わった時点でも前面化を呼ぶ(PDFは読込に時間がかかるため)
       for(var w2=0;w2<100&&typeof _isOpeningFileBusy!=='undefined'&&_isOpeningFileBusy;w2++){ await new Promise(function(r){setTimeout(r,200);}); }
       _front55();
     }catch(e){
@@ -3249,7 +3257,7 @@ function _updateWriteBackupBtnVisibility(){
   var isDxf=(currentFileName||'').toLowerCase().endsWith('.dxf');
   var isPdf191=(currentFileName||'').toLowerCase().endsWith('.pdf');
   btn.style.display=(isDxf||isPdf191)?'':'none';
-  var pr63=document.getElementById('printBtn'); // V3_81: 印刷はPDFを開いている時だけ表示する(DXFでは非表示)
+  var pr63=document.getElementById('printBtn'); // V3_99: 印刷はPDFを開いている時だけ表示する(DXFでは非表示)
   if(pr63) pr63.style.display=isPdf191?'':'none';
 }
 // V1_234: ヘッダーの「記憶VIEW」「全体」ボタンは、writeBackupBtnと同様にDXF/PDFを
@@ -3802,7 +3810,7 @@ document.getElementById('tabListBtn').addEventListener('click',function(e){
 // ようにした。3つのポップアップ(#colorOverlay/#measureToolPopup/#shapeToolPopup)で
 // 閉じ方(対象要素・連動して外すべきトグルボタンのactive)が異なるため、共通関数
 // _closeToolPopupById(popupId)にidベースの分岐だけをまとめ、重複を避ける
-// V3_81: ポップアップ(ペン/蛍光/文字/消しゴム/計測/図形)が開いた時、サブ窓や図面番号欄インセットと重なるなら、
+// V3_99: ポップアップ(ペン/蛍光/文字/消しゴム/計測/図形)が開いた時、サブ窓や図面番号欄インセットと重なるなら、
 // 重ならない一番近い位置へずらす(ボタン直下が基本位置。画面外にはみ出さない)
 function _avoidObstacles70(popup){
   try{
@@ -4862,7 +4870,7 @@ function openContextPopup(mode,anchorEl){
   // V3_37/V3_38: 字体一覧を生成(各項目は実際の字体で見本表示)。DXF文字='dxfFontKind' / 文字ツール='textFontKind'をlocalStorageに保存
   if(typeof DXF_FONTS==='undefined') return;
   function build(boxId,radioName,getKind,setKind,isText){
-    // V3_81: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
+    // V3_99: 一覧(ラジオ縦並び)をプルダウン1行に変更。選択中の字体で見本文字を1行表示
     var box=document.getElementById(boxId); if(!box) return;
     var sel=document.createElement('select'); sel.className='fontSel';
     Object.keys(DXF_FONTS).forEach(function(k){
@@ -4897,7 +4905,7 @@ function openContextPopup(mode,anchorEl){
     scheduleOverlay(); scheduleDraw();
   },true);
 })();
-(function(){ // V3_81: 文字の背景(白)切替
+(function(){ // V3_99: 文字の背景(白)切替
   var c=document.getElementById('textBgChk'); if(!c) return;
   c.checked=!!_textBgOn;
   c.addEventListener('change',function(){ _textBgOn=c.checked; try{localStorage.setItem('textBgOn',c.checked?'1':'0');}catch(e){} });
@@ -4935,9 +4943,9 @@ updateToolColorDots();
 
 // リサイズ
 const ro=new ResizeObserver(resizeCanvas);ro.observe(stage);
-// V3_81: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
+// V3_99: 起動時の前回復元が終わる前に、ダブルクリックで渡されたファイルを開くと、あとから復元処理が
 // 画面を前回のファイルで上書きしていた。復元の完了を待てるようPromiseで保持する
-// V3_81(実験): PDF/DXFのダブルクリックは「新しいウィンドウ」で開く(manifestのnavigate-new)。開いたままの
+// V3_99(実験): PDF/DXFのダブルクリックは「新しいウィンドウ」で開く(manifestのnavigate-new)。開いたままの
 // アプリは裏に回って前面化できないが、新しいウィンドウなら前面に出るため。古いウィンドウが残ると二重に
 // 保存し合うので、新しいウィンドウが起動したら古いウィンドウは保存してから自分で閉じる
 window._restoreP54=(async function(){
@@ -7277,6 +7285,7 @@ SW.handleUp=function(sx,sy){
   var _purpose238=SW.purpose; // V2_38: resetSW()で'subwindow'に戻る前に確保しておく
   resetSW();
   if(typeof _swUpdateBtnUI==='function')_swUpdateBtnUI(false);
+  if(_purpose238!=='hdpdf'&&_purpose238!=='print') _swRestoreSel87(); // V3_99
   scheduleOverlay();
   // V0_153.1: M_Viewer踏襲。画面上5px相当をワールド座標の最小サイズ閾値とする
   var minWorld=5/Math.max(scale,1e-6);
@@ -7284,7 +7293,7 @@ SW.handleUp=function(sx,sy){
     // V2_38: 「範囲指定書出」中に確定した場合は、サブ窓を作らずHD-PDF書出へ渡す
     if(_purpose238==='hdpdf'){
       if(typeof exportHybridPDF==='function') exportHybridPDF(null,rectWorld);
-    }else if(_purpose238==='print'){ // V3_81: PDF範囲指定の印刷
+    }else if(_purpose238==='print'){ // V3_99: PDF範囲指定の印刷
       if(typeof exportPdfMergedHybrid190==='function') exportPdfMergedHybrid190([pdfPageNum||1],{print:true,rectWorld:rectWorld});
     }else{
       createSubWindow(rectWorld); // 上限チェック(2個まで)はcreateSubWindow内で実施
@@ -7383,11 +7392,30 @@ function _swUpdateBtnUI(on){
   else{b.style.background='';b.style.borderColor='#2ecc71';b.style.color='';}
 }
 window._swUpdateBtnUI=_swUpdateBtnUI;
+// V3_99: サブ窓ボタンを押すと、ツールボタンの選択表示だけが外れて内部のツール(currentTool)は前のまま残り、
+//   「どのボタンも選択されていないのにペン/図形で書ける」状態になっていた。範囲選択をやめた時/終えた時に、
+//   押す前に選択されていたツールボタンの選択表示を元に戻す(他のツールが選ばれ直していれば何もしない)
+var _swPrevSel87=null;
+function _swSnapSel87(){
+  _swPrevSel87=Array.prototype.slice.call(document.querySelectorAll('.tool-btn.active,.tool-active'));
+}
+function _swRestoreSel87(){
+  var p=_swPrevSel87; _swPrevSel87=null; if(!p||!p.length) return;
+  if(document.querySelector('.tool-btn.active,.tool-active')) return;
+  p.forEach(function(b){ b.classList.add(b.classList.contains('tb-btn')&&!b.classList.contains('tool-btn')?'tool-active':'active'); });
+}
+window._swRestoreSel87=_swRestoreSel87;
 document.getElementById('subWinBtn').addEventListener('click',function(){
-  if(SW.active){ // 選択中に再度押した場合はキャンセル
-    resetSW();hideGuide();_swUpdateBtnUI(false);return;
+  // V3_99: サブ窓の配置(位置・大きさ)の登録/呼出ポップアップは、サブ窓ボタンを押して範囲選択に入った状態で
+  // もう一度押すと開く(範囲選択はキャンセルされる)。ポップアップが開いている時にもう一度押すと閉じる
+  if(document.getElementById('swLayoutPanel82')){ document.getElementById('swLayoutPanel82').remove(); return; }
+  if(SW.active){ // 選択中に再度押した場合は範囲選択をキャンセルし、窓配置ポップアップを開く
+    resetSW();hideGuide();_swUpdateBtnUI(false); _swRestoreSel87();
+    if(typeof _swlOpenPanel82==='function') _swlOpenPanel82();
+    return;
   }
   if(!doc&&!pdfImage){showGuide('図面がありません',1500);return;}
+  _swSnapSel87();
   resetToolStates(); // V0_139: 他の計測ツール状態を安全にリセット
   resetSW();
   SW.active=true;
@@ -7399,7 +7427,7 @@ document.getElementById('subWinBtn').addEventListener('click',function(){
 // =========================================================
 // サブ窓 管理（生成・ドラッグ移動・リサイズ・自動同期・削除）
 // =========================================================
-// V3_81: メイン画面(ブラウザ窓)を小さくした時、はみ出したサブ窓を画面内へ戻す(別窓(PiP)中のものは対象外)
+// V3_99: メイン画面(ブラウザ窓)を小さくした時、はみ出したサブ窓を画面内へ戻す(別窓(PiP)中のものは対象外)
 window.addEventListener('resize',function(){
   try{
     subWindows.forEach(function(s){
@@ -7416,6 +7444,89 @@ window.addEventListener('resize',function(){
     });
   }catch(_e){}
 });
+// =========================================================
+// V3_99: サブ窓の配置(位置と大きさ)の登録・呼び出し(5つまで。どの図面でも共通)
+//   登録する内容は「サブ窓の位置・大きさ」だけ(メイン画面に対する割合で保存するので、画面の大きさが
+//   変わっても使える)。見ている範囲・拡大率は登録しない。
+//   呼び出し: 今あるサブ窓を順番に登録した位置・大きさへ移す(中身の見ている範囲は維持)。登録数より
+//   サブ窓が足りなければ、その位置のメイン画面の範囲を映す新しいサブ窓を作る。別窓(PiP)は対象外。
+// =========================================================
+var SWL_KEY82='dxfv_swlayouts_v1';
+function _swlLoad82(){
+  try{ var a=JSON.parse(localStorage.getItem(SWL_KEY82)||'null'); if(Array.isArray(a)&&a.length===5) return a; }catch(e){}
+  return [null,null,null,null,null];
+}
+// V3_99: 名前(例:○○枠)を付けられる。表示は番号のみ(名前があれば名前も)
+function _swlLabel86(i){ var a=_swlLoad82()[i]; return (i+1)+((a&&a.name)?'('+a.name+')':''); }
+function _swlSave82(a){ try{ localStorage.setItem(SWL_KEY82,JSON.stringify(a)); return true; }catch(e){ showGuide('配置を保存できませんでした',2000); return false; } }
+function _swlList82(){ return subWindows.filter(function(s){return s.el&&s.el.parentNode===document.body&&!s.inPip78;}); }
+function _swlRegister82(i){
+  var W=window.innerWidth,H=window.innerHeight;
+  var rects=_swlList82().filter(function(s){return !s.minimized;}).map(function(s){
+    var r=s.el.getBoundingClientRect(); return {l:r.left/W,t:r.top/H,w:r.width/W,h:r.height/H};
+  });
+  if(!rects.length){ showGuide('登録するサブ窓がありません',2000); return false; }
+  var a=_swlLoad82(); a[i]={rects:rects,name:(a[i]&&a[i].name)||''}; if(!_swlSave82(a)) return false;
+  showGuide(_swlLabel86(i)+'に登録しました('+rects.length+'窓)',1500); return true;
+}
+function _swlRecall82(i){
+  var slot=_swlLoad82()[i]; if(!slot||!slot.rects||!slot.rects.length){ showGuide(_swlLabel86(i)+'は未登録です',1500); return; }
+  var W=window.innerWidth,H=window.innerHeight;
+  var cur=_swlList82();
+  slot.rects.slice(0,2).forEach(function(q,k){
+    var w=Math.max(160,Math.min(W,Math.round(q.w*W))), h=Math.max(150,Math.min(H,Math.round(q.h*H)));
+    var l=Math.max(0,Math.min(W-w,Math.round(q.l*W))), t=Math.max(0,Math.min(H-h,Math.round(q.t*H)));
+    var s=cur[k];
+    if(s){
+      if(s.minimized){ var mb=s.el.querySelector('.sw-min'); if(mb) mb.click(); }
+      s.el.style.left=l+'px'; s.el.style.top=t+'px'; s.el.style.width=w+'px'; s.el.style.height=h+'px';
+      s.W=w; s.H=h-30;
+      try{ _swResizeCanvases(s,true); _swRenderOne(s); }catch(_e){}
+    } else if(subWindows.length<2){
+      var sr=stage.getBoundingClientRect();
+      var p1=s2w(l-sr.left,t-sr.top), p2=s2w(l-sr.left+w,t-sr.top+h);
+      createSubWindow({x1:Math.min(p1[0],p2[0]),x2:Math.max(p1[0],p2[0]),y1:Math.min(p1[1],p2[1]),y2:Math.max(p1[1],p2[1])});
+    }
+  });
+  scheduleOverlay();
+  if(typeof _syncTextInputBoxPosition88==='function') _syncTextInputBoxPosition88();
+}
+function _swlOpenPanel82(){
+  var old=document.getElementById('swLayoutPanel82'); if(old){ old.remove(); return; }
+  var btn=document.getElementById('subWinBtn'), br=btn.getBoundingClientRect();
+  var p=document.createElement('div'); p.id='swLayoutPanel82';
+  p.style.cssText='position:fixed;z-index:6000;background:#1c2536;border:1.5px solid #1abc9c;border-radius:10px;padding:8px;box-shadow:0 8px 30px rgba(0,0,0,.6);color:#cfe0f5;font-size:13px;min-width:250px;';
+  function render(){
+    var a=_swlLoad82(), n=_swlList82().length;
+    p.innerHTML='<div style="font-size:12px;color:#8fa8c8;margin-bottom:6px">サブ窓の配置(位置・大きさ)。番号の横に名前(例:○○枠)を付けられます。</div>';
+    for(var i=0;i<5;i++){
+      var row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:6px;margin:4px 0;';
+      var reg=!!(a[i]&&a[i].rects&&a[i].rects.length);
+      var num=document.createElement('span'); num.style.cssText='font-weight:bold;font-size:15px;width:16px;text-align:center;color:#1abc9c;'; num.textContent=(i+1);
+      var lab=document.createElement('input'); lab.type='text'; lab.maxLength=12; lab.placeholder=reg?('名前('+a[i].rects.length+'窓)'):'名前(未登録)';
+      lab.value=(a[i]&&a[i].name)||''; lab.style.cssText='flex:1;min-width:70px;width:90px;background:#121a28;border:1px solid #3a4c70;border-radius:6px;color:#cfe0f5;font-size:12px;padding:4px 6px;';
+      lab.addEventListener('keydown',function(e){ e.stopPropagation(); });
+      var bC=document.createElement('button'), bR=document.createElement('button'), bD=document.createElement('button');
+      bC.textContent='呼出'; bR.textContent='登録'; bD.textContent='✕';
+      [bC,bR,bD].forEach(function(b){ b.style.cssText='background:#26344d;border:1px solid #3a4c70;border-radius:6px;color:#cfe0f5;font-size:12px;padding:4px 9px;cursor:pointer;'; });
+      bC.disabled=!reg; if(!reg) bC.style.opacity='.4'; bD.disabled=!(reg||(a[i]&&a[i].name)); if(bD.disabled) bD.style.opacity='.4';
+      bR.title=n?'今のサブ窓の配置をここへ登録':'サブ窓がありません';
+      (function(k,inp){
+        inp.onchange=function(){ var b=_swlLoad82(); var nm=inp.value.trim(); if(!b[k]) b[k]={rects:[],name:nm}; else b[k].name=nm; _swlSave82(b); };
+        bC.onclick=function(){ _swlRecall82(k); p.remove(); };
+        bR.onclick=function(){ if(_swlRegister82(k)) render(); };
+        bD.onclick=function(){ if(!confirm(_swlLabel86(k)+' の登録を本当に消しますか？')) return; /* V3_99 */ var b=_swlLoad82(); b[k]=null; _swlSave82(b); render(); };
+      })(i,lab);
+      row.appendChild(num); row.appendChild(bC); row.appendChild(lab); row.appendChild(bR); row.appendChild(bD); p.appendChild(row);
+    }
+  }
+  render(); document.body.appendChild(p);
+  var pw=p.offsetWidth; p.style.left=Math.max(4,Math.min(window.innerWidth-pw-4,br.left))+'px'; p.style.top=(br.bottom+6)+'px';
+  setTimeout(function(){
+    function away(e){ if(!p.contains(e.target)&&e.target!==btn&&!btn.contains(e.target)){ p.remove(); document.removeEventListener('mousedown',away,true); document.removeEventListener('touchstart',away,true); } }
+    document.addEventListener('mousedown',away,true); document.addEventListener('touchstart',away,true);
+  },0);
+}
 var subWindows=[]; // [{id, el, cvEl, ctxEl, acEl, acCtx, ovEl, octxEl, tx,ty,scale, rectWorld, W,H}]
 var _swIdSeq=0;
 
@@ -7576,7 +7687,7 @@ function createSubWindow(rectWorld){
     function onMove(e){
       if(!dragging)return;
       var p=_swPointerPos(e);
-      // V3_81: サブ窓はメイン画面の外へ出さない(外に出ると見えず、選び直せなくなるため)
+      // V3_99: サブ窓はメイン画面の外へ出さない(外に出ると見えず、選び直せなくなるため)
       var _nl81=elStartLeft+(p.x-startX), _nt81=elStartTop+(p.y-startY);
       _nl81=Math.max(0,Math.min(window.innerWidth-el.offsetWidth,_nl81));
       _nt81=Math.max(0,Math.min(window.innerHeight-el.offsetHeight,_nt81));
@@ -7631,7 +7742,7 @@ function createSubWindow(rectWorld){
       var dx=p.x-startX, dy=p.y-startY;
       var newW=Math.max(160, affectsLeft?(startW-dx):(startW+dx));
       var newH=Math.max(120, affectsTop?(startH-dy):(startH+dy));
-      // V3_81: リサイズでもメイン画面の外へはみ出さない(固定している辺は動かさず、広げる側だけ制限)
+      // V3_99: リサイズでもメイン画面の外へはみ出さない(固定している辺は動かさず、広げる側だけ制限)
       newW=Math.max(160,Math.min(newW, affectsLeft?(startLeft+startW):(window.innerWidth-startLeft)));
       newH=Math.max(120,Math.min(newH, affectsTop ?(startTop+startH) :(window.innerHeight-startTop)));
       var newLeft=affectsLeft?(startLeft+startW-newW):startLeft; // 右端(または左端)を固定
@@ -7691,7 +7802,7 @@ function createSubWindow(rectWorld){
     }
   });
 
-  // ── V3_81(実験): 別ウィンドウへ(PC専用) ──
+  // ── V3_99(実験): 別ウィンドウへ(PC専用) ──
   // Document Picture-in-Picture APIで、サブ窓(el)を独立した小さなウィンドウへ移す。2枚目のモニターへ
   // 自由に動かせる。描画・入力は要素(canvas)に付いたリスナーとサブ窓自身の描画処理がそのまま動くため、
   // 既存の仕組みは変えない。移した間はヘッダー/リサイズハンドルを隠し、ウィンドウの大きさに表示を合わせる。
@@ -7716,7 +7827,7 @@ function createSubWindow(rectWorld){
         pw.document.body.style.cssText='margin:0;overflow:hidden;background:#131921;';
         pw.document.body.appendChild(el);
         sw.inPip78=true; window.__swPip78=pw;
-        // V3_81: 文字入力欄(#textInputBox)の見た目を別ウィンドウ側へ写す(その規則だけ。アプリ全体のCSSは持ち込まない)
+        // V3_99: 文字入力欄(#textInputBox)の見た目を別ウィンドウ側へ写す(その規則だけ。アプリ全体のCSSは持ち込まない)
         try{
           var _css79='';
           Array.prototype.forEach.call(document.styleSheets,function(ss){
@@ -7724,9 +7835,9 @@ function createSubWindow(rectWorld){
           });
           var _st79=pw.document.createElement('style'); _st79.textContent=_css79; pw.document.head.appendChild(_st79);
         }catch(_e){}
-        // V3_81: 別窓の右上に版数を小さく表示(どの版が動いているか確認できるように)
+        // V3_99: 別窓の右上に版数を小さく表示(どの版が動いているか確認できるように)
         try{ var _vl80=pw.document.createElement('div'); _vl80.textContent=(typeof APP_VERSION!=='undefined'?APP_VERSION:'')+' 別窓'; _vl80.style.cssText='position:fixed;top:2px;right:6px;z-index:9;font:10px sans-serif;color:#8fa8c8;opacity:.7;pointer-events:none;'; pw.document.body.appendChild(_vl80); }catch(_e){}
-        // V3_81: 3隅のリサイズハンドル(サブ窓と同じ左上・左下・右下)。別ウィンドウ自体の枠は掴みにくいため、
+        // V3_99: 3隅のリサイズハンドル(サブ窓と同じ左上・左下・右下)。別ウィンドウ自体の枠は掴みにくいため、
         // 中に独自のつまみを置き、ドラッグでウィンドウの大きさを変える(resizeBy/moveBy)
         ['tl','bl','br'].forEach(function(c){
           var h=pw.document.createElement('div');
@@ -7769,7 +7880,7 @@ function createSubWindow(rectWorld){
         pw.addEventListener('contextmenu',function(ev){ ev.preventDefault(); });
         pw.addEventListener('pagehide',function(){
           window.__swPip78=null; sw.inPip78=false;
-          try{ if(typeof _textInputActive!=='undefined'&&_textInputActive&&typeof _closeTextInput==='function') _closeTextInput(); }catch(_e){} // V3_81: 別窓の文字入力中に閉じられた場合の後始末
+          try{ if(typeof _textInputActive!=='undefined'&&_textInputActive&&typeof _closeTextInput==='function') _closeTextInput(); }catch(_e){} // V3_99: 別窓の文字入力中に閉じられた場合の後始末
           if(subWindows.indexOf(sw)<0) return; // 既に閉じたサブ窓は戻さない
           el.style.cssText=savedCss; header.style.display=savedHeaderDisp; handleEls.forEach(function(h){h.style.display='';});
           document.body.appendChild(el);
@@ -7783,7 +7894,7 @@ function createSubWindow(rectWorld){
 
   // ── 閉じるボタン ──
   header.querySelector('.sw-close').addEventListener('click',function(){
-    if(el.parentNode) el.parentNode.removeChild(el); // V3_81: 別窓中(親がdocument.bodyでない)でも安全に外す
+    if(el.parentNode) el.parentNode.removeChild(el); // V3_99: 別窓中(親がdocument.bodyでない)でも安全に外す
     _swCleanupFns.forEach(function(fn){fn();}); // V0_153.1: window付けリスナーを解放
     var idx=subWindows.indexOf(sw);
     if(idx>=0)subWindows.splice(idx,1);
@@ -8290,7 +8401,7 @@ function _hist(expr,result){
   histEl.appendChild(hi);histEl.scrollTop=histEl.scrollHeight;
 }
 
-// V3_81: PCのキーボードで計算機を操作する(計算機を開いている間のみ)。数字・小数点・+ - * /・Enter(=)・
+// V3_99: PCのキーボードで計算機を操作する(計算機を開いている間のみ)。数字・小数点・+ - * /・Enter(=)・
 // Backspace(⌫)・Delete/C(クリア)。ボタンを押したのと同じ処理(clickを呼ぶ)なので、動作は画面タップと同一
 document.addEventListener('keydown',function(e){
   if(!_calcEl.classList.contains('on')) return;
@@ -8300,7 +8411,8 @@ document.addEventListener('keydown',function(e){
   var k=e.key||'';
   k=k.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);});
   var sel=null;
-  if(/^[0-9]$/.test(k)) sel='.cb[data-cnum="'+k+'"]';
+  // V3_99: 上段の数字キー(Digit1〜0)はツールのショートカットに使うため、計算機はテンキー(Numpad)の数字だけ受け付ける
+  if(/^[0-9]$/.test(k)){ if(/^Digit/.test(e.code||'')) return; sel='.cb[data-cnum="'+k+'"]'; }
   else if(k==='.'||k===','||k==='．') sel='.cb[data-cnum="."]';
   else if(k==='+'||k==='-'||k==='*'||k==='/') sel='.cb[data-cop="'+k+'"]';
   else if(k==='x'||k==='X'||k==='×') sel='.cb[data-cop="*"]';
@@ -8341,7 +8453,7 @@ function _updateTsuizunBtnUI(){
 // 打ち始めた」のと同じ状態にする(_afterEq/_justOpをリセット)ことで、続けて
 // 演算子や次の数字をボタンで押して計算を続けられる
 window._calcInputFromPick=function(text){
-  // V3_81: 全角の数字(１２３)・小数点(．)・マイナス(－ − ー)も半角に直してから数値を探す
+  // V3_99: 全角の数字(１２３)・小数点(．)・マイナス(－ − ー)も半角に直してから数値を探す
   text=(text||'').replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
                  .replace(/[．]/g,'.').replace(/[－−―‐]/g,'-').replace(/ー(?=\d)/g,'-').replace(/(\d)[，,](?=\d{3}(\D|$))/g,'$1');
   var m=(text||'').match(/-?\d+(\.\d+)?/);

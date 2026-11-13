@@ -110,24 +110,50 @@
   });
 
   // =========================================================
-  // V3_75: コマンドのキーボードショートカット(PC向け)
-  //   P=ペン、H=蛍光、T=文字、E=消しゴム、L=なげわ、I=画像、F=全体表示
+  // V3_75: コマンドのキーボードショートカット(PC向け)。V3_84で数字キー(上段1〜7)とFに変更
+  //   1=ペン、2=蛍光、3=文字、4=図形、5=消しゴム、6=なげわ、7=画像、F=全体表示
   //   (戻る/進むは従来通りCtrl+Z/Ctrl+Y)。ツールバーのボタンのクリックを呼ぶだけなので、
   //   画面タップ時と同じ処理になる。既に選択中のツールのキーをもう一度押すと、
   //   ボタンの再タップと同じく色/太さ等のポップアップが開く(V3_77)。入力中・修飾キー併用・計算機表示中・
   //   日本語入力変換中は何もしない。e.codeで判定するので全角入力状態でも動く
   // =========================================================
-  var _PC_KEYS75 = {KeyP:'sketch', KeyH:'hl', KeyT:'text', KeyE:'eraser', KeyL:'lasso', KeyI:'image', KeyF:'#fitBtn'};
+  // V3_84: ショートカットを「画面上部の並び順の数字キー(キーボード上段の1〜7。テンキーではない)」に変更。
+  //   1=ペン 2=蛍光 3=文字 4=図形 5=消しゴム 6=なげわ 7=画像 8=サブ窓 9=全体 0=記憶VIEW、Z=DXF計測、Q=前ページ W=次ページ E=ページ一覧、A=計算機、S=追寸、D=読込(V3_98)。
+  //   4(図形)は図形ボタンと同じ動作(前回の図形を選ぶ/選択中にもう一度でポップアップ)。図形ポップアップが開いている間は
+  //   数字キー1〜6で図形(1四角 2矢印 3丸 4楕円 5雲印 6水・鉛線)を選べる(選ぶとポップアップは閉じる)
+  var _PC_KEYS75 = {Digit1:'sketch', Digit2:'hl', Digit3:'text', Digit4:'#shapeToggleBtn', Digit5:'eraser', Digit6:'lasso', Digit7:'image', Digit8:'#subWinBtn', Digit9:'#fitBtn', Digit0:'#vbmToggleBtn', KeyZ:'#measureToggleBtn', KeyQ:'#prevPage', KeyW:'#nextPage', KeyE:'#pdfThumbBtn', KeyA:'#calcBtn', KeyS:'#calcTsuizunBtn98', KeyD:'#calcPickBtn'};
+  // V3_98: 計算機の「追寸」ボタンにidを付ける(S=追寸 D=読込。計算機が開いている時だけ有効)
+  try{ var _tz98=document.querySelector('#calc [data-cfn="tsuizun"]'); if(_tz98) _tz98.id='calcTsuizunBtn98'; }catch(e){}
   var _PC_LABEL75 = {sketch:'ペン', hl:'蛍光', text:'文字', eraser:'消しゴム', lasso:'なげわ', image:'画像'};
+  var _PC_SHAPEKEYS84 = {Digit1:'rect', Digit2:'arrow', Digit3:'circle', Digit4:'ellipse', Digit5:'cloud', Digit6:'hvline'};
+  // V3_91: 計測ポップアップが開いている間は数字キー1〜8で計測ツールを選ぶ(選ぶとポップアップは閉じる)
+  var _PC_MEASKEYS91 = {Digit1:'dxdy', Digit2:'ll', Digit3:'diag', Digit4:'lp', Digit5:'circDim', Digit6:'radDim', Digit7:'lineLen', Digit8:'ang'};
+  try{
+    if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
+      Object.keys(_PC_MEASKEYS91).forEach(function(code){
+        var b=document.querySelector('#measureToolPopup .tool-btn[data-tool="'+_PC_MEASKEYS91[code]+'"]');
+        if(b) b.setAttribute('data-key',code.replace('Digit',''));
+      });
+    }
+  }catch(e){}
   // V3_76: ボタンの角にキー文字を表示し、マウスを乗せた時の説明にもキーを足す(PCのみ。タッチ端末では付けない)
   try{
     if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
       Object.keys(_PC_KEYS75).forEach(function(code){
-        var tgt=_PC_KEYS75[code], key=code.replace('Key','');
+        var tgt=_PC_KEYS75[code], key=code.replace(/^(Key|Digit)/,'');
         var b=(tgt.charAt(0)==='#')?document.querySelector(tgt):document.querySelector('.tool-btn[data-tool="'+tgt+'"]');
         if(!b) return;
         b.setAttribute('data-key',key);
         var t=b.getAttribute('title')||''; if(t.indexOf('（'+key+'キー）')<0) b.setAttribute('title',t+'（'+key+'キー）');
+      });
+    }
+  }catch(e){}
+  // V3_84: 図形ポップアップ内の各図形ボタンにも、選択用の数字キーを表示する(PCのみ)
+  try{
+    if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
+      Object.keys(_PC_SHAPEKEYS84).forEach(function(code){
+        var b=document.querySelector('#shapeToolPopup .tool-btn[data-tool="'+_PC_SHAPEKEYS84[code]+'"]');
+        if(b) b.setAttribute('data-key',code.replace('Digit',''));
       });
     }
   }catch(e){}
@@ -136,8 +162,21 @@
     var tgt = _PC_KEYS75[e.code]; if(!tgt) return;
     var ae = document.activeElement, tag = (ae && ae.tagName) || '';
     if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || (ae && ae.isContentEditable)) return;
-    if(typeof currentFileName==='undefined' || !currentFileName) return;   // 図面を開いていない時は何もしない
-    var calc = document.getElementById('calc'); if(calc && calc.classList.contains('on')) return;
+    // V3_84: 図形ポップアップが開いている間は、数字キーで図形の種類を選ぶ(選んだらポップアップを閉じる)
+    var _sp84 = document.getElementById('shapeToolPopup');
+    if(_sp84 && _sp84.classList.contains('open') && _PC_SHAPEKEYS84[e.code]){
+      var _sb84 = _sp84.querySelector('.tool-btn[data-tool="'+_PC_SHAPEKEYS84[e.code]+'"]');
+      if(_sb84){ e.preventDefault(); _sb84.click(); var _done84=document.getElementById('shapeToolPopupDoneBtn'); if(_done84) _done84.click(); }
+      return;
+    }
+    var _mp91 = document.getElementById('measureToolPopup');
+    if(_mp91 && _mp91.classList.contains('open') && _PC_MEASKEYS91[e.code]){
+      var _mb91 = _mp91.querySelector('.tool-btn[data-tool="'+_PC_MEASKEYS91[e.code]+'"]');
+      if(_mb91){ e.preventDefault(); _mb91.click(); var _dn91=document.getElementById('measureToolPopupDoneBtn'); if(_dn91) _dn91.click(); }
+      return;
+    }
+    if((typeof currentFileName==='undefined' || !currentFileName) && e.code!=='KeyA' && e.code!=='KeyS' && e.code!=='KeyD') return;   // 図面(V3_97: 計算機Aは図面なしでも可)を開いていない時は何もしない
+    // V3_99: 計算機が開いていてもツールのショートカットは使える(計算機の数字入力はテンキーのみ)   // V3_97: 計算機が開いている間はAで閉じられる(V3_98: S/Dも)
     if(typeof _isOpeningFileBusy!=='undefined' && _isOpeningFileBusy) return;
     var btn = (tgt.charAt(0)==='#') ? document.querySelector(tgt) : document.querySelector('.tool-btn[data-tool="'+tgt+'"]');
     if(!btn || btn.offsetParent===null) return;                             // 非表示のボタン(例:タッチ端末の画像)は無視
@@ -284,5 +323,16 @@
   });
   // ウィンドウ外でボタンを離した場合や、フォーカスが外れた場合もパン状態を残さない
   window.addEventListener('blur', function(){ _pcMidPanning = false; _pcMidSubWin = null; });
+
+
+  // V3_95: 検索系パネルの表示開始位置(--ovtop95)を、画面エリア(#stage)の上端に合わせる(ツールバー・ファイルタブに被らない)
+  (function(){
+    function upd(){ try{ var st=document.getElementById('stage'); if(st) document.documentElement.style.setProperty('--ovtop95', Math.max(0,Math.round(st.getBoundingClientRect().top))+'px'); }catch(e){} }
+    upd(); window.addEventListener('resize',upd);
+    ['searchOverlay','allSearchOverlay','openFileOverlay'].forEach(function(id){
+      var el=document.getElementById(id); if(!el||!window.MutationObserver) return;
+      new MutationObserver(upd).observe(el,{attributes:true,attributeFilter:['class']});
+    });
+  })();
 
 })();
