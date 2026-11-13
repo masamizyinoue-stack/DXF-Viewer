@@ -369,7 +369,7 @@ async function tryRestore(){
             try{
               if(typeof pdfjsLib==='undefined') continue;
               var _pnR=_mf.pdfPageNum||1;
-              var _pdocR=await pdfjsLib.getDocument({data:_buf2.slice(0)}).promise; // V1_52同様、bufをdetachさせないようコピーを渡す
+              var _pdocR=await pdfjsLib.getDocument(_pdfOpts71(_buf2.slice(0))).promise; // V1_52同様、bufをdetachさせないようコピーを渡す
               var _pageR=await _pdocR.getPage(_pnR);
               // V1_85: 基準解像度を固定3からPDF_BASE_SCALE(既定4)へ。メイン画面のrenderPdfPage()と
               // 同じ基準に揃える（このタブはアクティブになった時にswitchToFile側で改めて

@@ -1,3 +1,9 @@
+// V3_71: PDF内の日本語文字(非埋込みフォント/CIDフォントの注記など)が表示されない不具合の修正。
+// pdf.jsに文字コード表(cMap)と標準フォントの取得先を渡す。
+function _pdfOpts71(data){
+  var b='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/';
+  return {data:data,cMapUrl:b+'cmaps/',cMapPacked:true,standardFontDataUrl:b+'standard_fonts/'};
+}
 // =========================================================
 // viewer.js - DXF Viewer 図面表示・座標管理モジュール
 // V0_48 - DXF_Viewer から分離
@@ -1370,7 +1376,7 @@ async function loadPDF(buf,startPage){
   // detach（byteLength=0）される。呼び出し元(fileInput/openDxfFromDb/tryRestore等)は
   // loadPDF(buf)実行後もbuf.byteLengthの参照やIndexedDBへの保存にbufを使い続けて
   // いるため、コピー(slice(0))を渡してdetachの影響が元のbufに及ばないようにする
-  pdfDoc=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+  pdfDoc=await pdfjsLib.getDocument(_pdfOpts71(buf.slice(0))).promise;
   document.getElementById('pdfPageCtrl').style.display='';
   pdfPageNum=(startPage&&startPage>=1&&startPage<=pdfDoc.numPages)?Math.floor(startPage):1;
   document.getElementById('pageInfo').textContent=`${pdfPageNum}/${pdfDoc.numPages}`;
