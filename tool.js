@@ -1594,10 +1594,20 @@ function _textInputFontPx85(){
 // 追従させる
 var _textInputWX88=0, _textInputWY88=0;
 var _textInputSubWin92=null; // V3_02: サブ窓内で開いた入力欄かどうか(そのsubWindowsの要素への参照。メイン画面ならnull)
+// V3_79: 文字入力欄は、別ウィンドウ(Picture-in-Picture)に出したサブ窓の中で開く時だけ、そのウィンドウへ移す。
+// 移動中はdocument.getElementByIdでは見つからないため、最初に取得した参照を使い回す
+function _textMainEls79(){
+  if(!window._tbMain79) window._tbMain79=[document.getElementById('textInputBox'),document.getElementById('textInputField')];
+  return window._tbMain79;
+}
+// V3_80: 別ウィンドウ(PiP)では、メイン画面の入力欄を移さず、そのウィンドウの中に専用の入力欄を新しく作る
+// (文書をまたぐ移動でフォーカスが効かない場合があるため)。使用中の組はwindow._tbBox79/_tbInp79に入れる
+function _textBoxEls79(){
+  return window._tbBox79?[window._tbBox79,window._tbInp79]:_textMainEls79();
+}
 function _syncTextInputBoxPosition88(){
   if(!_textInputActive) return;
-  var box=document.getElementById('textInputBox');
-  var inp=document.getElementById('textInputField');
+  var _tb79=_textBoxEls79(), box=_tb79[0], inp=_tb79[1];
   if(!box||!inp) return;
   var r,p;
   // V3_02: サブ窓内で開いた入力欄は、そのサブ窓自身の座標系(tx/ty/scale・canvas位置)で
@@ -1633,13 +1643,26 @@ function _openTextInputAt(wx,wy,sx,sy){
     scheduleOverlay();doSave();
     return;
   }
-  var box=document.getElementById('textInputBox');
-  var inp=document.getElementById('textInputField');
+  var _tb79=_textMainEls79(), box=_tb79[0], inp=_tb79[1];
   if(!box||!inp) return;
   _ensureCanvasJPFont84();
   _textInputActive=true;
   _textInputWX88=wx; _textInputWY88=wy; // V2_88
   _textInputSubWin92=(typeof window._swFindOwnerOfOv==='function')?window._swFindOwnerOfOv(ov):null; // V3_02
+  // V3_80: 別ウィンドウ(PiP)内のサブ窓で開く場合(ovの所属文書がメイン画面ではない)は、そのウィンドウの中に入力欄を新規作成する
+  window._tbBox79=null; window._tbInp79=null;
+  var _pipDoc80=(ov&&ov.ownerDocument&&ov.ownerDocument!==document)?ov.ownerDocument:null;
+  if(_pipDoc80){
+    try{
+      var _nb80=_pipDoc80.createElement('div');
+      _nb80.style.cssText='position:fixed;z-index:5600;background:rgba(255,255,255,.94);border:1.5px dashed #00d4ff;border-radius:4px;padding:2px 6px;display:block;';
+      var _ni80=_pipDoc80.createElement('textarea');
+      _ni80.rows=1; _ni80.maxLength=300;
+      _ni80.style.cssText="border:none;outline:none;background:transparent;font-family:'Noto Sans JP','Yu Gothic','Meiryo',sans-serif;min-width:60px;resize:none;overflow:hidden;white-space:pre;padding:0;margin:0;display:block;vertical-align:top;";
+      _nb80.appendChild(_ni80); _pipDoc80.body.appendChild(_nb80);
+      box=_nb80; inp=_ni80; window._tbBox79=_nb80; window._tbInp79=_ni80;
+    }catch(_e80){ try{ if(typeof showGuide==='function') showGuide('別窓の入力欄を作れませんでした',2500); }catch(_e){} }
+  }
   var r=ov.getBoundingClientRect();
   var fontPx=_textInputFontPx85();
   inp.value='';
@@ -1697,6 +1720,7 @@ function _openTextInputAt(wx,wy,sx,sy){
   function onBlur(){ commit(); }
   function _attachFocusAndListeners(){
     if(!_textInputActive) return; // 遅延の間にEscape等で既に閉じられていた場合は何もしない
+    try{ if(inp.ownerDocument!==document) inp.ownerDocument.defaultView.focus(); }catch(_e80){} // V3_80: 別ウィンドウ側を操作対象にしてから入力欄へ
     inp.focus();
     inp.addEventListener('keydown',onKey);
     inp.addEventListener('input',onInput);
@@ -1732,8 +1756,10 @@ function _openTextInputAt(wx,wy,sx,sy){
   }
 }
 function _closeTextInput(){
-  var box=document.getElementById('textInputBox');
-  if(box){ if(box._cleanup80){box._cleanup80();box._cleanup80=null;} box.style.display='none'; }
+  var box=_textBoxEls79()[0];
+  if(box){ if(box._cleanup80){box._cleanup80();box._cleanup80=null;} box.style.display='none';
+    if(box!==_textMainEls79()[0]){ try{ box.remove(); }catch(_e80){} } } // V3_80: 別ウィンドウ用に作った入力欄は取り除く
+  window._tbBox79=null; window._tbInp79=null;
   _textInputActive=false;
   _textInputSubWin92=null; // V3_02
 }

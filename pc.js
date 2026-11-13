@@ -76,6 +76,82 @@
   });
 
   // =========================================================
+  // V3_74: PDFのページ送りをキーボードで行う(PC向け)
+  //   ←/PageUp=前のページ、→/PageDown=次のページ、Home=最初、End=最後
+  //   画面右上の◀▶ボタンと同じ処理を呼ぶ(ボタンのクリックを発火)。入力中・修飾キー併用・
+  //   ダイアログ表示中は何もしない
+  // =========================================================
+  document.addEventListener('keydown', function(e){
+    if(e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+    var k = e.key;
+    if(k!=='ArrowLeft' && k!=='ArrowRight' && k!=='PageUp' && k!=='PageDown' && k!=='Home' && k!=='End') return;
+    var ae = document.activeElement, tag = (ae && ae.tagName) || '';
+    if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || (ae && ae.isContentEditable)) return;
+    if(typeof pdfDoc==='undefined' || !pdfDoc || !(pdfDoc.numPages>1)) return;
+    if(typeof currentTool!=='undefined' && currentTool==='image' && typeof _imgDrag72!=='undefined' && _imgDrag72) return; // 画像をドラッグ中
+    var ctrl = document.getElementById('pdfPageCtrl');
+    if(!ctrl || ctrl.style.display==='none') return;
+    // 開いているポップアップ/ダイアログ(固定表示のオーバーレイ)があれば何もしない
+    var ovs = document.querySelectorAll('.modal.open, .overlay.open, #pdfThumbOverlay, [id$="Overlay"].open');
+    for(var i=0;i<ovs.length;i++){ if(ovs[i].offsetParent!==null || getComputedStyle(ovs[i]).position==='fixed' && getComputedStyle(ovs[i]).display!=='none') return; }
+    var n = pdfPageNum;
+    if(k==='ArrowLeft' || k==='PageUp') n = pdfPageNum-1;
+    else if(k==='ArrowRight' || k==='PageDown') n = pdfPageNum+1;
+    else if(k==='Home') n = 1;
+    else n = pdfDoc.numPages;
+    if(n<1 || n>pdfDoc.numPages || n===pdfPageNum) { e.preventDefault(); return; }
+    e.preventDefault();
+    if(k==='ArrowLeft' || k==='PageUp'){ var pb=document.getElementById('prevPage'); if(pb){ pb.click(); return; } }
+    if(k==='ArrowRight' || k==='PageDown'){ var nb=document.getElementById('nextPage'); if(nb){ nb.click(); return; } }
+    // Home/End: サムネイル選択と同じ手順で移動
+    pdfPageNum = n;
+    var pi = document.getElementById('pageInfo'); if(pi) pi.textContent = pdfPageNum+'/'+pdfDoc.numPages;
+    Promise.resolve(typeof renderPdfPage==='function' ? renderPdfPage(pdfPageNum) : null).then(function(){ if(typeof scheduleSave==='function') scheduleSave(); });
+  });
+
+  // =========================================================
+  // V3_75: コマンドのキーボードショートカット(PC向け)
+  //   P=ペン、H=蛍光、T=文字、E=消しゴム、L=なげわ、I=画像、F=全体表示
+  //   (戻る/進むは従来通りCtrl+Z/Ctrl+Y)。ツールバーのボタンのクリックを呼ぶだけなので、
+  //   画面タップ時と同じ処理になる。既に選択中のツールのキーをもう一度押すと、
+  //   ボタンの再タップと同じく色/太さ等のポップアップが開く(V3_77)。入力中・修飾キー併用・計算機表示中・
+  //   日本語入力変換中は何もしない。e.codeで判定するので全角入力状態でも動く
+  // =========================================================
+  var _PC_KEYS75 = {KeyP:'sketch', KeyH:'hl', KeyT:'text', KeyE:'eraser', KeyL:'lasso', KeyI:'image', KeyF:'#fitBtn'};
+  var _PC_LABEL75 = {sketch:'ペン', hl:'蛍光', text:'文字', eraser:'消しゴム', lasso:'なげわ', image:'画像'};
+  // V3_76: ボタンの角にキー文字を表示し、マウスを乗せた時の説明にもキーを足す(PCのみ。タッチ端末では付けない)
+  try{
+    if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
+      Object.keys(_PC_KEYS75).forEach(function(code){
+        var tgt=_PC_KEYS75[code], key=code.replace('Key','');
+        var b=(tgt.charAt(0)==='#')?document.querySelector(tgt):document.querySelector('.tool-btn[data-tool="'+tgt+'"]');
+        if(!b) return;
+        b.setAttribute('data-key',key);
+        var t=b.getAttribute('title')||''; if(t.indexOf('（'+key+'キー）')<0) b.setAttribute('title',t+'（'+key+'キー）');
+      });
+    }
+  }catch(e){}
+  document.addEventListener('keydown', function(e){
+    if(e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.isComposing || e.repeat) return;
+    var tgt = _PC_KEYS75[e.code]; if(!tgt) return;
+    var ae = document.activeElement, tag = (ae && ae.tagName) || '';
+    if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || (ae && ae.isContentEditable)) return;
+    if(typeof currentFileName==='undefined' || !currentFileName) return;   // 図面を開いていない時は何もしない
+    var calc = document.getElementById('calc'); if(calc && calc.classList.contains('on')) return;
+    if(typeof _isOpeningFileBusy!=='undefined' && _isOpeningFileBusy) return;
+    var btn = (tgt.charAt(0)==='#') ? document.querySelector(tgt) : document.querySelector('.tool-btn[data-tool="'+tgt+'"]');
+    if(!btn || btn.offsetParent===null) return;                             // 非表示のボタン(例:タッチ端末の画像)は無視
+    // ポップアップ/ダイアログが開いている間は何もしない
+    var ovs = document.querySelectorAll('.modal.open, .overlay.open, #pdfThumbOverlay, [id$="Overlay"].open');
+    for(var i=0;i<ovs.length;i++){ if(ovs[i].id==='colorOverlay') continue; /* V3_77: 色/太さポップアップは、同じキーで閉じる・別キーでツール切替できるよう対象外 */ var st=getComputedStyle(ovs[i]); if(st.display!=='none' && (ovs[i].offsetParent!==null || st.position==='fixed')) return; }
+    // V3_77: 既に選択中のツールのキーをもう一度押すと、ボタンの再タップと同じ動作(色/太さ等のポップアップを開く)になる
+    var _already75 = (tgt.charAt(0)!=='#' && typeof currentTool!=='undefined' && currentTool===tgt);
+    e.preventDefault();
+    btn.click();
+    if(!_already75 && tgt.charAt(0)!=='#' && typeof showGuide==='function') showGuide(_PC_LABEL75[tgt]+'に切替',700);
+  });
+
+  // =========================================================
   // 右クリックメニュー（描画キャンバス #ov 上のみ）
   // =========================================================
   document.addEventListener('contextmenu', function(e){
