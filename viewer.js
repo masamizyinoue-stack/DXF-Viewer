@@ -1377,10 +1377,51 @@ async function loadPDF(buf,startPage){
   // loadPDF(buf)実行後もbuf.byteLengthの参照やIndexedDBへの保存にbufを使い続けて
   // いるため、コピー(slice(0))を渡してdetachの影響が元のbufに及ばないようにする
   pdfDoc=await pdfjsLib.getDocument(_pdfOpts71(buf.slice(0))).promise;
+  _pdfWrapDoc100(pdfDoc); // V3_100: ページ回転(追加回転)対応
   document.getElementById('pdfPageCtrl').style.display='';
   pdfPageNum=(startPage&&startPage>=1&&startPage<=pdfDoc.numPages)?Math.floor(startPage):1;
   document.getElementById('pageInfo').textContent=`${pdfPageNum}/${pdfDoc.numPages}`;
   await renderPdfPage(pdfPageNum);
+}
+
+// V3_100: PDFのページを90°ずつ回す(時計回り)。回転量は pdfDoc._rotExtra[ページ番号]=0/90/180/270 としてドキュメントに持たせ、
+//   pdfDoc.getPage()が返すページの getViewport() が、元ページの/Rotateに追加回転を足した向きで返すようにする
+//   (表示・文字検索・サムネイル・書出しがすべて同じ getViewport() を使うため、全体が一貫して回る)
+function _pdfWrapDoc100(doc){
+  if(!doc||doc._rw100) return doc;
+  doc._rw100=true; doc._rotExtra=doc._rotExtra||{};
+  var orig=doc.getPage.bind(doc);
+  doc.getPage=async function(n){
+    var p=await orig(n);
+    if(!p._rw100){
+      p._rw100=true;
+      var ogv=p.getViewport.bind(p);
+      p.getViewport=function(o){
+        o=o||{};
+        if(o.rotation===undefined){
+          var ex=(doc._rotExtra&&doc._rotExtra[n])||0;
+          if(ex) o=Object.assign({},o,{rotation:((p.rotate||0)+ex)%360});
+        }
+        return ogv(o);
+      };
+    }
+    return p;
+  };
+  return doc;
+}
+async function rotatePdfPage100(){
+  if(!pdfDoc){ return; }
+  var n=pdfPageNum;
+  var hasAnn=(typeof strokes!=='undefined'&&strokes.some(function(s){return (s.page||1)===n;}))
+          ||(typeof dims!=='undefined'&&dims.some(function(d){return (d.page||1)===n;}));
+  if(hasAnn){ if(typeof showGuide==='function') showGuide('このページには書込があるため回転できません（書込を消してから回転して下さい）',3200); return; }
+  _pdfWrapDoc100(pdfDoc);
+  pdfDoc._rotExtra[n]=(((pdfDoc._rotExtra[n]||0)+90)%360);
+  if(!pdfDoc._rotExtra[n]) delete pdfDoc._rotExtra[n];
+  try{ if(typeof _pdfThumbCache!=='undefined') _pdfThumbCache=null; }catch(e){}
+  await renderPdfPage(n);
+  if(typeof scheduleSave==='function') scheduleSave();
+  if(typeof showGuide==='function') showGuide('ページを時計回りに90°回転しました（'+(((pdfDoc._rotExtra[n]||0)))+'°）',1500);
 }
 
 async function renderPdfPage(n){

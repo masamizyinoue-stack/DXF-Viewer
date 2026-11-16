@@ -183,6 +183,7 @@ function doSave(){
       _lastMeasureTool:(typeof _lastMeasureTool!=='undefined'?_lastMeasureTool:null), // V1_210: 前回選んだ計測ツールを保存
       dimensionTextMode,inputMode, // V0_154: dimTextManualPxは「サイズ指定」廃止に伴い削除
       pdfPageNum:(typeof pdfPageNum!=='undefined'?pdfPageNum:1), // V0_135: PDFページ番号保存
+      pdfRot100:(typeof pdfDoc!=='undefined'&&pdfDoc&&pdfDoc._rotExtra&&Object.keys(pdfDoc._rotExtra).length)?pdfDoc._rotExtra:null, // V3_100: ページ回転
       insetState:_insetSv162 // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
     }));
     // V0_112: マルチファイル保存
@@ -198,6 +199,7 @@ function doSave(){
           isPDF:!!(f.pdfDoc||f.pdfImage),
           isExcel:!!f.excelWb, excelSheetIdx:f.excelSheetIdx||0, // V1_76
           pdfPageNum:f.pdfPageNum||1, // V0_135: PDFページ番号保存
+          pdfRot100:(f.pdfDoc&&f.pdfDoc._rotExtra&&Object.keys(f.pdfDoc._rotExtra).length)?f.pdfDoc._rotExtra:null, // V3_100: ページ回転
           insetState:f.insetState||null // V1_162: 図面番号欄インセットの位置・倍率・表示ON/OFF
         };
       });
@@ -370,6 +372,7 @@ async function tryRestore(){
               if(typeof pdfjsLib==='undefined') continue;
               var _pnR=_mf.pdfPageNum||1;
               var _pdocR=await pdfjsLib.getDocument(_pdfOpts71(_buf2.slice(0))).promise; // V1_52同様、bufをdetachさせないようコピーを渡す
+              if(typeof _pdfWrapDoc100==='function'){ _pdfWrapDoc100(_pdocR); if(_mf.pdfRot100) _pdocR._rotExtra=_mf.pdfRot100; } // V3_100
               var _pageR=await _pdocR.getPage(_pnR);
               // V1_85: 基準解像度を固定3からPDF_BASE_SCALE(既定4)へ。メイン画面のrenderPdfPage()と
               // 同じ基準に揃える（このタブはアクティブになった時にswitchToFile側で改めて
@@ -641,6 +644,7 @@ async function tryRestore(){
     if(typeof updateInputModeUI==='function')updateInputModeUI();
     if(typeof updateToolColorDots==='function')updateToolColorDots();
     // V0_135: PDFページ番号復元（loadPDFはpage1を表示するため、保存ページに再移動）
+    if(d.pdfRot100&&typeof pdfDoc!=='undefined'&&pdfDoc){ pdfDoc._rotExtra=d.pdfRot100; if(!(d.pdfPageNum>1)&&typeof renderPdfPage==='function') renderPdfPage(pdfPageNum); } // V3_100: ページ回転の復元
     if(d.pdfPageNum&&d.pdfPageNum>1&&typeof pdfDoc!=='undefined'&&pdfDoc&&typeof renderPdfPage==='function'){
       pdfPageNum=d.pdfPageNum;
       var _pi=document.getElementById('pageInfo');if(_pi)_pi.textContent=pdfPageNum+'/'+pdfDoc.numPages;
