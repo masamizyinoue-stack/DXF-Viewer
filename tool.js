@@ -1714,8 +1714,7 @@ function _openTextInputAt(wx,wy,sx,sy){
             _lb102.click(); // ツール切替(内部で選択状態は初期化される)
             _lassoClearSelection();
             lassoState.selected=[_ns102];
-            var _wpx102=Math.max(_bw102,30)/scale, _hpx102=Math.max(_bh102,20)/scale;
-            lassoState.range={minX:wx,maxX:wx+_wpx102,minY:wy-_hpx102,maxY:wy};
+            lassoState.range=_textBBox103(_ns102);
             _lassoRecomputeBBox();
             _lassoShowActionBar();
             showGuide('文字をドラッグして移動できます(他の場所をタップで終了)',2800);
@@ -1822,10 +1821,47 @@ function _pointInBBox(x,y,b){
   return !!b && x>=b.minX&&x<=b.maxX&&y>=b.minY&&y<=b.maxY;
 }
 
+
+// V3_103: 選択ツールのモード('lasso'=なげわ / 'text'=文字選択)。最後に選んだ方を保持する
+var _selMode103=(function(){try{var v=localStorage.getItem('dxfSelMode103');return v==='text'?'text':'lasso';}catch(e){return 'lasso';}})();
+var _tbCv103=null;
+// 文字ストロークsのワールド座標の外形(左上が(s.x,s.y)、yは上向き)。描画と同じフォント・大きさで幅を測る
+function _textBBox103(s){
+  var lwRef=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:scale;
+  var fontPx=Math.max(1,(s.lw||0.6)*20*(scale/lwRef)); // 画面px(dprは掛けない)
+  if(!_tbCv103) _tbCv103=document.createElement('canvas').getContext('2d');
+  var c=_tbCv103;
+  c.font=(typeof _textFontCssFor==='function')?_textFontCssFor(s.font,fontPx):((typeof _textFontCss==='function')?_textFontCss(fontPx):(fontPx+'px sans-serif'));
+  var lines=(s.text||'').split('\n'), w=0;
+  for(var i=0;i<lines.length;i++){ var m=c.measureText(lines[i]).width; if(m>w) w=m; }
+  var h=fontPx*1.2*(lines.length-1)+fontPx*1.15;
+  return {minX:s.x,maxX:s.x+Math.max(w,fontPx)/scale,minY:s.y-h/scale,maxY:s.y};
+}
+// (wx,wy)にある一番上の文字(現在ページ)を返す。指で押しやすいよう外形を少し広げて判定
+function _textHit103(wx,wy){
+  var cur=(typeof _curPage==='function')?_curPage():1, pad=10/scale;
+  for(var i=strokes.length-1;i>=0;i--){
+    var s=strokes[i];
+    if(!s.isText||(s.page||1)!==cur||!s.text) continue;
+    var b=_textBBox103(s);
+    if(wx>=b.minX-pad&&wx<=b.maxX+pad&&wy>=b.minY-pad&&wy<=b.maxY+pad) return s;
+  }
+  return null;
+}
 // ポインタダウン: バウンディングボックス内→移動開始、それ以外→新規の囲み描画開始
 function _lassoPointerDown(wx,wy){
   // V3_68: コピー後の貼り付け待ち中は、タップした位置へ貼り付ける(囲み開始・移動開始より優先)
   if(_lassoPasteArmed&&_lassoClip){ _lassoPasteAt(wx,wy); return; }
+  // V3_103: 文字選択モード。選択済みの文字の枠内なら下の移動処理へ、そうでなければタップした文字を選ぶ(囲み線は描かない)
+  if(_selMode103==='text'&&!(lassoState.selected&&lassoState.selected.length>0&&lassoState.bbox&&_pointInBBox(wx,wy,lassoState.bbox))){
+    var _th103=_textHit103(wx,wy);
+    _lassoClearSelection();
+    if(!_th103){ scheduleOverlay(); return; }
+    lassoState.selected=[_th103];
+    lassoState.range=_textBBox103(_th103);
+    _lassoRecomputeBBox();
+    _lassoShowActionBar();
+  }
   if(lassoState.selected&&lassoState.selected.length>0&&lassoState.bbox&&_pointInBBox(wx,wy,lassoState.bbox)){
     snapshot(); // V2_90: 移動前にundoチェックポイント
     lassoState.dragging=true;

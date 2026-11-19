@@ -124,7 +124,7 @@
   var _PC_KEYS75 = {Digit1:'sketch', Digit2:'hl', Digit3:'text', Digit4:'#shapeToggleBtn', Digit5:'eraser', Digit6:'lasso', Digit7:'image', Digit8:'#subWinBtn', Digit9:'#fitBtn', Digit0:'#vbmToggleBtn', KeyZ:'#measureToggleBtn', KeyQ:'#prevPage', KeyW:'#nextPage', KeyE:'#pdfThumbBtn', KeyA:'#calcBtn', KeyS:'#calcTsuizunBtn98', KeyD:'#calcPickBtn'};
   // V3_98: 計算機の「追寸」ボタンにidを付ける(S=追寸 D=読込。計算機が開いている時だけ有効)
   try{ var _tz98=document.querySelector('#calc [data-cfn="tsuizun"]'); if(_tz98) _tz98.id='calcTsuizunBtn98'; }catch(e){}
-  var _PC_LABEL75 = {sketch:'ペン', hl:'蛍光', text:'文字', eraser:'消しゴム', lasso:'なげわ', image:'画像'};
+  var _PC_LABEL75 = {sketch:'ペン', hl:'蛍光', text:'文字', eraser:'消しゴム', lasso:'選択', image:'画像'};
   var _PC_SHAPEKEYS84 = {Digit1:'rect', Digit2:'arrow', Digit3:'circle', Digit4:'ellipse', Digit5:'cloud', Digit6:'hvline'};
   // V3_91: 計測ポップアップが開いている間は数字キー1〜8で計測ツールを選ぶ(選ぶとポップアップは閉じる)
   var _PC_MEASKEYS91 = {Digit1:'dxdy', Digit2:'ll', Digit3:'diag', Digit4:'lp', Digit5:'circDim', Digit6:'radDim', Digit7:'lineLen', Digit8:'ang'};
