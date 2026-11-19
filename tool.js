@@ -150,8 +150,14 @@ function _shapeArrowPts(p0,p1,lwWorld){
     var _lw97=(typeof currentShapeLW!=='undefined')?currentShapeLW:((typeof currentLW!=='undefined')?currentLW:1);
     lwWorld=_lw97/_lwRef97;
   }
-  var headLen=Math.max(len*0.15, lwWorld*4.5); // 軸長の15%、ただし線幅の4.5倍未満にはしない
-  headLen=Math.min(headLen, len*0.5); // 矢印全体が短い場合に矢尻だけ軸より長くならないよう上限も設ける
+  // V3_106: 「矢印の線の長さで矢尻の大きさが変わるのを固定したい」との要望に対応。
+  // 矢尻の長さは軸の長さに関係なく、「基本の長さ(画面10px相当)＋線の太さ×8」で一定にする
+  // (線が太いほど矢尻も大きい。fit表示基準のワールド換算値なので、図面を拡大・縮小しても
+  // 他の書き込みと同じ比率で拡縮し、PDF書出しとも一致する)。
+  // ただし矢印が短すぎて矢尻が軸より長くなる逆転だけは防ぐため、軸長の50%を上限にする
+  var _lwRef106=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:((typeof scale!=='undefined'&&scale>0)?scale:1);
+  var headLen=10/_lwRef106+lwWorld*8;
+  headLen=Math.min(headLen, len*0.5);
   var headAng=32*Math.PI/180; // 32度程度(V2_96までの27度からやや広げ、末広がりの矢印らしさを強調)
   var leftAng=ang+Math.PI-headAng,rightAng=ang+Math.PI+headAng;
   var left={x:p1.x+headLen*Math.cos(leftAng),y:p1.y+headLen*Math.sin(leftAng)};
@@ -2144,6 +2150,39 @@ function _syncLassoActionBar90(){
       _lassoDeleteSelected();
     });
   }
+})();
+
+// V3_107: 選択中のペン・蛍光・文字・図形の色をまとめて変更(アクションバーの「色」)
+(function(){
+  var cb=document.getElementById('lassoColorBtn107'), pal=document.getElementById('lassoPal107'), bar=document.getElementById('lassoActionBar');
+  if(!cb||!pal||!bar) return;
+  bar.style.flexWrap='wrap'; bar.style.justifyContent='center';
+  var built=false;
+  function build(){
+    if(built) return; built=true;
+    document.querySelectorAll('#colorOverlay .color-btn').forEach(function(src){
+      var c=src.dataset.color; if(!c) return;
+      var b=document.createElement('button'); b.type='button';
+      b.style.cssText='min-width:28px;min-height:28px;width:28px;height:28px;padding:0;border-radius:50%;background:rgb('+c+');border:2px solid rgba(255,255,255,.5)';
+      b.title=src.title||'';
+      b.addEventListener('click',function(e){
+        if(e&&e.stopPropagation)e.stopPropagation();
+        if(!lassoState.selected||!lassoState.selected.length) return;
+        var p=c.split(',').map(Number), n=0;
+        snapshot();
+        lassoState.selected.forEach(function(s){ if(s.isImage) return; s.color={r:p[0],g:p[1],b:p[2]}; n++; });
+        pal.style.display='none';
+        scheduleOverlay(); doSave();
+        if(typeof showGuide==='function') showGuide(n+'件の色を変更しました',1500);
+      });
+      pal.appendChild(b);
+    });
+  }
+  cb.addEventListener('click',function(e){
+    if(e&&e.stopPropagation)e.stopPropagation();
+    build(); pal.style.display=(pal.style.display==='none')?'flex':'none';
+  });
+  new MutationObserver(function(){ if(bar.style.display==='none') pal.style.display='none'; }).observe(bar,{attributes:true,attributeFilter:['style']});
 })();
 
 // =========================================================
