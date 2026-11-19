@@ -1685,8 +1685,10 @@ function _openTextInputAt(wx,wy,sx,sy){
     inp.style.height=inp.scrollHeight+'px';
   }
 
-  function commit(){
+  function commit(_fromEnter102){
     var t=inp.value;
+    // V3_102: 入力枠の大きさ(画面px)を閉じる前に控えておく(確定後の移動用の掴み枠に使う)
+    var _bw102=inp.offsetWidth||0, _bh102=inp.offsetHeight||0, _sw102=_textInputSubWin92, _pip102=(inp.ownerDocument!==document);
     _closeTextInput();
     if(t&&t.trim()){
       snapshot();
@@ -1698,6 +1700,29 @@ function _openTextInputAt(wx,wy,sx,sy){
       }
       if(typeof verify==='function')verify('文字追加',{len:strokes.length});
       scheduleOverlay();doSave(); // V0_103と同様、即時保存
+      // V3_102: 「文字を入力した後に、移動する操作が入る様にして」との要望に対応。
+      // Enterで確定した直後、入力した文字を「なげわ」の選択状態にして、そのままドラッグで
+      // 位置を動かせるようにする(他の場所をタップすれば選択が外れて終了)。
+      // Escapeや、他のボタンを押して入力枠のフォーカスが外れた場合(blur)は、
+      // 押されたボタンの操作を優先するため、ツールは切り替えない。
+      // サブ窓・別ウィンドウ内での入力は従来どおり(自動選択しない)
+      if(_fromEnter102===true&&!_sw102&&!_pip102){
+        try{
+          var _ns102=strokes[strokes.length-1];
+          var _lb102=document.querySelector('.tool-btn[data-tool="lasso"]');
+          if(_lb102){
+            _lb102.click(); // ツール切替(内部で選択状態は初期化される)
+            _lassoClearSelection();
+            lassoState.selected=[_ns102];
+            var _wpx102=Math.max(_bw102,30)/scale, _hpx102=Math.max(_bh102,20)/scale;
+            lassoState.range={minX:wx,maxX:wx+_wpx102,minY:wy-_hpx102,maxY:wy};
+            _lassoRecomputeBBox();
+            _lassoShowActionBar();
+            showGuide('文字をドラッグして移動できます(他の場所をタップで終了)',2800);
+            scheduleOverlay();
+          }
+        }catch(_e102){ console.warn('[text→move]',_e102); }
+      }
     }
   }
   function onKey(e){
@@ -1713,7 +1738,7 @@ function _openTextInputAt(wx,wy,sx,sy){
       autoResize();
       return;
     }
-    if(e.key==='Enter'){e.preventDefault();commit();}
+    if(e.key==='Enter'){e.preventDefault();commit(true);}
     else if(e.key==='Escape'){e.preventDefault();_closeTextInput();}
   }
   function onInput(){ autoResize(); }
