@@ -1587,9 +1587,10 @@ function _ensureCanvasJPFont84(){
 // ようにした
 // V2_103: 「文字とペンの大きさがリンクしている」との指摘への対応で、文字は
 // 専用のcurrentTextLWを基準にする(ペンのcurrentLWとは独立)
+var _editStroke109=null; // V3_109: 文字の編集中はその文字のストローク(新規入力ならnull)
 function _textInputFontPx85(){
   var _lwRef85=(typeof fitScale!=='undefined'&&fitScale>0)?fitScale:scale;
-  return Math.max(10,Math.min(160,Math.round((currentTextLW||0.6)*20*(scale/_lwRef85))));
+  return Math.max(10,Math.min(160,Math.round(((_editStroke109?_editStroke109.lw:currentTextLW)||0.6)*20*(scale/_lwRef85))));
 }
 // V2_88: 「文字入力枠を出して画面を拡縮すると文字枠は拡縮についていかないから、
 // 入力しにくい」との指摘に対応。開いた時点の画面座標(sx,sy)に固定したままだと、
@@ -1671,14 +1672,15 @@ function _openTextInputAt(wx,wy,sx,sy){
   }
   var r=ov.getBoundingClientRect();
   var fontPx=_textInputFontPx85();
-  inp.value='';
-  if(typeof DXF_FONTS!=='undefined'&&typeof _textFontKind!=='undefined'){ inp.style.fontFamily=DXF_FONTS[_textFontKind].stack; inp.style.fontWeight=_textFontBold()?'700':'400'; } // V3_38
+  inp.value=_editStroke109?(_editStroke109.text||''):''; // V3_109
+  if(typeof DXF_FONTS!=='undefined'&&typeof _textFontKind!=='undefined'){ var _fk109=(_editStroke109&&_editStroke109.font&&DXF_FONTS[_editStroke109.font])?_editStroke109.font:_textFontKind; inp.style.fontFamily=DXF_FONTS[_fk109].stack; inp.style.fontWeight=(_fk109==='noto'?false:!!DXF_FONTS[_fk109].bold)?'700':'400'; } // V3_38
   inp.style.fontSize=fontPx+'px';
   inp.style.lineHeight=(fontPx*1.2)+'px'; // V2_87: 画面描画の行間(1.2倍)と揃える
   inp.style.height=(fontPx*1.2)+'px';
   // V2_102: 文字入力は専用のcurrentTextColorを使う(ペンのcurrentColorとは独立)
-  inp.style.background=_textBgOn?'#fff':''; // V3_53
-  inp.style.color='rgb('+currentTextColor.r+','+currentTextColor.g+','+currentTextColor.b+')';
+  var _tc109=_editStroke109?_editStroke109.color:currentTextColor;
+  inp.style.background=(_editStroke109?_editStroke109.bg:_textBgOn)?'#fff':''; // V3_53
+  inp.style.color='rgb('+_tc109.r+','+_tc109.g+','+_tc109.b+')';
   box.style.left=(r.left+sx)+'px';
   box.style.top=(r.top+sy)+'px';
   box.style.display='block';
@@ -1692,10 +1694,19 @@ function _openTextInputAt(wx,wy,sx,sy){
   }
 
   function commit(_fromEnter102){
-    var t=inp.value;
+    var t=inp.value; var _es109=_editStroke109; // V3_109
     // V3_102: 入力枠の大きさ(画面px)を閉じる前に控えておく(確定後の移動用の掴み枠に使う)
     var _bw102=inp.offsetWidth||0, _bh102=inp.offsetHeight||0, _sw102=_textInputSubWin92, _pip102=(inp.ownerDocument!==document);
     _closeTextInput();
+    if(_es109){ // V3_109: 既存の文字の編集(新規追加はしない)
+      if(t&&t.trim()&&t!==_es109.text){
+        snapshot(); _es109.text=t;
+        if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){ openFiles[currentFileIdx].strokes=strokes; }
+        scheduleOverlay(); doSave();
+      }
+      try{ if(lassoState.selected&&lassoState.selected.indexOf(_es109)>=0){ lassoState.range=_textBBox103(_es109); _lassoRecomputeBBox(); _lassoShowActionBar(); } }catch(_e109){}
+      return;
+    }
     if(t&&t.trim()){
       snapshot();
       // V2_102: 文字は専用のcurrentTextColorを保存する(ペンのcurrentColorとは独立)
@@ -1791,6 +1802,7 @@ function _closeTextInput(){
     if(box!==_textMainEls79()[0]){ try{ box.remove(); }catch(_e80){} } } // V3_80: 別ウィンドウ用に作った入力欄は取り除く
   window._tbBox79=null; window._tbInp79=null;
   _textInputActive=false;
+  _editStroke109=null; // V3_109
   _textInputSubWin92=null; // V3_02
 }
 // V3_02: サブ窓の閉じるボタンから呼ばれる安全策。閉じられようとしているサブ窓sw内で
@@ -2115,6 +2127,7 @@ function _syncLassoActionBar90(){
   if(!bar) return;
   if(bar.style.display==='none'||bar.style.display==='') return;
   if(!lassoState.selected||lassoState.selected.length===0||!lassoState.bbox){ bar.style.display='none';return; }
+  var _eb109=document.getElementById('lassoEditBtn109'); if(_eb109){ var _sel109=lassoState.selected; _eb109.style.display=(_sel109&&_sel109.length===1&&_sel109[0].isText&&!_lassoActionBarSubWin90&&!_textInputActive)?'':'none'; }
   var r,topLeft,topRight;
   var b=lassoState.bbox;
   // V3_02: サブ窓内で選択された場合は、そのサブ窓自身の座標系で追従させる。
@@ -2137,6 +2150,22 @@ function _syncLassoActionBar90(){
 }
 // 削除ボタンのクリックリスナー(DOM要素はindex.htmlに存在、tool.jsは常にそれより
 // 後に読み込まれるため、ここで直接addEventListenerして問題ない)
+(function(){ // V3_109: 選択した文字を編集(文字変更)
+  var eb=document.getElementById('lassoEditBtn109'); if(!eb) return;
+  eb.addEventListener('click',function(e){
+    if(e&&e.stopPropagation)e.stopPropagation();
+    var s=lassoState.selected&&lassoState.selected.length===1?lassoState.selected[0]:null;
+    if(!s||!s.isText||_textInputActive) return;
+    var p=w2s(s.x,s.y), r=ov.getBoundingClientRect();
+    _lassoHideActionBar();
+    _editStroke109=s;
+    var _st109=(typeof _activeStamp!=='undefined')?_activeStamp:null; if(_st109) _activeStamp=null; // スタンプ選択中でも編集欄を開く
+    _openTextInputAt(s.x,s.y,p[0],p[1]);
+    if(_st109) _activeStamp=_st109;
+    if(!_textInputActive){ _editStroke109=null; _lassoShowActionBar(); return; }
+    try{ var inp=_textBoxEls79()[1]; setTimeout(function(){ try{ inp.select(); inp.style.height='auto'; inp.style.height=inp.scrollHeight+'px'; }catch(_e){} },30); }catch(_e){}
+  });
+})();
 (function(){ // V3_68: コピー/貼付ボタン
   var cb=document.getElementById('lassoCopyBtn'), pb=document.getElementById('lassoPasteBtn');
   if(cb) cb.addEventListener('click',function(e){ if(e&&e.stopPropagation)e.stopPropagation(); _lassoCopySelected(); });

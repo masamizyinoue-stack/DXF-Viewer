@@ -1340,7 +1340,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     <div class="sm-row"><button type="button" class="sm-btn" data-mode="lasso"><span class="sm-ic"></span>なげわ</button><button type="button" class="sm-btn" data-mode="text"><span class="sm-ic"></span>文字選択</button></div>
   </div>
   <!-- V2_90: なげわ(lasso)ツールの選択中アクションバー(削除のみ。resize/rotateは対象外) -->
-  <div id="lassoActionBar"><button id="lassoCopyBtn" type="button" title="コピー(Ctrl+C)" style="padding:0 8px;font-size:12px;background:rgba(0,212,255,.15);color:#7fdcff">コピー</button><button id="lassoPasteBtn" type="button" title="貼り付け(Ctrl+V)" style="display:none;padding:0 8px;font-size:12px;background:rgba(0,212,255,.15);color:#7fdcff">貼付</button><button id="lassoColorBtn107" type="button" title="選択した線・文字・図形の色を変更" style="padding:0 8px;font-size:12px;background:rgba(255,200,0,.15);color:#ffd866">色</button><button id="lassoDeleteBtn" type="button" title="削除">✕</button><div id="lassoPal107" style="display:none;flex-basis:100%;flex-wrap:wrap;gap:4px;padding-top:4px;max-width:260px"></div></div>
+  <div id="lassoActionBar"><button id="lassoCopyBtn" type="button" title="コピー(Ctrl+C)" style="padding:0 8px;font-size:12px;background:rgba(0,212,255,.15);color:#7fdcff">コピー</button><button id="lassoPasteBtn" type="button" title="貼り付け(Ctrl+V)" style="display:none;padding:0 8px;font-size:12px;background:rgba(0,212,255,.15);color:#7fdcff">貼付</button><button id="lassoEditBtn109" type="button" title="選択した文字を編集(文字変更)" style="display:none;padding:0 8px;font-size:12px;background:rgba(80,220,120,.15);color:#8fe8a8">編集</button><button id="lassoColorBtn107" type="button" title="選択した線・文字・図形の色を変更" style="padding:0 8px;font-size:12px;background:rgba(255,200,0,.15);color:#ffd866">色</button><button id="lassoDeleteBtn" type="button" title="削除">✕</button><div id="lassoPal107" style="display:none;flex-basis:100%;flex-wrap:wrap;gap:4px;padding-top:4px;max-width:260px"></div></div>
   <!-- V1_234: 記憶VIEWポップアップ(M_Viewer_V7.09の#vbm-pop仕様。1〜5の単一ボタン。
        空きスロット→タップで保存、保存済み→タップでジャンプ・長押しで上書き/リセット
        メニュー(既存の_showMemMenuを流用)) -->
@@ -1897,7 +1897,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
      呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
 <script src="export.js?v=266"></script>
-<script src="tool.js?v=267"></script>
+<script src="tool.js?v=268"></script>
 <script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
 <script src="shxGlyphs.js?v=257"></script>
@@ -1909,7 +1909,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_107';
+const APP_VERSION = 'V3_109';
 
 // =========================================================
 // グローバル状態
@@ -2056,8 +2056,10 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       var sb=strokes[bi64];
       if(!sb.isText||!sb.bg||(sb.page||1)!==_curPg65) continue;
       var bx64=physX(sb.x), by64=physY(sb.y);
-      if(bx64<-_mgPx||bx64>_cwPx+_mgPx||by64<-_mgPx||by64>_chPx+_mgPx) continue;
       var bf64=Math.max(dpr,(sb.lw||0.6)*20*(scale/lwRef)*dpr*PS);
+      // V3_108: 文字の左上だけでなく文字の範囲全体で画面外判定(拡大すると起点が画面外でも文字が見えるのに消える不具合の修正)
+      var _bl108=(sb.text||'').split('\n'), _bm108=0; _bl108.forEach(function(q){ if(q.length>_bm108)_bm108=q.length; });
+      if(bx64+_bm108*bf64*1.1<-_mgPx||bx64>_cwPx+_mgPx||by64+_bl108.length*bf64*1.3<-_mgPx||by64>_chPx+_mgPx) continue;
       atc.save();
       atc.font=(typeof _textFontCssFor==='function')?_textFontCssFor(sb.font,bf64):((typeof _textFontCss==='function')?_textFontCss(bf64):(bf64+'px "NotoSansJPCanvas", sans-serif'));
       var bl64=(sb.text||'').split('\n'), bw64=0;
@@ -2077,8 +2079,9 @@ function drawAnnotation(targetCtx, strokeFilter, noClear) {
       if((s.page||1)!==_curPg65) continue;
       if(strokeFilter==='hl') continue;
       var _tpx80=physX(s.x), _tpy80=physY(s.y);
-      if(_tpx80<-_mgPx||_tpx80>_cwPx+_mgPx||_tpy80<-_mgPx||_tpy80>_chPx+_mgPx) continue;
-      var _tFontPx80=Math.max(dpr,(s.lw||0.6)*20*(scale/lwRef)*dpr*PS);  // V2_81: 線幅と同じ最小1pxに統一(下限8pxで急に大きさが変わる不具合を修正)
+      var _tFontPx80=Math.max(dpr,(s.lw||0.6)*20*(scale/lwRef)*dpr*PS);
+      var _tl108=(s.text||'').split('\n'), _tm108=0; _tl108.forEach(function(q){ if(q.length>_tm108)_tm108=q.length; }); // V3_108: 範囲全体で画面外判定
+      if(_tpx80+_tm108*_tFontPx80*1.1<-_mgPx||_tpx80>_cwPx+_mgPx||_tpy80+_tl108.length*_tFontPx80*1.3<-_mgPx||_tpy80>_chPx+_mgPx) continue;  // V2_81: 線幅と同じ最小1pxに統一(下限8pxで急に大きさが変わる不具合を修正)
       atc.save();
       // V2_84: 「もっといいフォントにしたい」との要望に対応。DXF文字・PDF書出と
       // 同じNoto Sans JP(埋込フォント、tool.jsの_ensureCanvasJPFont80で
