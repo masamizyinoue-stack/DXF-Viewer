@@ -1909,7 +1909,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_110';
+const APP_VERSION = 'V3_111';
 
 // =========================================================
 // グローバル状態
@@ -8484,10 +8484,12 @@ function _hist(expr,result){
 // Backspace(⌫)・Delete/C(クリア)。ボタンを押したのと同じ処理(clickを呼ぶ)なので、動作は画面タップと同一
 document.addEventListener('keydown',function(e){
   if(!_calcEl.classList.contains('on')) return;
-  if(e.ctrlKey||e.metaKey||e.altKey||e.isComposing) return;
+  var _isC111=(e.code==='KeyC'&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey&&!e.altKey); // V3_111: 日本語入力(IME)ON・全角でも、物理キーのCでクリアできるようにする
+  if(e.ctrlKey||e.metaKey||e.altKey||(e.isComposing&&!_isC111)) return;
   var ae=document.activeElement, tag=(ae&&ae.tagName)||'';
-  if(tag==='INPUT'||tag==='TEXTAREA'||(ae&&ae.isContentEditable)) return; // 検索欄などへの入力は邪魔しない
-  var k=e.key||'';
+  if((tag==='INPUT'&&!(ae.id==='cdec'&&_isC111))||tag==='TEXTAREA'||(ae&&ae.isContentEditable)) return; // 検索欄などへの入力は邪魔しない(小数桁欄でもCは有効)
+  var k=_isC111?'c':(e.key||'');
+  k=k.replace(/[Ａ-Ｚａ-ｚ]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}); // 全角英字→半角
   k=k.replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);});
   var sel=null;
   // V3_107: 上段の数字キー(Digit1〜0)はツールのショートカットに使うため、計算機はテンキー(Numpad)の数字だけ受け付ける
@@ -8501,7 +8503,7 @@ document.addEventListener('keydown',function(e){
   else if(k==='Delete'||k==='c'||k==='C') sel='.cb[data-cfn="C"]';
   if(!sel) return;
   var b=_calcEl.querySelector(sel); if(!b) return;
-  if(tag==='SELECT'&&ae.blur) ae.blur(); // 小数桁の選択欄にフォーカスがあっても数字を入力できるようにする
+  if((tag==='SELECT'||(tag==='INPUT'&&ae.id==='cdec'))&&ae.blur) ae.blur(); // 小数桁の選択欄にフォーカスがあっても数字を入力できるようにする
   e.preventDefault(); e.stopPropagation();
   b.click();
 });
