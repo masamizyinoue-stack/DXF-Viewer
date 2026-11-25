@@ -1729,6 +1729,7 @@ function _openTextInputAt(wx,wy,sx,sy){
           var _lb102=document.querySelector('.tool-btn[data-tool="lasso"]');
           if(_lb102){
             _lb102.click(); // ツール切替(内部で選択状態は初期化される)
+            _backToText110=true; // V3_110
             _lassoClearSelection();
             lassoState.selected=[_ns102];
             lassoState.range=_textBBox103(_ns102);
@@ -1942,7 +1943,17 @@ function _lassoPointerUp(){
     lassoState.drawing=false;
     _lassoFinishSelection();
   }
+  // V3_110: 文字入力→移動の流れで自動的に「選択」へ切り替わっていた場合、選択が外れたら「文字」に戻す
+  if(_backToText110&&currentTool==='lasso'&&(!lassoState.selected||lassoState.selected.length===0)){
+    _backToText110=false;
+    var _tb110=document.querySelector('.tool-btn[data-tool="text"]');
+    if(_tb110) setTimeout(function(){ _tb110.click(); },0);
+  }
 }
+var _backToText110=false;
+document.addEventListener('click',function(e){ // 利用者が自分でツールボタンを押したら自動復帰は無効
+  if(e.isTrusted&&e.target&&e.target.closest&&e.target.closest('.tool-btn')) _backToText110=false;
+},true);
 // 描画完了した囲み線から、現在ページのstrokesのうち内部に頂点を持つものを選択する
 function _lassoFinishSelection(){
   var poly=lassoState.pts;
