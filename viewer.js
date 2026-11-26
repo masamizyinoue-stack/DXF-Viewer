@@ -1425,6 +1425,163 @@ async function addBlankPage115(){
     if(typeof showGuide==='function') showGuide('ページを追加できませんでした',2500);
   }
 }
+// V3_116: ページ編集(白紙/別PDFのページの追加・位置指定・ページ削除)。V3_115の白紙追加を一般化した。
+//   mapPage(旧ページ番号)→新ページ番号(削除されるページはnull) で、書込・寸法・回転・記憶VIEWの番号を付け替える。
+//   取消履歴はページ番号がずれるためクリアする。
+async function _pdfEdit116(op){
+  if(!pdfDoc||typeof PDFLib==='undefined'){ if(typeof showGuide==='function') showGuide('PDFを開いてから使ってください',2000); return false; }
+  var n=pdfPageNum, total=pdfDoc.numPages;
+  try{
+    var idx=(typeof currentFileIdx!=='undefined')?currentFileIdx:-1;
+    var buf=(idx>=0&&typeof openFilesBufs!=='undefined')?openFilesBufs[idx]:null;
+    if(!buf){ if(typeof showGuide==='function') showGuide('元のPDFデータが見つかりません',2500); return false; }
+    var pd=await PDFLib.PDFDocument.load(buf.slice(0),{ignoreEncryption:true});
+    var mapPage, goPage;
+    if(op.type==='move'){
+      var f=n, t=Math.max(1,Math.min(total,op.to));
+      if(t===f){ if(typeof showGuide==='function') showGuide('すでにその位置です',1800); return false; }
+      var mp=pd.getPage(f-1); pd.removePage(f-1); pd.insertPage(t-1,mp);
+      mapPage=function(p){ if(p===f) return t; if(f<t&&p>f&&p<=t) return p-1; if(f>t&&p>=t&&p<f) return p+1; return p; };
+      goPage=t;
+    }else if(op.type==='del'){
+      if(total<=1){ if(typeof showGuide==='function') showGuide('最後の1ページは削除できません',2500); return false; }
+      pd.removePage(n-1);
+      mapPage=function(p){ return p===n?null:(p>n?p-1:p); };
+      goPage=Math.min(n,total-1);
+    }else{
+      var pos=Math.max(0,Math.min(total,op.pos)), cnt=0;
+      if(op.type==='image'){
+        var im=(op.imgType==='png')?await pd.embedPng(op.imgBytes):await pd.embedJpg(op.imgBytes);
+        var iw=im.width, ih=im.height, pw,ph,dx,dy,dw,dh;
+        if(op.size==='fit'){ var k=842/Math.max(iw,ih); pw=iw*k; ph=ih*k; dx=0; dy=0; dw=pw; dh=ph; }
+        else{ var bs=(op.size==='A3')?[841.89,1190.55]:[595.28,841.89]; pw=bs[0]; ph=bs[1]; if(iw>ih){ var tt=pw; pw=ph; ph=tt; }
+          var mg=14, kk=Math.min((pw-mg*2)/iw,(ph-mg*2)/ih); dw=iw*kk; dh=ih*kk; dx=(pw-dw)/2; dy=(ph-dh)/2; }
+        var np=pd.insertPage(pos,[pw,ph]); np.drawImage(im,{x:dx,y:dy,width:dw,height:dh}); cnt=1;
+      }else if(op.type==='blank'){
+        var w,h;
+        if(op.size==='same'){ var pg=await pdfDoc.getPage(n), vp=pg.getViewport({scale:1}); w=vp.width; h=vp.height; }
+        else{ var base=(op.size.indexOf('A3')===0)?[841.89,1190.55]:[595.28,841.89]; w=base[0]; h=base[1]; if(op.size.slice(-1)==='横'){ var t=w; w=h; h=t; } }
+        pd.insertPage(pos,[w,h]); cnt=1;
+      }else{
+        var src=await PDFLib.PDFDocument.load(op.buf.slice(0),{ignoreEncryption:true});
+        var cps=await pd.copyPages(src,op.pages.map(function(x){return x-1;}));
+        cps.forEach(function(cp,i){ pd.insertPage(pos+i,cp); }); cnt=cps.length;
+      }
+      mapPage=function(p){ return p>pos?p+cnt:p; };
+      goPage=pos+1;
+    }
+    var bytes=await pd.save();
+    var nb=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
+    strokes=strokes.filter(function(s){ var m=mapPage(s.page||1); if(m===null) return false; s.page=m; return true; });
+    dims=dims.filter(function(d){ var m=mapPage(d.page||1); if(m===null) return false; d.page=m; return true; });
+    if(idx>=0&&openFiles[idx]){ openFiles[idx].strokes=strokes; openFiles[idx].dims=dims; }
+    var oldRot=(pdfDoc._rotExtra)||{}, newRot={};
+    Object.keys(oldRot).forEach(function(k){ var m=mapPage(+k); if(m!==null) newRot[m]=oldRot[k]; });
+    try{ if(typeof savedViews!=='undefined'&&savedViews){ var fk=(typeof _fileKey==='function')?_fileKey(currentFileName,currentFileSize):null;
+      savedViews.forEach(function(sv){ if(sv&&sv.pdfPageNum&&(!sv.fileKey||sv.fileKey===fk)){ var m=mapPage(sv.pdfPageNum); sv.pdfPageNum=(m===null)?1:m; } }); } }catch(e){}
+    history.length=0; redoStack=[];
+    if(typeof updateUndoRedo==='function') updateUndoRedo();
+    openFilesBufs[idx]=nb;
+    try{ if(typeof saveFile==='function'&&typeof _fileKey==='function') saveFile(nb,_fileKey(currentFileName,currentFileSize)); }catch(e){}
+    try{ if(typeof _pdfThumbCache!=='undefined') _pdfThumbCache=null; }catch(e){}
+    await loadPDF(nb,goPage);
+    pdfDoc._rotExtra=newRot;
+    if(typeof _lassoClearSelection==='function') _lassoClearSelection();
+    if(typeof scheduleOverlay==='function') scheduleOverlay();
+    if(typeof doSave==='function') doSave(); else if(typeof scheduleSave==='function') scheduleSave();
+    return true;
+  }catch(e){
+    console.warn('[ページ編集]',e);
+    if(typeof showGuide==='function') showGuide('ページを編集できませんでした',2500);
+    return false;
+  }
+}
+function openAddPageDialog116(){
+  if(!pdfDoc){ if(typeof showGuide==='function') showGuide('PDFを開いてから使ってください',2000); return; }
+  var n=pdfPageNum, total=pdfDoc.numPages;
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center';
+  var bx=document.createElement('div');
+  bx.style.cssText='background:#161b22;color:#e6edf3;border:1px solid #30363d;border-radius:10px;padding:16px 18px;width:min(92vw,360px);font-size:14px;line-height:1.5';
+  var S='margin:4px 0 10px;width:100%;padding:6px;background:#0d1117;color:#e6edf3;border:1px solid #30363d;border-radius:6px;font-size:14px';
+  bx.innerHTML='<div style="font-weight:700;font-size:15px;margin-bottom:8px">ページを追加</div>'
+   +'<label>追加するもの</label><select id="pe116kind" style="'+S+'"><option value="blank">白紙ページ</option><option value="pdf">別のPDFのページ</option><option value="image">画像(写真)のページ</option></select>'
+   +'<div id="pe116blank"><label>白紙の大きさ</label><select id="pe116size" style="'+S+'"><option value="same">今のページと同じ</option><option>A4縦</option><option>A4横</option><option>A3縦</option><option>A3横</option></select></div>'
+   +'<div id="pe116pdf" style="display:none"><label>PDFファイル</label><input type="file" id="pe116file" accept=".pdf,application/pdf" style="'+S+'"><div id="pe116info" style="font-size:12px;color:#8b949e;margin:-6px 0 8px"></div>'
+   +'<label>追加するページ(空欄=すべて。例: 1,3-5)</label><input id="pe116range" type="text" style="'+S+'"></div>'
+   +'<div id="pe116img" style="display:none"><label>画像ファイル(JPEG/PNGなど)</label><input type="file" id="pe116imgfile" accept="image/*" style="'+S+'"><label>ページの大きさ</label><select id="pe116isize" style="'+S+'"><option value="fit">画像に合わせる</option><option value="A4">A4(向きは自動)</option><option value="A3">A3(向きは自動)</option></select></div>'
+   +'<label>追加する位置</label><select id="pe116pos" style="'+S+'"><option value="after">'+n+'ページの後ろ(今のページの後ろ)</option><option value="before">'+n+'ページの前</option><option value="first">先頭</option><option value="last">最後</option></select>'
+   +'<div style="border-top:1px solid #30363d;margin:6px 0 8px;padding-top:8px"><label>この'+n+'ページを移動</label><div style="display:flex;gap:6px;align-items:center"><select id="pe116mv" style="'+S+';margin:4px 0"><option value="first">先頭へ</option><option value="prev">1つ前へ</option><option value="next">1つ後ろへ</option><option value="last">最後へ</option><option value="num">番号を指定</option></select><input id="pe116mvn" type="number" min="1" max="'+total+'" placeholder="1〜'+total+'" style="'+S+';margin:4px 0;width:90px;display:none"><button id="pe116mvbtn" style="padding:7px 12px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#e6edf3;cursor:pointer;white-space:nowrap">移動</button></div></div>'
+   +'<div style="display:flex;gap:8px;justify-content:space-between;margin-top:6px"><button id="pe116del" style="padding:7px 10px;border-radius:6px;border:1px solid #8b3a3a;background:#3a1f1f;color:#ff9b9b;cursor:pointer">'+n+'ページを削除</button><span style="display:flex;gap:8px"><button id="pe116cancel" style="padding:7px 12px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#e6edf3;cursor:pointer">キャンセル</button><button id="pe116ok" style="padding:7px 14px;border-radius:6px;border:1px solid #2ea043;background:#238636;color:#fff;cursor:pointer">追加</button></span></div>';
+  ov.appendChild(bx); document.body.appendChild(ov);
+  function $(id){ return bx.querySelector('#'+id); }
+  var srcBuf=null, srcPages=0;
+  function close(){ try{ document.body.removeChild(ov); }catch(e){} document.removeEventListener('keydown',onKey,true); }
+  function onKey(e){ if(e.key==='Escape'){ e.stopPropagation(); close(); } }
+  document.addEventListener('keydown',onKey,true);
+  ov.addEventListener('mousedown',function(e){ if(e.target===ov) close(); });
+  $('pe116kind').addEventListener('change',function(){ var k=this.value; $('pe116pdf').style.display=(k==='pdf')?'':'none'; $('pe116blank').style.display=(k==='blank')?'':'none'; $('pe116img').style.display=(k==='image')?'':'none'; });
+  $('pe116mv').addEventListener('change',function(){ $('pe116mvn').style.display=(this.value==='num')?'':'none'; });
+  $('pe116mvbtn').addEventListener('click',async function(){
+    var m=$('pe116mv').value, to=m==='first'?1:m==='prev'?n-1:m==='next'?n+1:m==='last'?total:parseInt($('pe116mvn').value,10);
+    if(!(to>=1&&to<=total)){ if(typeof showGuide==='function') showGuide('移動先がありません',1800); return; }
+    close();
+    if(await _pdfEdit116({type:'move',to:to})&&typeof showGuide==='function') showGuide('ページを'+pdfPageNum+'ページ目へ移動しました',2000);
+  });
+  // 画像: 向き(EXIF)を反映してから、JPEG/PNGへ変換して読み込む(大きすぎる写真は長辺3000pxに縮小)
+  async function readImage(file){
+    var bmp=await createImageBitmap(file);
+    var k=Math.min(1,3000/Math.max(bmp.width,bmp.height)), w=Math.round(bmp.width*k), h=Math.round(bmp.height*k);
+    var cv=document.createElement('canvas'); cv.width=w; cv.height=h; var cx=cv.getContext('2d');
+    var png=(file.type==='image/png');
+    if(!png){ cx.fillStyle='#fff'; cx.fillRect(0,0,w,h); }
+    cx.drawImage(bmp,0,0,w,h);
+    var blob=await new Promise(function(r){ cv.toBlob(r,png?'image/png':'image/jpeg',0.92); });
+    return {bytes:new Uint8Array(await blob.arrayBuffer()),type:png?'png':'jpg'};
+  }
+  $('pe116file').addEventListener('change',async function(){
+    srcBuf=null; srcPages=0; $('pe116info').textContent='';
+    var f=this.files&&this.files[0]; if(!f) return;
+    try{ srcBuf=await f.arrayBuffer(); var d=await PDFLib.PDFDocument.load(srcBuf.slice(0),{ignoreEncryption:true}); srcPages=d.getPageCount(); $('pe116info').textContent=f.name+'(全'+srcPages+'ページ)'; }
+    catch(e){ srcBuf=null; $('pe116info').textContent='このPDFは読み込めませんでした'; }
+  });
+  function parseRange(t,max){
+    t=(t||'').replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).replace(/[，、]/g,',').replace(/[ー－―~〜]/g,'-').replace(/\s/g,'');
+    if(!t){ var all=[]; for(var i=1;i<=max;i++) all.push(i); return all; }
+    var out=[];
+    var ok=t.split(',').every(function(seg){
+      var m=/^(\d+)(?:-(\d+))?$/.exec(seg); if(!m) return false;
+      var a=+m[1], b=m[2]?+m[2]:a; if(a<1||b<a||b>max) return false;
+      for(var i=a;i<=b;i++) out.push(i); return true;
+    });
+    return ok?out:null;
+  }
+  $('pe116cancel').addEventListener('click',close);
+  $('pe116del').addEventListener('click',async function(){
+    var has=(typeof strokes!=='undefined'&&strokes.some(function(s){return (s.page||1)===n;}))||(typeof dims!=='undefined'&&dims.some(function(d){return (d.page||1)===n;}));
+    if(!confirm(n+'ページを削除します。'+(has?'\n※このページの書込・寸法も一緒に消えます。':'')+'\n元に戻せません。よろしいですか？')) return;
+    close();
+    if(await _pdfEdit116({type:'del'})&&typeof showGuide==='function') showGuide(n+'ページを削除しました',2000);
+  });
+  $('pe116ok').addEventListener('click',async function(){
+    var pv=$('pe116pos').value, pos=pv==='after'?n:pv==='before'?n-1:pv==='first'?0:total;
+    var op;
+    if($('pe116kind').value==='blank'){ op={type:'blank',pos:pos,size:$('pe116size').value}; }
+    else if($('pe116kind').value==='image'){
+      var imf=$('pe116imgfile').files&&$('pe116imgfile').files[0];
+      if(!imf){ if(typeof showGuide==='function') showGuide('画像ファイルを選んでください',2000); return; }
+      var ri; try{ ri=await readImage(imf); }catch(e){ if(typeof showGuide==='function') showGuide('この画像は読み込めませんでした',2500); return; }
+      op={type:'image',pos:pos,imgBytes:ri.bytes,imgType:ri.type,size:$('pe116isize').value};
+    }else{
+      if(!srcBuf){ $('pe116info').textContent='PDFファイルを選んでください'; return; }
+      var pg=parseRange($('pe116range').value,srcPages);
+      if(!pg||!pg.length){ $('pe116info').textContent='ページの指定が正しくありません(全'+srcPages+'ページ)'; return; }
+      op={type:'pdf',pos:pos,buf:srcBuf,pages:pg};
+    }
+    close();
+    if(await _pdfEdit116(op)&&typeof showGuide==='function') showGuide('ページを追加しました('+pdfPageNum+'ページ目を表示)',2200);
+  });
+}
 // V3_100: PDFのページを90°ずつ回す(時計回り)。回転量は pdfDoc._rotExtra[ページ番号]=0/90/180/270 としてドキュメントに持たせ、
 //   pdfDoc.getPage()が返すページの getViewport() が、元ページの/Rotateに追加回転を足した向きで返すようにする
 //   (表示・文字検索・サムネイル・書出しがすべて同じ getViewport() を使うため、全体が一貫して回る)

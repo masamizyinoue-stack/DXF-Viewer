@@ -1277,7 +1277,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
     </button>
     <!-- V3_107: PDFのこのページを時計回りに90°回転(書込のあるページは不可) -->
     <!-- V3_115: 現在のページの後ろに白紙ページを追加 -->
-    <button class="tb-btn" id="pdfAddBtn115" title="このページの後ろに白紙ページを追加" style="border:2px solid #d35400;width:44px;height:44px">
+    <button class="tb-btn" id="pdfAddBtn115" title="ページを追加・削除(白紙/別PDF・位置指定)" style="border:2px solid #d35400;width:44px;height:44px">
       <span class="tb-tool-label">追加</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="14 3 14 9 20 9"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
     </button>
@@ -1885,7 +1885,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <!-- V0_148.1: 全ローカルJSに ?v= を付与（バージョンアップ時にSafari/PWAが旧JSキャッシュを使い
      新HTMLと混在して計測不能等が起きるバグの修正。以後のバージョンアップでは必ずv=も更新すること） -->
 <script src="layer.js?v=257"></script>
-<script src="viewer.js?v=259"></script>
+<script src="viewer.js?v=261"></script>
 <script src="utils.js?v=257"></script>
 <script src="ui.js?v=257"></script>
 <script src="dialog.js?v=257"></script>
@@ -1914,7 +1914,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_115';
+const APP_VERSION = 'V3_117';
 
 // =========================================================
 // グローバル状態
@@ -4168,7 +4168,7 @@ function closePdfThumbOverlay(){
   if(_pdfThumbObserver){_pdfThumbObserver.disconnect();_pdfThumbObserver=null;}
 }
 document.getElementById('pdfRotBtn').addEventListener('click',function(){ if(typeof rotatePdfPage100==='function') rotatePdfPage100(); }); // V3_107
-document.getElementById('pdfAddBtn115').addEventListener('click',function(){ if(typeof addBlankPage115==='function') addBlankPage115(); }); // V3_115
+document.getElementById('pdfAddBtn115').addEventListener('click',function(){ if(typeof openAddPageDialog116==='function') openAddPageDialog116(); }); // V3_115/V3_116: ページ追加・削除ダイアログ
 document.getElementById('pdfThumbBtn').addEventListener('click',function(){
   if(!pdfDoc){showGuide('PDFが開かれていません',1500);return;}
   document.getElementById('pdfThumbOverlay').classList.add('open');
