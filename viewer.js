@@ -1384,6 +1384,47 @@ async function loadPDF(buf,startPage){
   await renderPdfPage(pdfPageNum);
 }
 
+// V3_115: 現在のページの後ろに白紙ページを追加する(PDFの実データに挿入し、読み直す)。
+//   追加位置より後ろのページ番号を持つ書込・寸法・回転・記憶VIEWの番号を+1して付け替える。
+//   取消(元に戻す)履歴はページ番号がずれるためクリアする。大きさは現在のページと同じ(回転後の見た目の向き・大きさ)
+async function addBlankPage115(){
+  if(!pdfDoc||typeof PDFLib==='undefined'){ if(typeof showGuide==='function') showGuide('PDFを開いてから使ってください',2000); return; }
+  var n=pdfPageNum;
+  if(!confirm('現在の'+n+'ページの後ろに白紙ページを追加します。\n（追加したページは、今のところ削除できません）\nよろしいですか？')) return;
+  try{
+    var idx=(typeof currentFileIdx!=='undefined')?currentFileIdx:-1;
+    var buf=(idx>=0&&typeof openFilesBufs!=='undefined')?openFilesBufs[idx]:null;
+    if(!buf){ if(typeof showGuide==='function') showGuide('元のPDFデータが見つかりません',2500); return; }
+    var pg=await pdfDoc.getPage(n), vp=pg.getViewport({scale:1});
+    var w=vp.width, h=vp.height;
+    var pd=await PDFLib.PDFDocument.load(buf.slice(0),{ignoreEncryption:true});
+    pd.insertPage(n,[w,h]);
+    var bytes=await pd.save();
+    var nb=bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
+    // 番号の付け替え(追加位置nより後ろのページを+1)
+    strokes.forEach(function(s){ if((s.page||1)>n) s.page=(s.page||1)+1; });
+    dims.forEach(function(d){ if((d.page||1)>n) d.page=(d.page||1)+1; });
+    var oldRot=(pdfDoc._rotExtra)||{}, newRot={};
+    Object.keys(oldRot).forEach(function(k){ var p=+k; newRot[p>n?p+1:p]=oldRot[k]; });
+    try{ if(typeof savedViews!=='undefined'&&savedViews){ var fk=(typeof _fileKey==='function')?_fileKey(currentFileName,currentFileSize):null;
+      savedViews.forEach(function(sv){ if(sv&&sv.pdfPageNum>n&&(!sv.fileKey||sv.fileKey===fk)) sv.pdfPageNum++; }); } }catch(e){}
+    if(typeof history!=='undefined') history.length=0;
+    if(typeof redoStack!=='undefined') redoStack=[];
+    if(typeof updateUndoRedo==='function') updateUndoRedo();
+    openFilesBufs[idx]=nb;
+    try{ if(typeof saveFile==='function'&&typeof _fileKey==='function') saveFile(nb,_fileKey(currentFileName,currentFileSize)); }catch(e){}
+    try{ if(typeof _pdfThumbCache!=='undefined') _pdfThumbCache=null; }catch(e){}
+    await loadPDF(nb,n+1);
+    pdfDoc._rotExtra=newRot;
+    if(typeof _lassoClearSelection==='function') _lassoClearSelection();
+    if(typeof scheduleOverlay==='function') scheduleOverlay();
+    if(typeof doSave==='function') doSave(); else if(typeof scheduleSave==='function') scheduleSave();
+    if(typeof showGuide==='function') showGuide('白紙ページを追加しました（'+(n+1)+'ページ目）',2200);
+  }catch(e){
+    console.warn('[白紙ページ追加]',e);
+    if(typeof showGuide==='function') showGuide('ページを追加できませんでした',2500);
+  }
+}
 // V3_100: PDFのページを90°ずつ回す(時計回り)。回転量は pdfDoc._rotExtra[ページ番号]=0/90/180/270 としてドキュメントに持たせ、
 //   pdfDoc.getPage()が返すページの getViewport() が、元ページの/Rotateに追加回転を足した向きで返すようにする
 //   (表示・文字検索・サムネイル・書出しがすべて同じ getViewport() を使うため、全体が一貫して回る)
