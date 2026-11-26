@@ -1909,7 +1909,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_113';
+const APP_VERSION = 'V3_114';
 
 // =========================================================
 // グローバル状態
@@ -8514,7 +8514,7 @@ document.addEventListener('keydown',function(e){
   b.addEventListener('click',function(){
     var v=(document.getElementById('cval').textContent||'').replace(/[,\s]/g,'');
     if(!v||!/^-?[0-9.]+$/.test(v)){ if(typeof showGuide==='function') showGuide('文字にできる数値がありません',2000); return; }
-    var tb=document.querySelector('.tool-btn[data-tool="text"]'); if(tb) tb.click();
+    var tb=document.querySelector('.tool-btn[data-tool="text"]'); if(tb&&currentTool!=='text') tb.click(); // V3_114: 既に文字ツールの時にボタンを押すと設定ポップアップが開くため、押さない
     _activeStamp=v; window._calcOnce113=true; if(typeof _stampRender==='function') _stampRender();
     document.getElementById('cclose').click(); // 計算機を閉じて図面を見やすくする
     if(typeof showGuide==='function') showGuide('図面をタップして「'+v+'」を配置(Escで中止)',0);
