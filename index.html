@@ -539,8 +539,8 @@ body.settings-open #settingsPanel{transform:translateX(0)}
 /* V3_107: 画面検索/検索開く等のパネルが、ツールバー・ファイルタブに被らないよう、画面エリア(#stage)の上端から下に表示する(--ovtop95はpc.jsが設定) */
 #searchOverlay,#allSearchOverlay,#openFileOverlay{top:var(--ovtop95,0px)!important}
 /* V3_107: 計算機の追寸/読込ボタンのショートカット表示 */
-#calcTsuizunBtn98[data-key],#calcPickBtn[data-key]{position:relative}
-#calcTsuizunBtn98[data-key]::after,#calcPickBtn[data-key]::after{content:attr(data-key);position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
+#calcTsuizunBtn98[data-key],#calcPickBtn[data-key],#calc .cb[data-key]{position:relative}
+#calcTsuizunBtn98[data-key]::after,#calcPickBtn[data-key]::after,#calc .cb[data-key]::after{content:attr(data-key);position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
 /* V3_107: ページ送りボタンのショートカット表示 */
 #pdfPageCtrl .sp-page-btn[data-key]{position:relative}
 #pdfPageCtrl .sp-page-btn[data-key]::after{content:attr(data-key);position:absolute;top:-3px;right:-3px;min-width:12px;height:12px;line-height:12px;box-sizing:border-box;padding:0 2px;border-radius:3px;background:#2a3347;border:1px solid #4a5a75;color:#9fb3c8;font-size:9px;font-weight:700;font-family:Consolas,monospace;text-align:center;pointer-events:none}
@@ -1532,7 +1532,7 @@ body.settings-open #settingsPanel{transform:translateX(0)}
   <div id="chist-hd" style="display:none"><span>計算履歴</span><button id="chist-close">✕</button></div>
   <div id="chist"></div>
   <div id="cdsp"><div id="cexpr"></div><div id="cval">0</div></div>
-  <div id="cdecrow"><label>小数点以下</label><input type="number" id="cdec" min="0" max="10" value="1">桁</div>
+  <div id="cdecrow"><label>小数点以下</label><input type="number" id="cdec" min="0" max="10" value="1">桁<button type="button" id="calcToTextBtn113" title="計算結果を文字として図面に書き込む(図面をタップして配置)" style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid #4a7a5a;background:#1f3a2a;color:#8fe8a8;font-size:12px;cursor:pointer">文字にする</button></div>
   <div id="cbtns">
     <button class="cb cbf" data-cfn="C">C</button>
     <button class="cb cbf" data-cfn="sqrt">√</button>
@@ -1897,19 +1897,19 @@ body.settings-open #settingsPanel{transform:translateX(0)}
      初回書出時に読み込まれるため変更なし(exportPdfMergedHybrid190側は元々_loadJPFont()を
      呼んでいなかったため、こちらもV2_57で呼ぶよう修正済み。export.js側のコメント参照) -->
 <script src="export.js?v=266"></script>
-<script src="tool.js?v=269"></script>
+<script src="tool.js?v=270"></script>
 <script src="verify.js?v=257"></script>
 <!-- V1_195: SHXストローク文字認識(独立モジュール)。参照グリフデータ→認識エンジンの順で読む -->
 <script src="shxGlyphs.js?v=257"></script>
 <script src="stroke-text.js?v=257"></script>
 <!-- V1_78: PC(マウス・キーボード)向けの追加機能。iPadのタッチ/Apple Pencil操作には
      影響しない「追加のみ」の実装（詳細はpc.js冒頭コメント参照） -->
-<script src="pc.js?v=276"></script>
+<script src="pc.js?v=277"></script>
 <!-- V1_01: 図面ごとの注記(strokes/dims)をSupabaseへ自動保存・自動復元するための追加 -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-sync.js?v=257"></script>
 <script>
-const APP_VERSION = 'V3_111';
+const APP_VERSION = 'V3_113';
 
 // =========================================================
 // グローバル状態
@@ -8508,6 +8508,19 @@ document.addEventListener('keydown',function(e){
   b.click();
 });
 
+// V3_113: 計算結果を文字として図面に配置する(文字ツール+スタンプ配置の仕組みを1回だけ使う)
+(function(){
+  var b=document.getElementById('calcToTextBtn113'); if(!b) return;
+  b.addEventListener('click',function(){
+    var v=(document.getElementById('cval').textContent||'').replace(/[,\s]/g,'');
+    if(!v||!/^-?[0-9.]+$/.test(v)){ if(typeof showGuide==='function') showGuide('文字にできる数値がありません',2000); return; }
+    var tb=document.querySelector('.tool-btn[data-tool="text"]'); if(tb) tb.click();
+    _activeStamp=v; window._calcOnce113=true; if(typeof _stampRender==='function') _stampRender();
+    document.getElementById('cclose').click(); // 計算機を閉じて図面を見やすくする
+    if(typeof showGuide==='function') showGuide('図面をタップして「'+v+'」を配置(Escで中止)',0);
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&window._calcOnce113){ window._calcOnce113=false; _activeStamp=null; if(typeof _stampRender==='function') _stampRender(); if(typeof showGuide==='function') showGuide('配置を中止しました',1500); } });
+})();
 document.getElementById('cclose').addEventListener('click',function(){
   _calcEl.classList.remove('on');
   // V1_59: ここでもborderColorを空にすると枠色（茶色）が消えてしまうため元の枠色に戻す

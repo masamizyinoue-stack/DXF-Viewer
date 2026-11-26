@@ -1648,6 +1648,14 @@ function _openTextInputAt(wx,wy,sx,sy){
     if(typeof openFiles!=='undefined'&&currentFileIdx>=0&&openFiles[currentFileIdx]){ openFiles[currentFileIdx].strokes=strokes; }
     if(typeof verify==='function')verify('スタンプ配置',{len:strokes.length});
     scheduleOverlay();doSave();
+    // V3_113: 計算機の結果を1回だけ配置する場合は、配置後にスタンプを解除し、置いた文字を選択状態にする(移動・色・編集がすぐ使える)
+    if(window._calcOnce113){
+      window._calcOnce113=false; _activeStamp=null; if(typeof _stampRender==='function') _stampRender();
+      try{
+        var _ns113=strokes[strokes.length-1], _lb113=document.querySelector('.tool-btn[data-tool="lasso"]');
+        if(_lb113){ _lb113.click(); _lassoClearSelection(); lassoState.selected=[_ns113]; lassoState.range=_textBBox103(_ns113); _lassoRecomputeBBox(); _lassoShowActionBar(); _backToText110=true; scheduleOverlay(); showGuide('配置しました(ドラッグで移動できます)',2200); }
+      }catch(_e113){ console.warn('[calc→text]',_e113); }
+    }
     return;
   }
   var _tb79=_textMainEls79(), box=_tb79[0], inp=_tb79[1];

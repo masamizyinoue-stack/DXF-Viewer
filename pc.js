@@ -148,6 +148,12 @@
       });
     }
   }catch(e){}
+  // V3_112: 計算機のクリア(C)ボタンにも、キー文字Cを右上に表示する(PCのみ)
+  try{
+    if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
+      var _cc112=document.querySelector('#calc .cb[data-cfn="C"]'); if(_cc112) _cc112.setAttribute('data-key','C');
+    }
+  }catch(e){}
   // V3_84: 図形ポップアップ内の各図形ボタンにも、選択用の数字キーを表示する(PCのみ)
   try{
     if(!(window.matchMedia && window.matchMedia('(pointer:coarse)').matches)){
